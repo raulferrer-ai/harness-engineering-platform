@@ -1,0 +1,69 @@
+---
+/**
+ * Búsqueda del sitio (hito H4, IMPLEMENTATION_PLAN.md §5.1): página estática
+ * con una capa propia sobre la API de Pagefind —sin base de datos ni
+ * servidor— y estados explícitos de ocioso, cargando, resultados, sin
+ * resultados y error. El índice se genera en `dist/pagefind/` en cada build
+ * (`npm run build` → `npm run pagefind`); esta página no se indexa a sí misma
+ * porque no lleva `data-pagefind-body`.
+ */
+import Breadcrumb from "../../components/nav/Breadcrumb.astro";
+import PageContainer from "../../components/ui/PageContainer.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const rutaActual = "/buscar/";
+---
+
+<BaseLayout
+  titulo="Buscar"
+  descripcion="Busca en las lecciones y módulos publicados del currículo: títulos y contenido, con un índice estático generado en cada compilación."
+  rutaActual={rutaActual}
+>
+  <PageContainer class="py-10">
+    <Breadcrumb migas={[{ href: "/", etiqueta: "Inicio" }, { etiqueta: "Buscar" }]} />
+
+    <div class="mt-6 max-w-[68ch]">
+      <h1 class="text-3xl sm:text-4xl">Buscar</h1>
+      <p class="mt-3 text-ink-soft">
+        Busca en títulos y contenido de las lecciones y módulos publicados. El índice es un fichero
+        estático que se genera en cada compilación: no hay servidor, base de datos, cuentas ni
+        registro de lo que buscas.
+      </p>
+
+      <form role="search" class="mt-6">
+        <label for="q" class="label-mono block">
+          Término de búsqueda
+        </label>
+        <input
+          type="search"
+          id="q"
+          name="q"
+          autocomplete="off"
+          placeholder="p. ej., pruebas, Git, Node"
+          class="mt-2 w-full rounded-lg border border-line bg-surface px-4 py-3 text-base"
+          data-consulta
+        />
+      </form>
+
+      <p role="status" aria-live="polite" class="mt-4 text-sm text-ink-soft" data-estado>
+        Escribe para buscar en las lecciones y módulos publicados.
+      </p>
+
+      <ul class="mt-4 space-y-4" data-resultados></ul>
+
+      <noscript>
+        <p class="mt-4 rounded-lg border border-line bg-surface p-4 text-sm text-ink-soft">
+          La búsqueda necesita JavaScript. Sin él puedes recorrer el{" "}
+          <a href="/curriculo/" class="font-medium text-accent hover:underline">
+            mapa del currículo
+          </a>{" "}
+          y las lecciones mediante las migas y los enlaces anterior/siguiente.
+        </p>
+      </noscript>
+    </div>
+
+    <script>
+      import "../../scripts/busqueda";
+    </script>
+  </PageContainer>
+</BaseLayout>

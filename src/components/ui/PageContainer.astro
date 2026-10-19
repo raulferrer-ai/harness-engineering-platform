@@ -1,0 +1,22 @@
+---
+/**
+ * Contenedor de página con anchuras de lectura controladas.
+ * - prose: medida de lectura (~68ch) para texto largo.
+ * - wide: contenedor general de secciones.
+ */
+interface Props {
+  size?: "prose" | "wide";
+  class?: string;
+}
+
+const { size = "wide", class: clase } = Astro.props;
+
+const medidas = {
+  prose: "max-w-[68ch]",
+  wide: "max-w-5xl",
+};
+---
+
+<div class:list={["mx-auto w-full px-4 sm:px-6", medidas[size], clase]}>
+  <slot />
+</div>

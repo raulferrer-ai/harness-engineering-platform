@@ -1,0 +1,18 @@
+---
+/**
+ * Aviso sobrio para estados vacíos o pendientes (contenido honesto, sin
+ * fingir que existe lo que aún no está publicado).
+ */
+interface Props {
+  titulo: string;
+}
+
+const { titulo } = Astro.props;
+---
+
+<div class="rounded-lg border border-accent/30 bg-accent-soft px-5 py-4">
+  <p class="text-sm font-semibold">{titulo}</p>
+  <div class="mt-1 text-sm text-ink-soft">
+    <slot />
+  </div>
+</div>

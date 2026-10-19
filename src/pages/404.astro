@@ -1,0 +1,29 @@
+---
+import ButtonLink from "../components/ui/ButtonLink.astro";
+import PageContainer from "../components/ui/PageContainer.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+/**
+ * 404 estático (IMPLEMENTATION_PLAN.md §2.3): Cloudflare Pages sirve
+ * `404.html` automáticamente. Enlaza siempre a rutas que existen.
+ */
+const descripcion =
+  "Esta página no existe. Vuelve al mapa del currículo o a la portada de la academia.";
+---
+
+<BaseLayout titulo="Página no encontrada" descripcion={descripcion} rutaActual="404" noindex>
+  <PageContainer class="py-16">
+    <p class="label-mono">Error 404</p>
+    <h1 class="mt-2 text-3xl sm:text-4xl">Esta página no existe</h1>
+    <p class="mt-4 max-w-[60ch] text-ink-soft">
+      Puede que el enlace esté anticuado o que la sección todavía no se haya publicado. El currículo
+      se publica módulo a módulo: el mapa siempre refleja lo que existe hoy.
+    </p>
+    <div class="mt-8 flex flex-wrap gap-4">
+      <ButtonLink href="/curriculo/">Ver el mapa del currículo</ButtonLink>
+      <ButtonLink href="/" variant="secondary">
+        Volver al inicio
+      </ButtonLink>
+    </div>
+  </PageContainer>
+</BaseLayout>

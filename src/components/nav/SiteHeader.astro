@@ -1,0 +1,58 @@
+---
+/**
+ * Cabecera del sitio: identidad + navegación principal.
+ * Desde el hito H2, «Currículo» apunta a la ruta real `/curriculo/`; el resto
+ * son anclas de la home. El estado activo (`aria-current`) usa igualdad para
+ * las anclas y prefijo de ruta para las páginas.
+ */
+interface Props {
+  /** Ruta actual (por ejemplo "/curriculo/n0/"), para aria-current. */
+  rutaActual?: string;
+}
+
+const { rutaActual = "/" } = Astro.props;
+
+const enlaces = [
+  { href: "/", etiqueta: "Inicio" },
+  { href: "/curriculo/", etiqueta: "Currículo" },
+  { href: "/#proyecto", etiqueta: "Proyecto" },
+  { href: "/#enfoque", etiqueta: "Enfoque" },
+  { href: "/buscar/", etiqueta: "Buscar" },
+];
+
+function esActual(href: string, ruta: string): boolean {
+  if (href.includes("#")) return href === ruta;
+  if (href === "/") return ruta === "/";
+  return ruta === href || ruta.startsWith(href);
+}
+---
+
+<header
+  class="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm"
+  data-pagefind-ignore
+>
+  <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
+    <a href="/" class="inline-flex items-baseline gap-1.5">
+      <span class="text-sm font-semibold tracking-tight sm:text-base">Harness Engineering</span>
+      <span class="font-mono text-[0.7rem] text-ink-soft">Platform</span>
+    </a>
+    <nav aria-label="Principal">
+      <ul class="flex items-center gap-3 text-sm sm:gap-5">
+        {enlaces.map((enlace) => {
+          const actual = esActual(enlace.href, rutaActual);
+          return (
+            <li>
+              <a
+                href={enlace.href}
+                class:list={["hover:text-ink", actual ? "font-medium text-ink" : "text-ink-soft"]}
+                aria-current={actual ? "page" : undefined}
+              >
+                {enlace.etiqueta}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  </div>
+</header>

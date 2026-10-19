@@ -1,0 +1,41 @@
+---
+/**
+ * Miga de pan (IMPLEMENTATION_PLAN.md §5.2): Inicio › Currículo › Nivel › …
+ * La miga actual no es enlace: lleva `aria-current="page"`.
+ * Los separadores son decorativos (`aria-hidden`).
+ */
+interface Miga {
+  /** Ruta del nivel; ausente = miga actual. */
+  href?: string;
+  etiqueta: string;
+}
+
+interface Props {
+  migas: Miga[];
+}
+
+const { migas } = Astro.props;
+---
+
+<nav aria-label="Miga de pan" data-pagefind-ignore>
+  <ol class="flex flex-wrap items-baseline gap-y-1 text-sm text-ink-soft">
+    {migas.map((miga, i) => (
+      <li class="flex items-baseline">
+        {i > 0 && (
+          <span aria-hidden="true" class="mx-2 text-ink-faint">
+            ›
+          </span>
+        )}
+        {miga.href ? (
+          <a href={miga.href} class="hover:text-ink">
+            {miga.etiqueta}
+          </a>
+        ) : (
+          <span aria-current="page" class="font-medium text-ink">
+            {miga.etiqueta}
+          </span>
+        )}
+      </li>
+    ))}
+  </ol>
+</nav>

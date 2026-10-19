@@ -1,0 +1,31 @@
+---
+/**
+ * Enlace con aspecto de botón. Variantes primaria (acento) y secundaria (borde).
+ * Es un enlace real: navega y puede abrirse en pestaña nueva.
+ */
+interface Props {
+  href: string;
+  variant?: "primary" | "secondary";
+  class?: string;
+}
+
+const { href, variant = "primary", class: clase } = Astro.props;
+
+const estilos = {
+  primary:
+    "bg-accent text-on-accent hover:bg-accent-strong active:bg-accent-strong border border-transparent",
+  secondary:
+    "bg-surface text-ink border border-line-strong hover:border-ink-faint active:bg-accent-soft",
+};
+---
+
+<a
+  href={href}
+  class:list={[
+    "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors duration-150",
+    estilos[variant],
+    clase,
+  ]}
+>
+  <slot />
+</a>

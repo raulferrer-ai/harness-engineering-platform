@@ -1,0 +1,85 @@
+---
+/**
+ * Mapa completo del currículo (IMPLEMENTATION_PLAN.md §5.2): los nueve niveles
+ * con sus módulos, derivados de las colecciones. Los módulos sin lecciones se
+ * muestran igual (su ficha y su entregable existen); el estado de publicación
+ * se comunica en la propia página del módulo. Desde el hito H4, los módulos
+ * con lecciones muestran su progreso local (pintado en el navegador; el HTML
+ * estático queda neutral: «—»).
+ */
+import { getCollection } from "astro:content";
+import Notice from "../ui/Notice.astro";
+import { ordenDeModulo, ordenDeNivel, rutaModulo, rutaNivel } from "../../lib/curriculum";
+
+const niveles = (await getCollection("niveles")).sort(
+  (a, b) => ordenDeNivel(a.id) - ordenDeNivel(b.id),
+);
+const modulos = await getCollection("modulos");
+
+// Identificadores de lección por módulo (progreso local, H4). Los módulos sin
+// lecciones no reciben atributos de progreso y no muestran porcentaje alguno.
+const idsPorModulo = new Map<string, string[]>();
+for (const leccion of await getCollection("lecciones")) {
+  const clave = `${leccion.data.nivel}/${leccion.data.modulo}`;
+  idsPorModulo.set(clave, [...(idsPorModulo.get(clave) ?? []), leccion.id]);
+}
+---
+
+<div class="mt-10 space-y-10">
+  {niveles.map((nivel) => {
+    const mods = modulos
+      .filter((modulo) => modulo.data.nivel === nivel.id)
+      .sort((a, b) => ordenDeModulo(a.data.modulo) - ordenDeModulo(b.data.modulo));
+    return (
+      <section aria-labelledby={`nivel-${nivel.id}`}>
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-line-strong pb-2">
+          <span class="font-mono text-sm text-accent">{nivel.id}</span>
+          <h2 id={`nivel-${nivel.id}`} class="text-xl">
+            <a href={rutaNivel(nivel.id)} class="hover:text-accent">
+              {nivel.data.titulo}
+            </a>
+          </h2>
+          <span class="font-mono text-xs text-ink-faint">{mods.length} módulos</span>
+        </div>
+        <p class="mt-2 text-sm text-ink-soft">{nivel.data.pregunta}</p>
+        {mods.length > 0 ? (
+          <ol class="mt-3 grid gap-1 sm:grid-cols-2">
+            {mods.map((modulo) => {
+              const ids = idsPorModulo.get(`${nivel.id}/${modulo.data.modulo}`);
+              const conLecciones = Boolean(ids && ids.length > 0);
+              return (
+                <li data-progreso-unidades={conLecciones ? ids?.join(",") : undefined}>
+                  <div class="flex items-baseline gap-2">
+                    <a
+                      href={rutaModulo(nivel.id, modulo.data.modulo)}
+                      class="flex min-w-0 flex-1 items-baseline gap-2 rounded px-2 py-1.5 hover:bg-accent-soft"
+                    >
+                      <span class="font-mono text-xs text-ink-faint">{modulo.data.modulo}</span>
+                      <span class="text-sm">{modulo.data.titulo}</span>
+                    </a>
+                    {conLecciones && (
+                      <span data-progreso-resumen class="shrink-0 font-mono text-xs text-ink-faint">
+                        —
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <div class="mt-3">
+            <Notice titulo="Módulos en preparación">
+              Este nivel todavía no tiene módulos publicados; el mapa se completa por fases, con
+              revisión editorial previa.
+            </Notice>
+          </div>
+        )}
+      </section>
+    );
+  })}
+</div>
+
+<script>
+  import "../../scripts/progreso";
+</script>

@@ -1,0 +1,141 @@
+---
+titulo: "Terminal, rutas y archivos"
+resumen: "La terminal es la herramienta que usa quien verifica: mueve el directorio, crea y borra archivos y lee rutas relativas y absolutas. Aquí construyes la estructura de un proyecto desde cero y la compruebas con un verificador."
+nivel: "n0"
+modulo: "m1"
+orden: 3
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Navegar por el sistema de archivos con pwd, ls y cd"
+  - "Crear y mover archivos y directorios con mkdir, touch, cp, mv y rm"
+  - "Distinguir una ruta relativa de una absoluta"
+  - "Reproducir la estructura mínima de un proyecto y verificarla con un script"
+prerrequisitos:
+  - "n0/m1/l02-instalar-el-entorno-sin-sorpresas"
+actualizado: "2026-10-19"
+tags:
+  - "terminal"
+  - "archivos"
+  - "rutas"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La terminal ejecuta comandos sobre el sistema de archivos: `pwd` dice dónde estás, `ls` qué hay, `cd` cambia de sitio, `mkdir` y `touch` crean. El error `Cannot find module` de la lección l01 era un problema de **rutas**: Node buscaba un fichero con una ruta y no lo encontraba. En esta lección construyes con estos comandos la estructura de un proyecto (`src/`, `pruebas/`, `README.md`) y confirmas con un script que está completa.
+
+## Conceptos
+
+**Dónde estás y qué hay.** Tres comandos hacen el 80 % del trabajo diario:
+
+- `pwd` — imprime el directorio actual (_print working directory_).
+- `ls` — lista lo que contiene; `ls -R` lo hace también dentro de las subcarpetas.
+- `cd carpeta` — entra; `cd ..` — sube un nivel; `cd` solo — vuelve a tu carpeta de usuario.
+
+**Crear, copiar, mover y borrar.**
+
+- `mkdir -p src/pruebas` — crea carpetas, creando las intermedias si faltan.
+- `touch notas.txt` — crea un fichero vacío (o actualiza su fecha si ya existe).
+- `cp origen destino` y `mv origen destino` — copia y mueve (también renombra).
+- `rm fichero` y `rm -r carpeta` — borra, **sin papelera**. Desconfía de `rm -r` hasta que domines `pwd` y `ls`: lo que borra, borra.
+
+**Rutas relativas y absolutas.** Una ruta **absoluta** empieza por la raíz (`/Users/ada/proyecto`) y vale desde cualquier sitio. Una **relativa** arranca desde donde estás (`src/principal.js`) y cambia si te mueves. Node resuelve rutas relativas al directorio donde ejecutas el comando: por eso, en l01, `node saludo.js` funcionaba desde `ejemplos/` y fallaba desde otro sitio con `Cannot find module`. Ese mensaje ya lo conoces; ahora entiendes su causa.
+
+**La estructura de un proyecto.** Los proyectos de este módulo usan este esquema (lo mantendrás en las lecciones siguientes):
+
+```text
+mi-proyecto/
+├── src/
+│   └── principal.js
+├── pruebas/
+│   └── principal.test.js
+└── README.md
+```
+
+**Verificar en lugar de mirar.** `ls -R` te deja ver la estructura; el script `ejemplos/verificar-estructura.js` la **comprueba** y falla si falta algo. La diferencia es el hábito: mirar depende de tu atención; un comprobador no.
+
+## Ejercicio
+
+Crea desde la terminal, sin editor gráfico, la estructura anterior dentro de una carpeta nueva `mi-proyecto` (en tu espacio de trabajo o en `/tmp`), y verifica con el verificador que está completa.
+
+Esto se cumple cuando:
+
+- los directorios y ficheros existen con esos nombres exactos, creados con `mkdir` y `touch`;
+- `node verificar-estructura.js mi-proyecto` imprime `OK: estructura completa en mi-proyecto (3 elementos).`;
+- puedes explicar con `pwd` y `ls` en qué directorio estabas cuando ejecutaste cada comando.
+
+Pista: crea todo con una sola instrucción `mkdir -p` que declare la estructura completa, y después añade los ficheros con `touch` (admite varios argumentos).
+
+## Solución explicada
+
+Una sesión real (macOS; los comandos `pwd`, `ls`, `mkdir`, `touch`, `cp`, `mv` y `rm` son los mismos en Linux; en Windows usa PowerShell o Git Bash, que ofrecen estos comandos):
+
+```sh
+mkdir -p mi-proyecto/src mi-proyecto/pruebas
+touch mi-proyecto/src/principal.js mi-proyecto/pruebas/principal.test.js mi-proyecto/README.md
+cd mi-proyecto
+ls -R
+```
+
+Salida real de `ls -R` (con la estructura ya creada):
+
+```text
+pruebas
+README.md
+src
+
+./pruebas:
+principal.test.js
+
+./src:
+principal.js
+```
+
+Y el verificador, apuntando a la carpeta creada:
+
+```text
+OK: estructura completa en mi-proyecto (3 elementos).
+```
+
+Errores típicos al resolverlo:
+
+- **Crear la estructura dentro de otra.** El fallo clásico es ejecutar `mkdir` sin haber comprobado dónde estabas (`pwd`) y acabar con `mi-proyecto/mi-proyecto`. El verificador lo delata: le pasas la ruta que crees y él dice qué falta.
+- **Nombres distintos a los del esquema.** `Pruebas/` con mayúscula no es `pruebas/`: los sistemas de archivos distinguen mayúsculas. Copia los nombres carácter a carácter.
+- **Verificar con el argumento mal puesto.** `node verificar-estructura.js mi-proyecto` comprueba **dentro** de `mi-proyecto`; sin argumento, comprueba el directorio actual. Lee el mensaje: la ruta aparece en él.
+
+Una alternativa válida es crear la estructura con el editor y usar la terminal solo para verificarla. Prueba las dos formas y quédate con la que puedas repetir sin mirar atrás: el objetivo es que la terminal deje de darte miedo.
+
+## Cómo verificarlo
+
+1. Crea y verifica la estructura (comandos de la sección anterior). Observa: el `OK` del verificador.
+
+2. Comprueba el caso de fallo: verifica una carpeta a la que le falta todo:
+
+   ```sh
+   mkdir -p /tmp/proyecto-vacio/src
+   node verificar-estructura.js /tmp/proyecto-vacio; echo "código de salida: $?"
+   ```
+
+   Salida real: `Faltan 3 elementos:` con la lista (`src/principal.js`, `pruebas/principal.test.js`, `README.md`) y `código de salida: 1`. Un verificador que solo sabe decir «OK» no es un verificador.
+
+3. Practica el mapa mental: ejecuta `pwd`, anota la ruta; `cd mi-proyecto`, `pwd` otra vez; `cd ..`, `pwd`. Siempre puedes reconstruir dónde estás con dos comandos.
+
+## Errores comunes
+
+**`No such file or directory`.** Estás en un directorio distinto al que crees, o escribiste mal un nombre. Ejecuta `pwd` y `ls` antes de reintentar; el mensaje de error incluye la ruta que se intentó abrir.
+
+**`Permission denied`.** Intentas escribir o borrar donde no tienes permiso (por ejemplo, en la raíz del sistema). Crea el proyecto en tu carpeta de usuario o en `/tmp`, que está pensado para descartables.
+
+**Borrar lo que no querías.** `rm -r` no avisa ni recicla. Regla del módulo: antes de cualquier `rm`, `pwd` y `ls` en el directorio superior. Borrar es reversible con Git (l07), no con la terminal.
+
+**Confundir el verificador con la estructura.** El script no crea nada: solo comprueba. Si no has creado los ficheros, su respuesta correcta es el listado de faltantes.
+
+## Fuentes
+
+Sin fuentes externas: todos los comandos de esta lección se ejecutaron el 2026-10-19 en el entorno verificado del módulo (macOS con las utilidades del sistema; los mismos nombres existen en Linux). Los comportamientos citados (`ls -R`, rutas relativas) son estables y se comprueban ejecutándolos.
+
+## Siguientes pasos
+
+- Siguiente lección del módulo: [l04 «Tu primer programa y sus pruebas»](/curriculo/n0/m1/l04-tu-primer-programa-y-sus-pruebas/), donde `src/principal.js` deja de estar vacío y aparecen las pruebas automáticas.
+- Proyecto longitudinal: esta estructura (`src/`, `pruebas/`, `README.md`) es la base del repositorio de la fase `f1`.

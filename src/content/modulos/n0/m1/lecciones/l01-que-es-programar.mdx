@@ -1,0 +1,151 @@
+---
+titulo: "Qué es programar y cómo se ejecuta un programa"
+resumen: "Programar es escribir instrucciones que una máquina ejecuta paso a paso. En esta lección recorres el ciclo escribir, ejecutar y comprobar con un script real de diez líneas, prediciendo la salida antes de verla."
+nivel: "n0"
+modulo: "m1"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 30
+objetivos:
+  - "Explicar el ciclo escribir, ejecutar y comprobar y por qué se repite"
+  - "Identificar las piezas de un script corto antes de ejecutarlo"
+  - "Predecir la salida de un programa de diez líneas"
+  - "Ejecutar el programa y contrastar la predicción con la salida real"
+  - "Registrar qué se verificó y qué no se puede afirmar todavía"
+prerrequisitos: []
+actualizado: "2026-10-19"
+fuentes:
+  - titulo: "Command-line API | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/docs/latest-v24.x/api/cli.html"
+    fecha: "2026-10-19"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un programa es un fichero de texto con instrucciones que un intérprete ejecuta de la primera línea a la última. El ciclo de trabajo es **escribir → ejecutar → comprobar**: guardas el fichero, lo ejecutas con `node saludo.js` y comparas la salida real con la que esperabas. Si coinciden, has verificado el programa; si no, tienes el dato exacto para empezar a depurar. En esta lección aplicas el ciclo completo sobre un script real de diez líneas.
+
+## Conceptos
+
+**Un programa es texto guardado en un fichero.** No hay magia: abres un editor, escribes líneas y las guardas con nombre, por ejemplo `saludo.js`. Quien ejecuta es otro programa: el intérprete de Node.js. Según la documentación oficial de Node, el uso desde la terminal es `node [opciones] <punto-de-entrada-del-programa>`, y el punto de entrada se resuelve como un fichero relativo al directorio de trabajo actual: si el fichero no existe, se lanza un error ([Command-line API], consultado el 2026-10-19).
+
+**El intérprete ejecuta lo escrito, ni una línea más.** Node lee el fichero en el instante en que lo ejecutas y procesa las instrucciones en orden. No adivina intenciones ni rellena huecos: si escribes tres `console.log`, imprime tres cosas; si una función devuelve un texto y nadie lo imprime, no aparece nada en pantalla.
+
+**Ejecutar y comprobar son pasos distintos.** Ejecutar es producir la salida. Comprobar es compararla con una predicción escrita por ti **antes** de ejecutar. Ese orden importa: si miras la salida primero, ya no estás comprobando, estás leyendo. El hábito de predecir es lo que después te permitirá detectar cuándo el código que genera una IA no hace lo que pediste.
+
+El ejemplo completo de esta lección (`ejemplos/saludo.js`, diez líneas) es este:
+
+```js
+// saludo.js — imprime un saludo y el ciclo de esta lección
+const nombre = "mundo";
+const pasos = ["escribir", "ejecutar", "comprobar"];
+
+function contarPasos(lista) {
+  return lista.map((p, i) => `${i + 1}. ${p}`).join("\n");
+}
+
+console.log(`Hola, ${nombre}`);
+console.log(contarPasos(pasos));
+```
+
+Dos piezas para leerlo con calma:
+
+- `contarPasos` **devuelve** un texto de tres líneas; no imprime nada por sí sola. Quien imprime es el `console.log(...)` que la envuelve.
+- `join("\n")` une los elementos con saltos de línea reales, así que el segundo `console.log` emite tres líneas de golpe.
+
+## Ejercicio
+
+Sin ejecutar todavía nada, abre `src/content/modulos/n0/m1/ejemplos/saludo.js` y escribe en un papel o en un fichero la salida **exacta** que producirá: cada línea, en el orden en que aparecerán. Después ejecútala y contrasta.
+
+Esto se cumple cuando:
+
+- tu predicción está escrita **antes** de la primera ejecución;
+- la salida de `node saludo.js` coincide con tu predicción línea a línea;
+- si no coinciden, anotas en qué línea se separó tu predicción y por qué.
+
+Pista: cuenta los `console.log` de arriba abajo y sigue `contarPasos` con la lista `["escribir", "ejecutar", "comprobar"]` ya escrita. No necesitas saber más de esa función para predecir la salida.
+
+## Solución explicada
+
+La salida real, ejecutada el 2026-10-19 con Node v24.22.0 (tu versión puede ser distinta), es:
+
+```text
+Hola, mundo
+1. escribir
+2. ejecutar
+3. comprobar
+```
+
+Recorrido, línea a línea:
+
+1. `const nombre = "mundo"` guarda un texto en memoria.
+2. `const pasos = [...]` guarda una lista de tres textos.
+3. `contarPasos` recorre la lista: a cada elemento le antepone su posición (`1.`, `2.`, `3.`) y `join("\n")` los une con saltos de línea, obteniendo **un solo texto** de tres líneas.
+4. El primer `console.log` imprime `Hola, mundo` (el `${nombre}` se sustituye por el valor guardado).
+5. El segundo imprime el texto devuelto, que ya contiene saltos: por eso una sola instrucción ocupa tres líneas de salida.
+
+Errores típicos al resolverlo:
+
+- **Contar las líneas de salida por el número de `console.log`.** Hay dos llamadas y cuatro líneas de salida: la segunda llamada imprime tres líneas porque el texto contiene saltos.
+- **Pensar que `map` imprime.** `map` y `join` construyen y devuelven un valor; la impresión la hace siempre `console.log`.
+- **Escribir `\n` literalmente en la predicción.** `join("\n")` no escribe los caracteres barra-ítil-n: producen saltos de línea reales.
+
+Una alternativa válida es reescribir `contarPasos` con un bucle `for` clásico. La salida debe seguir siendo idéntica: compruébalo con el mismo procedimiento de verificación de la sección siguiente y no con la sensación de que «debería valer».
+
+## Cómo verificarlo
+
+1. Ejecuta el ejemplo y observa las cuatro líneas:
+
+   ```sh
+   node saludo.js
+   ```
+
+   Debe aparecer exactamente la salida de la sección anterior.
+
+2. Comprueba de forma automática que dos ejecuciones dan el mismo resultado (ambos comandos ejecutados el 2026-10-19):
+
+   ```sh
+   node saludo.js > salida.txt
+   node saludo.js | diff - salida.txt && echo "OK: salidas idénticas"
+   ```
+
+   Observa: `diff` no imprime nada cuando los archivos coinciden y devuelve el código de salida `0`; por eso el `echo` final solo se ejecuta si las salidas eran idénticas. El resultado observado fue `OK: salidas idénticas`.
+
+3. Cierra el ciclo otra vez con un cambio: modifica `nombre` a otra palabra, guarda, **predice la salida nueva** y ejecuta de nuevo. Si tu predicción falla, no corrijas la predicción a ciegas: mira qué línea del script no hizo lo que esperabas.
+
+## Errores comunes
+
+**`Error: Cannot find module '…/saludo.js'`.** Significa que Node buscó el fichero en el directorio donde estabas y no lo encontró. El mensaje muestra la ruta completa donde miró: si no coincide con la carpeta de tu fichero, cambia a ella (`cd`) y vuelve a ejecutar. Traza abreviada de una ejecución real (la ruta absoluta de tu equipo aparecería en su sitio):
+
+```text
+Error: Cannot find module '.../ejemplos/no-existe.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1564:15)
+    ...
+Error: Cannot find module ... {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+```
+
+**`ReferenceError: Hola is not defined`.** Ocurre si escribes un texto sin comillas: Node interpreta `Hola` como un nombre que debería existir y no lo encuentra. La traza dice en qué fichero y línea (`roto.js:2`) y la flecha señala la columna exacta del problema. El fichero `ejemplos/errores/roto.js` lo reproduce; salida real con la ruta abreviada:
+
+```text
+file:///…/errores/roto.js:2
+console.log(Hola)
+            ^
+
+ReferenceError: Hola is not defined
+    at file:///…/errores/roto.js:2:13
+    ...
+```
+
+**La salida no cambia aunque edites el fichero.** Node lee el fichero del disco en el momento de ejecutarlo: si tu editor no ha guardado, ejecutas la versión anterior. Regla práctica: guarda, ejecuta, compara.
+
+## Fuentes
+
+- [Command-line API | Node.js v24.22.0 Documentation](https://nodejs.org/docs/latest-v24.x/api/cli.html) — consultada el 2026-10-19. Aporta la sintaxis de ejecución `node <punto-de-entrada>`, la resolución del fichero de entrada y el hecho de que `node` sin argumentos abre el REPL.
+
+## Siguientes pasos
+
+- Siguiente lección del módulo: [l02 «Instalar el entorno sin sorpresas»](/curriculo/n0/m1/l02-instalar-el-entorno-sin-sorpresas/), donde instalas Node y dejas tu entorno escrito en un fichero de versiones y verificado con un script.
+- En el proyecto longitudinal, la fase `f1` empieza con entregables como este: programa, pruebas y ejecución reproducible.

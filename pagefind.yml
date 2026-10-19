@@ -1,0 +1,5 @@
+# Configuración de Pagefind (IMPLEMENTATION_PLAN.md §5.1).
+# El índice se genera post-compilación sobre `dist/` con `npm run pagefind`
+# (equivale a `pagefind --site dist`); el resto de opciones dejan su valor por
+# defecto. Documentación del proceso en README.md (sección «Búsqueda»).
+site: dist

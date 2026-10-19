@@ -1,0 +1,34 @@
+---
+/**
+ * Progresión del itinerario: los nueve niveles derivados de la colección
+ * `niveles` (fuente de verdad: CURRICULUM.md §2), enlazados a sus páginas
+ * reales desde el hito H2. El recuento de módulos sale de `modulos`.
+ */
+import { getCollection } from "astro:content";
+import { ordenDeNivel, rutaNivel } from "../../lib/curriculum";
+
+const niveles = (await getCollection("niveles")).sort(
+  (a, b) => ordenDeNivel(a.id) - ordenDeNivel(b.id),
+);
+const modulos = await getCollection("modulos");
+---
+
+<ol class="mt-8 border-t border-line">
+  {niveles.map((nivel) => {
+    const total = modulos.filter((modulo) => modulo.data.nivel === nivel.id).length;
+    return (
+      <li class="grid grid-cols-[3rem_1fr] items-baseline gap-x-4 gap-y-1 border-b border-line py-3.5 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,1.1fr)]">
+        <span class="font-mono text-sm text-accent">{nivel.id}</span>
+        <span>
+          <a href={rutaNivel(nivel.id)} class="font-semibold hover:text-accent">
+            {nivel.data.titulo}
+          </a>
+          <span class="ml-2 font-mono text-xs text-ink-faint">
+            {total} {total === 1 ? "módulo" : "módulos"}
+          </span>
+        </span>
+        <span class="col-start-2 text-sm text-ink-soft sm:col-start-3">{nivel.data.pregunta}</span>
+      </li>
+    );
+  })}
+</ol>

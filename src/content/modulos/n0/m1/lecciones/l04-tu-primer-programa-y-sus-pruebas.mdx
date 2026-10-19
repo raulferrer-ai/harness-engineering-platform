@@ -1,0 +1,178 @@
+---
+titulo: "Tu primer programa y sus pruebas"
+resumen: "Escribes una función pequeña, la exportas como módulo y la compruebas con el ejecutor de pruebas y el módulo de aserciones que trae Node: sin instalar nada. Terminas viendo el mismo programa en verde y en rojo, y entendiendo por qué el rojo es información."
+nivel: "n0"
+modulo: "m1"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 60
+objetivos:
+  - "Escribir una función pequeña que valida su entrada y devuelve un valor"
+  - "Exportarla e importarla como módulo ES"
+  - "Escribir aserciones con node:assert/strict y ejecutarlas con node --test"
+  - "Interpretar un fallo de prueba con su diff de valores"
+  - "Provocar un fallo a propósito y restaurar el verde"
+prerrequisitos:
+  - "n0/m1/l03-terminal-rutas-y-archivos"
+actualizado: "2026-10-19"
+tags:
+  - "pruebas"
+  - "node"
+  - "aserciones"
+fuentes:
+  - titulo: "Test runner | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/docs/latest-v24.x/api/test.html"
+    fecha: "2026-10-19"
+  - titulo: "Assertion testing | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/docs/latest-v24.x/api/assert.html"
+    fecha: "2026-10-19"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una **aserción** es una afirmación ejecutable: «esto debe ser igual a aquello». Node trae un módulo de aserciones (`node:assert/strict`) y un ejecutor de pruebas (`node --test`), ambos estables y sin instalar nada. Escribes la función en un fichero, las pruebas en otro (`*.test.js`), ejecutas `node --test` y lees el resultado: verde si todo se cumple, rojo con el diff exacto si algo falla. La lección termina con el mismo código en rojo y restaurado: el ciclo verde–rojo es la unidad mínima de trabajo de todo el currículo.
+
+## Conceptos
+
+**La función, pequeña y con contrato.** El programa de esta lección (`ejemplos/saludo-funcion.js`) es este:
+
+```js
+export function saludar(nombre) {
+  if (typeof nombre !== "string" || nombre.trim() === "") {
+    throw new TypeError("saludar espera un texto no vacío");
+  }
+  return `Hola, ${nombre.trim()}`;
+}
+```
+
+Dos decisiones que se explican solas al probarlo: **valida la entrada** (rechaza lo que no sea texto no vacío, con un error claro) y **recorta espacios** (devuelve siempre el mismo formato). Cada una tendrá su prueba.
+
+**Módulos: `export` e `import`.** `export` pone la función a disposición de otros ficheros; el fichero de pruebas la trae con `import { saludar } from "./saludo-funcion.js"`. Nota práctica: aquí los `.js` se interpretan como módulos ES porque el proyecto declara `"type": "module"` en `package.json`; si en tu proyecto no hay `package.json`, usa la extensión `.mjs` para los mismos ficheros y funcionará igual.
+
+**Aserciones: `node:assert/strict`.** El módulo `node:assert` verifica invariantes; en modo estricto (`node:assert/strict`), `assert.strictEqual(a, b)` exige igualdad estricta y, si falla, muestra un **diff** con el valor real y el esperado. También hay `assert.throws(fn, TipoDeError)` para comprobar que una función **falla como debe** ([Assertion testing], consultada el 2026-10-19).
+
+**El ejecutor: `node --test`.** Ejecuta los ficheros `*.test.js` de un directorio y resume resultados; si alguna prueba falla, el proceso termina con código de salida `1` ([Test runner], documentado como estable, consultado el 2026-10-19). Ese código de salida es lo que permite encadenar comprobaciones en scripts y en integración continua (módulos posteriores).
+
+**Las pruebas de este programa.** En `ejemplos/saludo-funcion.test.js`:
+
+```js
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { saludar } from "./saludo-funcion.js";
+
+test("saludar devuelve un saludo con el nombre", () => {
+  assert.strictEqual(saludar("mundo"), "Hola, mundo");
+});
+
+test("saludar recorta los espacios sobrantes", () => {
+  assert.strictEqual(saludar("  Ada  "), "Hola, Ada");
+});
+
+test("saludar rechaza entradas que no son texto no vacío", () => {
+  assert.throws(() => saludar(42), TypeError);
+  assert.throws(() => saludar("   "), TypeError);
+});
+```
+
+Fíjate en el reparto: un caso normal, un caso límite (espacios) y los casos inválidos. Tres pruebas para ocho líneas de programa.
+
+## Ejercicio
+
+Añade una cuarta prueba al fichero de pruebas (por ejemplo, que `saludar("Ada")` devuelve `"Hola, Ada"`), ejecuta hasta ver el verde y después **rompe a propósito la función** (cambia `nombre.trim()` por `nombre` en el `return`), observa el rojo y restaura.
+
+Esto se cumple cuando:
+
+- `node --test saludo-funcion.test.js` termina en verde con tus 4 pruebas;
+- tras el cambio deliberado, el mismo comando falla con código `1` y tú sabes decir **qué** prueba detectó el cambio y **por qué**;
+- el fichero vuelve al verde final sin reescribir las pruebas (las pruebas no se negocian: se arregla el programa).
+
+Pista: si no sabes qué cambió, lee el diff del fallo de arriba abajo: la primera línea `+ actual` es el comportamiento real que estabas evitando ver.
+
+## Solución explicada
+
+Salida real en verde, ejecutada el 2026-10-19 con Node v24.22.0 (los tiempos varían; el ejecutor imprime además un resumen de conteos):
+
+```text
+✔ saludar devuelve un saludo con el nombre (0.870375ms)
+✔ saludar recorta los espacios sobrantes (0.102333ms)
+✔ saludar rechaza entradas que no son texto no vacío (0.264834ms)
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+```
+
+Salida real en rojo, tras quitar el `trim()` del `return` (mismas pruebas, función rota):
+
+```text
+✔ saludar devuelve un saludo con el nombre (0.869959ms)
+✖ saludar recorta los espacios sobrantes (1.051459ms)
+✖ saludar rechaza entradas que no son texto no vacío (0.295625ms)
+ℹ tests 3
+ℹ pass 1
+ℹ fail 2
+```
+
+y, en el detalle del fallo:
+
+```text
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'Hola,   Ada  '
+- 'Hola, Ada'
+```
+
+Cómo leerlo: `+ actual` es lo que produjo la función (`Hola,   Ada  `, con los espacios sin recortar); `- expected` es lo que exige la prueba. La segunda prueba falla porque `assert.throws(..., TypeError)` ya no ve ningún error: el mensaje `Missing expected exception (TypeError)` dice exactamente eso. Nota de diseño del ejecutor: las pruebas **se ejecutan todas** aunque una falle, para que veas el panorama completo de una sola pasada.
+
+Errores típicos al resolverlo:
+
+- **«Arreglar» la prueba para que pase.** Si la prueba decía `Hola, Ada` y tu función devuelve `Hola,   Ada  `, el arreglo es en la función. Cambiar la expectativa para casar con el bug es cómo se ciega una suite.
+- **Copiar la prueba sin cambiar nada.** Una prueba que repite el mismo caso no aporta cobertura: añade casos límite (vacío, espacios, tipos distintos).
+- **Olvidar que las pruebas también se leen.** Los nombres (`saludar recorta los espacios sobrantes`) son el 50 % del valor: en un fallo, el nombre te dice qué contrato se rompió.
+
+Una alternativa válida es escribir primero las pruebas y después la función (pruebas primero; lo veremos en `n2`). El orden no cambia el resultado: verde con casos cubiertos.
+
+## Cómo verificarlo
+
+1. Ejecuta las pruebas incluidas desde la carpeta `ejemplos/`:
+
+   ```sh
+   node --test saludo-funcion.test.js
+   ```
+
+   Debe aparecer el verde de la sección anterior (`pass 3`, `fail 0`).
+
+2. Repite el experimento del rojo sobre una **copia** (así los ejemplos del módulo no se tocan):
+
+   ```sh
+   mkdir -p /tmp/funcion-rota
+   sed 's/nombre.trim()/nombre/' saludo-funcion.js > /tmp/funcion-rota/saludo-funcion.js
+   cp saludo-funcion.test.js /tmp/funcion-rota/
+   cd /tmp/funcion-rota && node --test saludo-funcion.test.js; echo "código de salida: $?"
+   ```
+
+   Observa: `fail 2`, el diff `+ 'Hola,   Ada  '` y `código de salida: 1`. (Ejecutado el 2026-10-19; el texto es idéntico al de la sección anterior salvo rutas y tiempos.)
+
+3. Vuelve a `ejemplos/` y ejecuta otra vez el verde final. El comando es el mismo: lo que cambia es el estado del código. Verde, rojo, verde: has dado el ciclo completo.
+
+## Errores comunes
+
+**`Cannot find module './saludo-funcion.js'`.** Estás ejecutando desde otro directorio o el fichero no se llama exactamente así. Recuerda de l03: rutas relativas al directorio de trabajo; `pwd` y `ls` antes de reintentar.
+
+**`ERR_MODULE_NOT_FOUND` al usar `import` en un `.js` sin `package.json`.** El fichero se interpretó como módulo CommonJS. Renómbralo a `.mjs` (o añade `"type": "module"` a tu `package.json`, que es lo que hace este proyecto).
+
+**El verde no aparece aunque el código «debería» valer.** No deberías: ejecuta y lee. Si el ejecutor dice `fail 1`, el detalle del fallo está más abajo en la misma salida; léelo antes de tocar nada.
+
+**Pruebas que pasan y no prueban nada.** `assert.strictEqual(2 + 2, 2 + 2)` siempre pasa. Una prueba útil falla cuando el programa cambia de comportamiento: por eso el paso 2 (romper a propósito) no es un adorno, es la prueba de tus pruebas.
+
+## Fuentes
+
+- [Test runner | Node.js v24.22.0 Documentation](https://nodejs.org/docs/latest-v24.x/api/test.html) — consultado el 2026-10-19. Aporta `node:test`, el flag `node --test`, los patrones de ficheros de prueba y el código de salida `1` ante fallos.
+- [Assertion testing | Node.js v24.22.0 Documentation](https://nodejs.org/docs/latest-v24.x/api/assert.html) — consultado el 2026-10-19. Aporta el modo estricto `node:assert/strict`, `assert.strictEqual` y `assert.throws`.
+
+## Siguientes pasos
+
+- Siguiente lección del módulo: [l05 «Leer errores y depurar»](/curriculo/n0/m1/l05-leer-errores-y-depurar/), donde el rojo deja de ser un susto y pasa a ser un mapa.
+- Proyecto longitudinal: este par (función + pruebas) es la unidad de la que se construye la fase `f1`: el entregable del módulo exigirá que sus pruebas estén en verde.

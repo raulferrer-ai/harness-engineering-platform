@@ -1,0 +1,193 @@
+---
+import { getCollection, render } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import Breadcrumb from "../../../../components/nav/Breadcrumb.astro";
+import ModuleSidebar from "../../../../components/nav/ModuleSidebar.astro";
+import PrevNext from "../../../../components/nav/PrevNext.astro";
+import PageContainer from "../../../../components/ui/PageContainer.astro";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { paresDeNavegacion, rutaLeccion, rutaModulo, rutaNivel } from "../../../../lib/curriculum";
+import { CLAVE_PROGRESO } from "../../../../lib/progreso";
+
+export async function getStaticPaths() {
+  const lecciones = await getCollection("lecciones");
+  return lecciones.map((leccion) => {
+    const slug = leccion.id.split("/").at(-1) ?? "";
+    return {
+      params: { nivel: leccion.data.nivel, modulo: leccion.data.modulo, leccion: slug },
+      props: { leccion },
+    };
+  });
+}
+
+interface Props {
+  leccion: CollectionEntry<"lecciones">;
+}
+
+const { leccion } = Astro.props;
+const { Content } = await render(leccion);
+
+const slug = leccion.id.split("/").at(-1) ?? "";
+const rutaActual = rutaLeccion(leccion.data.nivel, leccion.data.modulo, slug);
+const idUnidad = `${leccion.data.nivel}/${leccion.data.modulo}/${slug}`;
+
+const niveles = await getCollection("niveles");
+const nivel = niveles.find((n) => n.id === leccion.data.nivel);
+const modulos = await getCollection("modulos");
+const modulo = modulos.find(
+  (m) => m.data.nivel === leccion.data.nivel && m.data.modulo === leccion.data.modulo,
+);
+
+// Pares «anterior / siguiente» entre las lecciones del mismo módulo, calculados
+// desde el campo `orden` (src/lib/curriculum.ts).
+const hermanas = (await getCollection("lecciones"))
+  .filter(
+    (otra) => otra.data.nivel === leccion.data.nivel && otra.data.modulo === leccion.data.modulo,
+  )
+  .map((otra) => ({
+    id: otra.id,
+    orden: otra.data.orden,
+    titulo: otra.data.titulo,
+    slug: otra.id.split("/").at(-1) ?? "",
+  }))
+  .sort((a, b) => a.orden - b.orden);
+
+const par = paresDeNavegacion(hermanas).find((p) => p.actual.id === leccion.id);
+const aEnlace = (unidad: { slug: string; titulo: string } | null) =>
+  unidad
+    ? {
+        href: rutaLeccion(leccion.data.nivel, leccion.data.modulo, unidad.slug),
+        titulo: unidad.titulo,
+      }
+    : null;
+
+const descripcion = leccion.data.resumen;
+const etiquetas: string[] = [];
+if (nivel) etiquetas.push(`Nivel ${nivel.id}`);
+if (modulo) etiquetas.push(`Módulo ${modulo.data.modulo}`);
+const meta = [
+  `${leccion.data.tiempoEstimado} min`,
+  `dificultad ${leccion.data.dificultad}`,
+  `actualizado el ${leccion.data.actualizado}`,
+];
+---
+
+<BaseLayout titulo={leccion.data.titulo} descripcion={descripcion} rutaActual={rutaActual}>
+  <PageContainer class="py-10">
+    <Breadcrumb
+      migas={[
+        { href: "/", etiqueta: "Inicio" },
+        { href: "/curriculo/", etiqueta: "Currículo" },
+        ...(nivel
+          ? [{ href: rutaNivel(nivel.id), etiqueta: `Nivel ${nivel.id} · ${nivel.data.titulo}` }]
+          : []),
+        ...(modulo
+          ? [
+              {
+                href: rutaModulo(modulo.data.nivel, modulo.data.modulo),
+                etiqueta: `${modulo.data.modulo} · ${modulo.data.titulo}`,
+              },
+            ]
+          : []),
+        { etiqueta: leccion.data.titulo },
+      ]}
+    />
+
+    <div class="mt-6 grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10">
+      <ModuleSidebar
+        nivel={leccion.data.nivel}
+        tituloNivel={nivel?.data.titulo ?? ""}
+        modulo={leccion.data.modulo}
+        tituloModulo={modulo?.data.titulo ?? ""}
+        rutaActual={rutaActual}
+        lecciones={hermanas}
+      />
+
+      <article class="min-w-0" data-pagefind-body>
+        <header>
+          <p class="label-mono">
+            {etiquetas.join(" · ")}
+            {leccion.data.tipo !== "leccion" && ` · ${leccion.data.tipo}`}
+          </p>
+          <h1 class="mt-2 max-w-[30ch] text-3xl sm:text-4xl">{leccion.data.titulo}</h1>
+          <p class="mt-3 max-w-[68ch] text-ink-soft">{leccion.data.resumen}</p>
+          <ul class="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-ink-faint">
+            {meta.map((dato) => (
+              <li>{dato}</li>
+            ))}
+          </ul>
+        </header>
+
+        <section class="mt-8 max-w-[68ch]" aria-labelledby="objetivos">
+          <h2 id="objetivos" class="text-xl">
+            Objetivos de aprendizaje
+          </h2>
+          <ol class="mt-2 list-decimal space-y-1 pl-5 text-ink-soft">
+            {leccion.data.objetivos.map((objetivo) => (
+              <li>{objetivo}</li>
+            ))}
+          </ol>
+        </section>
+
+        <div class="prose mt-8">
+          <Content />
+        </div>
+
+        {/* Progreso local (H4): el HTML estático no afirma nada —casilla
+            desmarcada y estado neutral—; la restauración y la escritura ocurren
+            en el navegador, sin servidor ni datos personales. */}
+        <div
+          class="mt-10 max-w-[68ch] rounded-lg border border-line bg-surface p-5"
+          data-pagefind-ignore
+        >
+          <label class="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              id="progreso-leccion"
+              data-progreso-toggle={idUnidad}
+              data-clave-progreso={CLAVE_PROGRESO}
+              class="mt-1 size-4 accent-accent"
+            />
+            <span>
+              <span class="font-medium">Marcar esta lección como completada</span>
+              <span class="mt-0.5 block text-sm text-ink-soft">
+                El progreso se guarda solo en este navegador (localStorage): sin cuenta, sin
+                servidor y sin datos personales.
+              </span>
+            </span>
+          </label>
+          <p data-progreso-error hidden class="mt-3 text-sm font-medium">
+            ⚠ No se pudo guardar el progreso en este navegador.
+          </p>
+          <script is:inline>
+            // Restauración antes del primer pintado: la casilla refleja lo
+            // guardado sin parpadeo y coincide con el HTML inicial.
+            (function () {
+              const control = /** @type {HTMLInputElement | null} */ (
+                document.getElementById("progreso-leccion")
+              );
+              if (!control) return;
+              try {
+                const clave = control.getAttribute("data-clave-progreso") ?? "";
+                const unidad = control.getAttribute("data-progreso-toggle") ?? "";
+                const datos = JSON.parse(window.localStorage.getItem(clave) || "null");
+                if (datos && datos[unidad] === true) control.checked = true;
+              } catch {
+                // Sin almacenamiento accesible: la casilla queda desmarcada.
+              }
+            })();
+          </script>
+        </div>
+
+        <PrevNext
+          anterior={aEnlace(par?.anterior ?? null)}
+          siguiente={aEnlace(par?.siguiente ?? null)}
+        />
+      </article>
+    </div>
+
+    <script>
+      import "../../../../scripts/progreso";
+    </script>
+  </PageContainer>
+</BaseLayout>

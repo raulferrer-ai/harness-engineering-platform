@@ -1,0 +1,119 @@
+---
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import Breadcrumb from "../../../components/nav/Breadcrumb.astro";
+import Notice from "../../../components/ui/Notice.astro";
+import PageContainer from "../../../components/ui/PageContainer.astro";
+import SectionHeading from "../../../components/ui/SectionHeading.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { ordenDeModulo, rutaModulo } from "../../../lib/curriculum";
+
+export async function getStaticPaths() {
+  const niveles = await getCollection("niveles");
+  return niveles.map((nivel) => ({ params: { nivel: nivel.id }, props: { nivel } }));
+}
+
+interface Props {
+  nivel: CollectionEntry<"niveles">;
+}
+
+const { nivel } = Astro.props;
+
+const modulos = (await getCollection("modulos"))
+  .filter((modulo) => modulo.data.nivel === nivel.id)
+  .sort((a, b) => ordenDeModulo(a.data.modulo) - ordenDeModulo(b.data.modulo));
+
+const todosNiveles = await getCollection("niveles");
+const prerrequisitos = nivel.data.prerrequisitos
+  .map((id) => todosNiveles.find((n) => n.id === id))
+  .filter((n): n is CollectionEntry<"niveles"> => n !== undefined);
+
+const descripcion = `${nivel.data.mision} ${nivel.data.pregunta}`;
+---
+
+<BaseLayout
+  titulo={nivel.data.titulo}
+  descripcion={descripcion}
+  rutaActual={`/curriculo/${nivel.id}/`}
+>
+  <PageContainer class="py-10">
+    <Breadcrumb
+      migas={[
+        { href: "/", etiqueta: "Inicio" },
+        { href: "/curriculo/", etiqueta: "Currículo" },
+        { etiqueta: `Nivel ${nivel.id}` },
+      ]}
+    />
+
+    <div class="mt-6">
+      <SectionHeading
+        nivel="h1"
+        eyebrow={`Nivel ${nivel.id}`}
+        titulo={nivel.data.titulo}
+        descripcion={nivel.data.mision}
+      />
+    </div>
+
+    <div class="mt-8 max-w-[62ch] border-t border-line pt-6">
+      <p class="label-mono">La pregunta que resuelve este nivel</p>
+      <p class="mt-1 text-lg">{nivel.data.pregunta}</p>
+    </div>
+
+    <section class="mt-8 max-w-[62ch]" aria-labelledby="prerrequisitos">
+      <h2 id="prerrequisitos" class="text-xl">
+        Prerrequisitos
+      </h2>
+      {prerrequisitos.length > 0 ? (
+        <ul class="mt-2 list-disc pl-5 text-ink-soft">
+          {prerrequisitos.map((previo) => (
+            <li>
+              <a href={`/curriculo/${previo.id}/`} class="hover:text-accent">
+                {previo.id} · {previo.data.titulo}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="mt-2 text-ink-soft">Ninguno: puedes empezar la academia en este nivel.</p>
+      )}
+    </section>
+
+    <section class="mt-10" aria-labelledby="modulos">
+      <h2 id="modulos" class="text-xl">
+        Módulos del nivel <span class="font-mono text-accent">{nivel.id}</span>
+      </h2>
+      {modulos.length > 0 ? (
+        <ol class="mt-3 border-t border-line">
+          {modulos.map((modulo) => (
+            <li class="border-b border-line py-3.5">
+              <a
+                href={rutaModulo(nivel.id, modulo.data.modulo)}
+                class="group flex flex-wrap items-baseline gap-x-3 gap-y-1"
+              >
+                <span class="font-mono text-sm text-accent">{modulo.data.modulo}</span>
+                <span class="font-semibold group-hover:text-accent">{modulo.data.titulo}</span>
+              </a>
+              <p class="mt-1 text-sm text-ink-soft">
+                <span class="font-medium text-ink">Entregable:</span> {modulo.data.entregable}
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div class="mt-3">
+          <Notice titulo="Módulos en preparación">
+            Este nivel todavía no tiene módulos publicados. Su mapa se añadirá cuando las fichas
+            superen la revisión editorial.
+          </Notice>
+        </div>
+      )}
+    </section>
+
+    <section class="mt-10 max-w-[62ch]" aria-labelledby="criterio">
+      <h2 id="criterio" class="text-xl">
+        Cómo se aprueba este nivel
+      </h2>
+      <p class="mt-2 text-ink-soft">{nivel.data.criterio}</p>
+    </section>
+  </PageContainer>
+</BaseLayout>

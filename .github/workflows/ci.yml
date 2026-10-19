@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Ejecución manual: permite repetir la validación sin un nuevo push/PR
+  # (útil para la prueba de fallo deliberado del gate, fase de verificación).
+  workflow_dispatch:
+
+# Permisos mínimos: el CI solo lee el repositorio (nada de escritura ni tokens).
+permissions:
+  contents: read
+
+# Cancela ejecuciones obsoletas del mismo push o PR: no se compila dos veces
+# lo que ya no interesará cuando llegue el siguiente commit.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Comprobaciones y compilación
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Node (versión fijada en .nvmrc)
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias (reproducible)
+        run: npm ci
+
+      # Paso visible de verificación: tipos, lint, formato y tests; falla rápido
+      # antes de compilación alguna si algo no está al nivel del gate.
+      - name: Comprobaciones (tipos, lint, formato, tests)
+        run: npm run verify
+
+      # Gate de despliegue: exactamente el comando que ejecutará Cloudflare Pages
+      # (verify && build && links && pagefind:check). La compilación de producción
+      # se ejecuta UNA sola vez (dentro de este paso); verify se repite porque el
+      # paso debe ser idéntico al comando de despliegue (paridad CI ↔ despliegue).
+      - name: Gate de despliegue (build:deploy)
+        run: npm run build:deploy

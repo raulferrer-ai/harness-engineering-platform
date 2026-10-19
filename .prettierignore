@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.astro/
+coverage/
+package-lock.json
+
+# Ejemplos educativos de las lecciones (.js): se comprueban ejecutándolos
+# (tests de contenido H3+), no con las herramientas de estilo del proyecto.
+# Un ejemplo contiene a propósito errores sintácticos que Prettier no parsea.
+src/content/**/*.js
+
+# Documentos de planificación y visión: se editan a mano y no se re-formatean.
+VISION.md
+AGENTS.md
+TECH_STACK.md
+IMPLEMENTATION_PLAN.md
+CURRICULUM.md

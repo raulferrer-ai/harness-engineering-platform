@@ -1,0 +1,54 @@
+---
+import "../styles/global.css";
+import SiteHeader from "../components/nav/SiteHeader.astro";
+import SiteFooter from "../components/nav/SiteFooter.astro";
+
+/**
+ * Plantilla base de todas las páginas: metadatos, identidad semántica,
+ * enlace de salto, cabecera, área de contenido y pie.
+ */
+interface Props {
+  titulo: string;
+  descripcion: string;
+  /** Ruta actual, para el estado activo de la navegación. */
+  rutaActual?: string;
+  /** Marca la página de inicio (título sin sufijo, og:type). */
+  esInicio?: boolean;
+  /** Evita indexar la página (solo la 404 en H2). */
+  noindex?: boolean;
+}
+
+const { titulo, descripcion, rutaActual = "/", esInicio = false, noindex = false } = Astro.props;
+
+const tituloCompleto = esInicio
+  ? "Harness Engineering Platform"
+  : `${titulo} · Harness Engineering Platform`;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{tituloCompleto}</title>
+    <meta name="description" content={descripcion} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#f8f7f4" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={tituloCompleto} />
+    <meta property="og:description" content={descripcion} />
+    <meta property="og:locale" content="es_ES" />
+    <slot name="head" />
+  </head>
+  <body class="flex min-h-dvh flex-col">
+    <a class="skip-link" href="#contenido">
+      Saltar al contenido principal
+    </a>
+    <SiteHeader rutaActual={rutaActual} />
+    <main id="contenido" class="flex-1">
+      <slot />
+    </main>
+    <SiteFooter />
+  </body>
+</html>

@@ -1,0 +1,181 @@
+---
+/**
+ * Navegación lateral por módulo (hito H4, IMPLEMENTATION_PLAN.md §5.2).
+ *
+ * - Escritorio: árbol «nivel → módulo → lecciones» con la lección activa
+ *   marcada `aria-current="page"` y las lecciones del módulo actual
+ *   expandidas; los módulos sin lecciones se declaran como tales (nunca como
+ *   completos) y solo se enlazan rutas que existen.
+ * - Móvil: lista compacta de las lecciones del módulo actual (mismo marcado;
+ *   una variante está siempre oculta con `display:none`, así que los lectores
+ *   de pantalla y el teclado solo ven una).
+ * - Incorpora el resumen y las marcas del progreso local; el HTML estático
+ *   muestra un estado neutral («—», marcas ocultas) hasta que el script
+ *   `src/scripts/progreso.ts` lo pinta en el navegador.
+ */
+import { getCollection } from "astro:content";
+import { ordenDeModulo, rutaLeccion, rutaModulo, rutaNivel } from "../../lib/curriculum";
+
+interface Leccion {
+  slug: string;
+  orden: number;
+  titulo: string;
+}
+
+interface Props {
+  nivel: string;
+  tituloNivel: string;
+  modulo: string;
+  tituloModulo: string;
+  /** Ruta de la página actual, para `aria-current`. */
+  rutaActual: string;
+  /** Lecciones del módulo actual, ordenadas por `orden`. */
+  lecciones: Leccion[];
+}
+
+const { nivel, tituloNivel, modulo, tituloModulo, rutaActual, lecciones } = Astro.props;
+
+const modulosDelNivel = (await getCollection("modulos"))
+  .filter((m) => m.data.nivel === nivel)
+  .sort((a, b) => ordenDeModulo(a.data.modulo) - ordenDeModulo(b.data.modulo))
+  .map((m) => ({
+    modulo: m.data.modulo,
+    titulo: m.data.titulo,
+    ruta: rutaModulo(m.data.nivel, m.data.modulo),
+    esActual: m.data.modulo === modulo,
+  }));
+
+const leccionesPorModulo = new Map<string, number>();
+for (const otra of await getCollection("lecciones")) {
+  const clave = `${otra.data.nivel}/${otra.data.modulo}`;
+  leccionesPorModulo.set(clave, (leccionesPorModulo.get(clave) ?? 0) + 1);
+}
+
+const items = lecciones.map((l) => {
+  const href = rutaLeccion(nivel, modulo, l.slug);
+  return {
+    href,
+    id: `${nivel}/${modulo}/${l.slug}`,
+    etiqueta: `l${String(l.orden).padStart(2, "0")}`,
+    titulo: l.titulo,
+    activa: href === rutaActual,
+  };
+});
+
+const unidades = items.map((l) => l.id).join(",");
+---
+
+<div>
+  {/* Móvil: solo las lecciones del módulo actual (oculto desde lg). */}
+  <nav
+    class="lg:hidden"
+    aria-label={`Lecciones del módulo ${modulo}`}
+    data-progreso-unidades={unidades}
+    data-pagefind-ignore
+  >
+    <div class="rounded-lg border border-line bg-surface p-4">
+      <p class="label-mono">Módulo {modulo}</p>
+      <p class="mt-1 text-sm font-semibold">{tituloModulo}</p>
+      <ol class="mt-3 space-y-1">
+        {items.map((l) => (
+          <li>
+            <a
+              href={l.href}
+              data-astro-prefetch
+              aria-current={l.activa ? "page" : undefined}
+              class:list={[
+                "flex items-baseline gap-2 rounded px-2 py-1 text-sm hover:bg-accent-soft",
+                l.activa ? "bg-accent-soft font-medium text-ink" : "text-ink-soft hover:text-ink",
+              ]}
+            >
+              <span class="font-mono text-xs text-ink-faint">{l.etiqueta}</span>
+              <span>{l.titulo}</span>
+              <span data-progreso-marca={l.id} hidden class="ml-auto text-accent">
+                <span aria-hidden="true">✓</span>
+                <span class="sr-only">completada</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ol>
+      <p class="mt-3 border-t border-line pt-3 text-xs text-ink-soft">
+        Progreso en este navegador:
+        <span data-progreso-resumen class="font-medium text-ink">
+          —
+        </span>
+      </p>
+    </div>
+  </nav>
+
+  {/* Escritorio: árbol del nivel con el módulo actual expandido. */}
+  <div class="hidden lg:block lg:sticky lg:top-16">
+    <nav
+      aria-label={`Navegación del nivel ${nivel}`}
+      data-progreso-unidades={unidades}
+      class="rounded-lg border border-line bg-surface p-4"
+      data-pagefind-ignore
+    >
+      <p class="label-mono">
+        <a href={rutaNivel(nivel)} class="hover:text-accent">
+          Nivel {nivel} · {tituloNivel}
+        </a>
+      </p>
+      <ol class="mt-3 space-y-4">
+        {modulosDelNivel.map((m) => (
+          <li>
+            <a
+              href={m.ruta}
+              class:list={[
+                "flex items-baseline gap-2 rounded px-2 py-1 hover:bg-accent-soft",
+                m.esActual ? "bg-accent-soft" : "",
+              ]}
+            >
+              <span class="font-mono text-xs text-ink-faint">{m.modulo}</span>
+              <span class:list={["text-sm", m.esActual ? "font-medium text-ink" : "text-ink-soft"]}>
+                {m.titulo}
+              </span>
+            </a>
+            {m.esActual ? (
+              <ol class="mt-1 ml-3 space-y-1 border-l border-line pl-3">
+                {items.map((l) => (
+                  <li>
+                    <a
+                      href={l.href}
+                      data-astro-prefetch
+                      aria-current={l.activa ? "page" : undefined}
+                      class:list={[
+                        "flex items-baseline gap-2 rounded px-2 py-1 text-sm hover:bg-accent-soft",
+                        l.activa
+                          ? "bg-accent-soft font-medium text-ink"
+                          : "text-ink-soft hover:text-ink",
+                      ]}
+                    >
+                      <span class="font-mono text-xs text-ink-faint">{l.etiqueta}</span>
+                      <span>{l.titulo}</span>
+                      <span data-progreso-marca={l.id} hidden class="ml-auto text-accent">
+                        <span aria-hidden="true">✓</span>
+                        <span class="sr-only">completada</span>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            ) : (leccionesPorModulo.get(`${nivel}/${m.modulo}`) ?? 0) > 0 ? (
+              <p class="ml-9 text-xs text-ink-faint">
+                {leccionesPorModulo.get(`${nivel}/${m.modulo}`)} lecciones
+              </p>
+            ) : (
+              <p class="ml-9 text-xs text-ink-faint">Sin lecciones publicadas</p>
+            )}
+          </li>
+        ))}
+      </ol>
+      <p class="mt-4 border-t border-line pt-3 text-xs text-ink-soft">
+        Progreso del módulo actual:
+        <span data-progreso-resumen class="font-medium text-ink">
+          —
+        </span>
+      </p>
+    </nav>
+  </div>
+</div>

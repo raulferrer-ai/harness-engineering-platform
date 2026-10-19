@@ -1,0 +1,167 @@
+---
+titulo: "Primeros pasos con Git"
+resumen: "Git convierte tu carpeta en un historial de instantáneas con nombres: puedes ver qué cambió, cuándo y por qué, y deshacer sin miedo. Inicias un repositorio, creas commits con mensajes útiles, lees diffs y ejecutas un revert real."
+nivel: "n0"
+modulo: "m1"
+orden: 7
+dificultad: "intermedio"
+tiempoEstimado: 60
+objetivos:
+  - "Inicializar un repositorio y registrar la identidad de quien commitea"
+  - "Crear commits con mensajes que expliquen el porqué"
+  - "Leer el historial con git log y los cambios con git diff"
+  - "Crear una rama, fusionarla y deshacer un commit con git revert"
+prerrequisitos:
+  - "n0/m1/l06-como-verificar-lo-que-genera-una-ia"
+actualizado: "2026-10-19"
+tags:
+  - "git"
+  - "versiones"
+  - "commits"
+fuentes:
+  - titulo: "git-revert | Git Reference Manual"
+    url: "https://git-scm.com/docs/git-revert"
+    fecha: "2026-10-19"
+  - titulo: "Pro Git book (git-scm.com)"
+    url: "https://git-scm.com/book/en/v2"
+    fecha: "2026-10-19"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Git guarda **instantáneas** de tu proyecto y les pone un mensaje. Tú decides cuándo guardar (`git commit`), qué entra (`git add`) y cómo se cuenta el cambio (`git log`, `git diff`). Dos capacidades lo vuelven imprescindible para verificar: el **historial** (quién cambió qué y por qué) y la **reversión** (`git revert` crea un commit que deshace otro, sin borrar la historia). En esta lección recorres las dos con un repositorio real y terminas con cinco commits y un revert demostrados.
+
+## Conceptos
+
+**Repositorio, área de preparación, commits.** `git init` convierte el directorio en repositorio. `git add` mueve cambios al **área de preparación** (_staging_): es la lista de lo que entrará en el próximo commit. `git commit` guarda una instantánea de lo preparado con un mensaje. La separación importa: puedes preparar solo parte de lo que has tocado y commitear con intención.
+
+**Identidad.** Cada commit registra autor y fecha. La primera vez que commiteas en un equipo, Git puede avisarte de que tu identidad se ha configurado automáticamente a partir de tu usuario y equipo (salida real de Git 2.50.1):
+
+```text
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly.
+```
+
+Si Git no puede deducir una identidad utilizable (algunos entornos de servidores y CI), **se niega a crear el commit** y te pide configurarla. En proyectos reales se fija por repositorio:
+
+```sh
+git config user.name "Tu Nombre"
+git config user.email "tu@ejemplo.com"
+```
+
+**Mensajes que explican el porqué.** El historial lo leen personas (incluida la tuya dentro de seis meses). «Mejora el saludo» documenta; «cambios» o «cosas» no. Formato práctico del módulo: imperativo, una línea, lo que hace y por qué si no se deduce.
+
+**Diffs.** `git diff` muestra lo **sin preparar**; `git diff HEAD~1 HEAD` compara dos commits. Leer un diff es el 80 % de revisar código: cambia la forma de mirar, de «cómo está el fichero» a «qué se movió y por qué».
+
+**Ramas y fusión.** Una rama es una línea de trabajo paralela (`git checkout -b correccion`); `git merge` la une. Trabajar en rama es barato y es lo que harás siempre que un cambio merezca revisión antes de entrar (verás el flujo completo en el módulo `n0/m5`).
+
+**Deshacer sin mentir: `revert`.** `git revert` **crea un commit nuevo** que invierte los cambios de otro ([git-revert], consultada el 2026-10-19). El historial queda intacto: se ve que algo se hizo y luego se deshizo, con fechas. Es el deshacer seguro en repositorios compartidos; la alternativa (`git reset`) reescribe historia y se reserva para situaciones que dominarás más adelante (el libro [Pro Git] lo trata con detalle).
+
+## Ejercicio
+
+Sobre tu carpeta `mi-proyecto` de l03: inicializa el repositorio y crea **cinco commits con mensajes útiles** (por ejemplo: crear `principal.js` con un comentario; añadir la función; añadir su prueba; documentar el proyecto en el README; pulir mensajes), y demuestra un `git revert` sobre uno de ellos.
+
+Esto se cumple cuando:
+
+- `git log --oneline` muestra cinco commits tuyos con mensajes descriptivos;
+- el revert está **demostrado**: el historial contiene el commit de revert y el contenido vuelve al estado anterior;
+- `git status` termina limpio (sin cambios pendientes) y puedes explicar qué hace cada comando que ejecutaste.
+
+Pista: antes de cada commit, ejecuta `git status` y `git diff`: commitea lo que crees que has entendido, no lo que ocurra a estar en la carpeta.
+
+## Solución explicada
+
+El recorrido completo está automatizado en `ejemplos/demo-git.sh` (ejecutado el 2026-10-19 con Git 2.50.1; usa un repositorio temporal y lo borra). Salida real, abreviada (los hashes varían en cada ejecución):
+
+```text
+$ git log --oneline
+8656199 Mejora el saludo
+36f7d5b Añade saludo.txt
+
+$ git diff HEAD~1 HEAD -- saludo.txt
+diff --git a/saludo.txt b/saludo.txt
+--- a/saludo.txt
++++ b/saludo.txt
+@@ -1 +1 @@
+-hola
++hola mundo
+
+$ git revert --no-edit HEAD
+[main 245c934] Revert "Añade despedida.txt"
+ 1 file changed, 1 deletion(-)
+ delete mode 100644 despedida.txt
+
+$ git log --oneline
+245c934 Revert "Añade despedida.txt"
+8c73136 Añade despedida.txt
+8656199 Mejora el saludo
+36f7d5b Añade saludo.txt
+
+$ ls
+saludo.txt
+```
+
+Lectura de las tres piezas clave:
+
+1. El diff `-hola` / `+hola mundo` es el contenido exacto del commit «Mejora el saludo»: menos una línea, más otra.
+2. Tras el revert, el historial tiene **siete entradas en la demo completa**: el commit original y su revert conviven. Nada se borra; se documenta.
+3. `ls` confirma el efecto: `despedida.txt` ya no está, aunque el commit que lo añadió sigue en el historial.
+
+Errores típicos al resolverlo:
+
+- **Commitear a ciegas.** `git add .` seguido de `git commit` guarda basura, ficheros temporales y cambios que no revisaste. Prepara con mirada: `git add fichero-concreto`.
+- **Mensajes que no dicen nada.** «arreglos», «update», «final». Si no sabes qué poner, es que el commit quiere ser más pequeño.
+- **Revert sobre una fusión sin más contexto.** Revertir un commit de fusión requiere indicar a qué padre se aplica (`-m`); Git lo rechazará si falta. Practica el revert sobre commits normales, como la demo.
+- **Confundir revert con reset.** Revert añade; reset reescribe. En duda, revert.
+
+Una alternativa válida a `git revert --no-edit` es `git revert HEAD` sin la opción, que abre el editor con el mensaje por defecto para que lo ajustes. Útil cuando el porqué merece una frase más.
+
+## Cómo verificarlo
+
+1. Ejecuta la demo completa y léela con calma (desde la carpeta `ejemplos/`):
+
+   ```sh
+   sh demo-git.sh
+   ```
+
+   Observa: la salida de la sección anterior (hashes distintos cada vez; el contenido y los mensajes, idénticos).
+
+2. Repite el recorrido en tu proyecto `mi-proyecto`:
+
+   ```sh
+   cd mi-proyecto
+   git init
+   git config user.name "Tu Nombre"
+   git config user.email "tu@ejemplo.com"
+   git add src/principal.js
+   git commit -m "Añade la estructura inicial de principal.js"
+   git log --oneline
+   ```
+
+   Observa: tu primer commit aparece con su hash y tu mensaje. Continúa hasta los cinco commits y cierra con un `git revert` tal como hizo la demo.
+
+3. Comprueba el estado final: `git status` debe decir que no hay cambios pendientes, y `git log --oneline` debe contar cinco commits más el revert.
+
+## Errores comunes
+
+**`fatal: not a git repository`.** Estás fuera del repositorio (o Git no está instalado: comprueba con `git --version`). `pwd` y `git rev-parse --show-toplevel` te dicen dónde estás.
+
+**`\*** Please tell me who you are`(entornos sin identidad).** Git no puede completar el commit sin autor. Configura`user.name`y`user.email` como en Conceptos y reintenta.
+
+**Ficheros «fantasma» en `git status`.** Son ficheros que existe en tu carpeta pero Git no los sigue (o viceversa). No los borres a ciegas: mira primero qué son (`.env` con secretos, por ejemplo, jamás se commitea: lo verás en `n7`).
+
+**Pensar que Git es una copia de seguridad en la nube.** El repositorio es local. Su valor aquí es historial y reversión; la sincronización con remotos llega en el módulo `n0/m5`.
+
+## Fuentes
+
+- [git-revert | Git Reference Manual](https://git-scm.com/docs/git-revert) — consultado el 2026-10-19. Aporta la semántica de `git revert`: crea un commit que aplica el inverso de uno o más commits, sin reescribir historia.
+- [Pro Git book | git-scm.com](https://git-scm.com/book/en/v2) — consultado el 2026-10-19. Referencia oficial y libre sobre conceptos (ramas, fusión, historial) usados en esta lección. Todas las salidas mostradas son de ejecuciones propias con Git 2.50.1.
+
+## Siguientes pasos
+
+- **Módulo completo.** Con l07 has recorrido el ciclo entero de `n0/m1`: entorno verificado (l02), estructura (l03), programa con pruebas (l04), lectura de errores (l05), verificación de código asistido (l06) e historial (l07).
+- **Entrega del módulo** (puerta a `n1`): una carpeta con el programa, sus pruebas en verde, el historial de Git y una nota breve de «qué verifiqué y qué no puedo afirmar». El criterio se revisa ejecutando, no mirando.
+- Siguiente módulo del nivel: [n0-m2 «Tipos, variables y funciones»](/curriculo/n0/m2/) (sus lecciones se publican en la siguiente fase de producción; la ficha del módulo ya existe con su objetivo y entregable).
+- Proyecto longitudinal: la fase `f1` del [proyecto](/) se cierra con este mismo patrón a mayor escala.

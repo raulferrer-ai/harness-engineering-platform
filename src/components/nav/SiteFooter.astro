@@ -1,0 +1,41 @@
+---
+/**
+ * Pie de página: identidad, navegación y condiciones del proyecto.
+ */
+const anio = new Date().getFullYear();
+
+const enlaces = [
+  { href: "/", etiqueta: "Inicio" },
+  { href: "/curriculo/", etiqueta: "Currículo" },
+  { href: "/#proyecto", etiqueta: "Proyecto longitudinal" },
+  { href: "/#enfoque", etiqueta: "Enfoque" },
+];
+---
+
+<footer class="mt-16 border-t border-line" data-pagefind-ignore>
+  <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div class="flex flex-col gap-8 sm:flex-row sm:justify-between">
+      <div class="max-w-[42ch]">
+        <p class="font-semibold">Harness Engineering Platform</p>
+        <p class="mt-1 text-sm text-ink-soft">
+          Academia abierta de ingeniería de software asistida por inteligencia artificial.
+        </p>
+      </div>
+      <nav aria-label="Pie de página">
+        <ul class="space-y-1 text-sm">
+          {enlaces.map((enlace) => (
+            <li>
+              <a href={enlace.href} class="text-ink-soft hover:text-ink">
+                {enlace.etiqueta}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+    <div class="mt-8 flex flex-col gap-2 border-t border-line pt-6 text-xs text-ink-soft sm:flex-row sm:justify-between">
+      <p>Gratuito · Sin registro · Sin cookies · Contenido en español</p>
+      <p>El currículo se publica módulo a módulo, con revisión editorial. © {anio}</p>
+    </div>
+  </div>
+</footer>

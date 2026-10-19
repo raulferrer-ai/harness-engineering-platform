@@ -1,0 +1,134 @@
+---
+titulo: "Instalar el entorno sin sorpresas"
+resumen: "Un entorno reproducible es el que puedes describir y volver a montar: Node, un editor y un fichero con las versiones esperadas. Aquí instalas Node, eliges editor y dejas tu entorno escrito y comprobado con un script."
+nivel: "n0"
+modulo: "m1"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Instalar Node.js y comprobar la versión instalada con node --version"
+  - "Distinguir la versión de Node de la de npm y comprobar ambas"
+  - "Dejar el entorno escrito en un fichero de versiones esperadas"
+  - "Detectar y resolver un desajuste de versión con un comprobador"
+prerrequisitos:
+  - "n0/m1/l01-que-es-programar"
+actualizado: "2026-10-19"
+tags:
+  - "entorno"
+  - "node"
+  - "versiones"
+fuentes:
+  - titulo: "Download Node.js | Node.js (página oficial de descargas)"
+    url: "https://nodejs.org/en/download"
+    fecha: "2026-10-19"
+  - titulo: "nvm — Node Version Manager (README)"
+    url: "https://github.com/nvm-sh/nvm"
+    fecha: "2026-10-19"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Instala Node.js desde su página oficial de descargas, usando la versión **LTS** (soporte largo). Comprueba la instalación con `node --version` y anota la versión exacta en un fichero `versiones-esperadas.txt`. Ese fichero es el contrato de tu proyecto: cualquiera (incluido tu yo del futuro) puede comprobar que su entorno coincide antes de ejecutar nada. En esta lección dejas ese contrato escrito y lo verificas con un comprobador de 30 líneas.
+
+## Conceptos
+
+**Node.js es el programa que ejecuta tus ficheros `.js` desde la terminal.** En la lección anterior ya lo usaste (`node saludo.js`); ahora aseguramos de dónde salió y qué versión tiene. La página oficial de descargas ofrece instaladores para Windows, macOS y Linux, y distingue entre la versión **Current** (cambios frecuentes) y la **LTS** (_Long Term Support_, soporte y correcciones durante años). La documentación de Node que consultamos para esta lección corresponde a la línea **24.x, marcada como LTS** ([Download Node.js], consultada el 2026-10-19). Regla práctica: para trabajar, instala LTS.
+
+**Node y npm son dos cosas distintas.** `node` ejecuta JavaScript; `npm` es su gestor de paquetes, que viene incluido en la instalación. Se comprueban por separado. En el entorno con el que está verificado este módulo (2026-10-19): Node `v24.22.0` y npm `11.19.1`.
+
+**Gestores de versiones: nvm como opción.** Si quieres convivir con varios proyectos que usan versiones distintas de Node, un gestor como **nvm** te permite instalar varias y cambiar entre ellas ([nvm — Node Version Manager], consultado el 2026-10-19). No es obligatorio: el instalador oficial basta. Lo que sí es obligatorio es **saber qué versión tienes**.
+
+**El editor da igual; el criterio no.** Cualquier editor de texto funciona (VS Code, Neovim, el que prefieras): este currículo no depende de ninguno en concreto. Elige uno, actívalo desde la terminal (`code .`, `nvim .`, …) y sigue.
+
+**El fichero de versiones es el contrato.** En vez de recordar de memoria qué necesitas, lo escribes:
+
+```text
+# versiones-esperadas.txt
+node=24.22.0
+```
+
+Tus proyectos reales tendrán uno propio con **tu** versión; el de los ejemplos de este módulo fija la versión con la que está verificado todo su contenido.
+
+## Ejercicio
+
+Crea en la carpeta de tu proyecto (o junto a los ejemplos) un fichero `versiones-esperadas.txt` con la versión de Node que instalaste, y ejecuta el comprobador `ejemplos/comprobar-entorno.js` para confirmar que tu entorno cumple el contrato.
+
+Esto se cumple cuando:
+
+- `node --version` imprime la versión que anotaste;
+- `node comprobar-entorno.js` termina con `OK` y código de salida `0`;
+- si no coincide, corriges la instalación o el fichero **hasta que ambos digan lo mismo**, sin dejarlo «para luego».
+
+Pista: el comprobador admite una ruta opcional como argumento (`node comprobar-entorno.js mi-fichero.txt`), así que puedes probar también el caso de fallo con un fichero temporal que declare una versión vieja.
+
+## Solución explicada
+
+La salida real del comprobador con el fichero de los ejemplos (ejecutado el 2026-10-19 con Node v24.22.0) es:
+
+```text
+OK: Node 24.22.0 coincide con la versión esperada.
+```
+
+Cómo funciona el comprobador, en tres ideas:
+
+1. Lee el fichero, descarta líneas vacías y comentarios (`#`) y separa `clave=valor`.
+2. Pregunta a Node por su versión con `process.versions.node` (sin `v` inicial).
+3. Compara los textos: si difieren, imprime ambas versiones y termina con código de salida `1`. Que un programa pueda **fallar a propósito** es una feature: a los scripts de comprobación les gusta el rojo.
+
+Errores típicos al resolverlo:
+
+- **Comparar solo la versión mayor** («tengo 24, vale»). El contrato es por versión exacta: dos `24.x` distintas pueden comportarse distinto. El comprobador compara el texto completo, a propósito.
+- **Copiar la versión de los ejemplos sin mirar la tuya.** Si instalaste otra, es **tu** fichero el que debe llevar tu versión; el de los ejemplos describe el entorno de verificación de estas lecciones.
+- **Escribir `v24.22.0` con la `v`.** `process.versions.node` no la incluye; la comparación fallaría. Si te sale con `v`, quítala.
+
+Una alternativa válida es guardar las versiones en el propio `package.json` con `engines` (lo verás en módulos posteriores). El principio es el mismo: el entorno se declara, no se supone.
+
+## Cómo verificarlo
+
+1. Comprueba tus versiones (ejecutado el 2026-10-19 con el entorno verificado del módulo):
+
+   ```sh
+   node --version
+   npm --version
+   ```
+
+   Observa: `v24.22.0` y `11.19.1`. Las tuyas pueden ser otras (LTS reciente); lo importante es que las conozcas y las anotes.
+
+2. Verifica el contrato desde la carpeta `ejemplos/`:
+
+   ```sh
+   node comprobar-entorno.js
+   ```
+
+   Debe aparecer la línea `OK: …` de la sección anterior.
+
+3. Comprueba que el comprobador **sabe fallar**: crea un fichero con una versión antigua y repítelo:
+
+   ```sh
+   printf 'node=20.0.0\n' > /tmp/esperadas-antiguas.txt
+   node comprobar-entorno.js /tmp/esperadas-antiguas.txt; echo "código de salida: $?"
+   ```
+
+   Salida real: `Distinta: instalada 24.22.0, esperada 20.0.0.` y `código de salida: 1`. Un comprobador que no puede fallar no está comprobando nada.
+
+## Errores comunes
+
+**`node: command not found`.** Node no está instalado en esa terminal o no está en tu `PATH`. Después de instalar, **abre una terminal nueva** y reintenta. Si usaste nvm, comprueba que su inicialización está en tu perfil de shell según indica su README.
+
+**El comprobador dice `Distinta` aunque acabas de instalar Node.** Dos causas frecuentes: hay varias versiones instaladas y la terminal usa otra (reabrérla o revisa el gestor), o escribiste en el fichero una versión distinta a la que instalaste. El mensaje te da las dos cifras: compáralas.
+
+**Confundir npm con Node.** `npm --version` no prueba que Node esté bien: son programas distintos. Comprueba los dos.
+
+**«Funciona en mi máquina» sin más.** Es exactamente lo que este fichero evita: si tu compañero (o tu servidor) tiene otra versión, el comprobador lo dirá antes de que nada falle de formas misteriosas. Es el primer hábito de verificación del módulo.
+
+## Fuentes
+
+- [Download Node.js | Node.js](https://nodejs.org/en/download) — consultada el 2026-10-19. Aporta los instaladores oficiales por plataforma y la distinción entre Current y LTS (la documentación consultada para este módulo es de la línea 24.x LTS).
+- [nvm — Node Version Manager (README)](https://github.com/nvm-sh/nvm) — consultado el 2026-10-19. Aporta la instalación de varios versiones de Node y el uso del fichero `.nvmrc` para fijar la versión de un proyecto.
+
+## Siguientes pasos
+
+- Siguiente lección del módulo: [l03 «Terminal, rutas y archivos»](/curriculo/n0/m1/l03-terminal-rutas-y-archivos/), donde creas la estructura de un proyecto desde cero y la verificas.
+- Proyecto longitudinal: la fase `f1` empieza con el repositorio del alumno; este fichero de versiones será su primera declaración reproducible.

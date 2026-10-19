@@ -1,0 +1,209 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageContainer from "../components/ui/PageContainer.astro";
+import SectionHeading from "../components/ui/SectionHeading.astro";
+import Card from "../components/ui/Card.astro";
+import ButtonLink from "../components/ui/ButtonLink.astro";
+import Progression from "../components/nav/Progression.astro";
+import { fasesProyecto } from "../lib/curriculum";
+
+const descripcion =
+  "Academia abierta y gratuita para aprender a desarrollar software asistido por inteligencia artificial: desde los fundamentos de la programación hasta harnesses, agentes y sistemas multiagente verificables.";
+
+const rutasDeAprendizaje = [
+  {
+    kicker: "Fundamentos",
+    titulo: "Programar y verificar",
+    texto:
+      "Escribir, ejecutar y comprobar programas: tipos, funciones, pruebas, Git y cómo se sirve una página web. Es el punto de partida si nunca has programado.",
+  },
+  {
+    kicker: "Asistido por IA",
+    titulo: "Trabajar con asistentes sin perder el control",
+    texto:
+      "Instrucciones y contexto mínimo, revisión del diff, especificaciones y reglas del repositorio. Aprender a usar modelos de código sin creerles sin comprobar.",
+  },
+  {
+    kicker: "Ingeniería agéntica",
+    titulo: "Diseñar sistemas fiables alrededor de modelos",
+    texto:
+      "Harnesses con permisos y presupuestos, agentes supervisados, sistemas multiagente, evaluación, seguridad, observabilidad y despliegue.",
+  },
+];
+
+const principios = [
+  {
+    titulo: "Aprender haciendo",
+    texto:
+      "Cada módulo termina en algo ejecutable, comprobable o revisable. Lo que no se puede verificar, no se da por aprendido.",
+  },
+  {
+    titulo: "Verificar el código que genera la IA",
+    texto:
+      "Es una competencia que se practica desde la primera lección: ejecutar las pruebas, leer el diff y descartar lo que no se sostiene.",
+  },
+  {
+    titulo: "Ejercicios con criterios de verificación",
+    texto:
+      "Cada ejercicio indica cómo comprobar que está resuelto, con comandos concretos que tú ejecutas y resultados que puedes observar.",
+  },
+  {
+    titulo: "Independiente de proveedores",
+    texto:
+      "Enseñamos conceptos y contratos; las herramientas concretas se citan como ejemplos fechados y con fuente, nunca como requisito.",
+  },
+  {
+    titulo: "Fuentes verificables",
+    texto:
+      "Todo dato que cambia (versiones, límites, capacidades) lleva su fuente y su fecha de consulta.",
+  },
+  {
+    titulo: "Gratuito y sin registro",
+    texto: "Sin cuentas, sin cookies y sin coste. Todo el contenido se lee con o sin JavaScript.",
+  },
+];
+---
+
+<BaseLayout
+  titulo="Harness Engineering Platform"
+  descripcion={descripcion}
+  rutaActual="/"
+  esInicio={true}
+>
+  <!-- Propuesta de valor -->
+  <section class="border-b border-line">
+    <PageContainer class="pt-14 pb-16 sm:pt-20">
+      <p class="label-mono">Academia abierta · gratuita · sin registro</p>
+      <h1 class="mt-4 max-w-[22ch] text-4xl sm:text-5xl">
+        Ingeniería de software asistida por IA, desde cero hasta nivel experto.
+      </h1>
+      <p class="mt-6 max-w-[62ch] text-lg text-ink-soft">
+        Aprende a programar con asistentes y a diseñar los sistemas que lo hacen fiable: contexto,
+        especificación, permisos, pruebas, evaluación y supervisión humana.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <ButtonLink href="/curriculo/">Ver el itinerario</ButtonLink>
+        <ButtonLink href="/#enfoque" variant="secondary">
+          Cómo enseñamos
+        </ButtonLink>
+      </div>
+      <p class="mt-6 text-sm text-ink-soft">En español. Sin registro, sin cookies y sin coste.</p>
+    </PageContainer>
+  </section>
+
+  <!-- Qué aprenderá el alumno -->
+  <section class="border-b border-line">
+    <PageContainer class="py-14">
+      <SectionHeading
+        eyebrow="Qué aprenderás"
+        titulo="Tres etapas, un mismo criterio: verificar antes de creer"
+      />
+      <div class="mt-8 grid gap-4 sm:grid-cols-3">
+        {rutasDeAprendizaje.map((ruta) => (
+          <Card>
+            <p class="label-mono">{ruta.kicker}</p>
+            <h3 class="mt-2 text-lg">{ruta.titulo}</h3>
+            <p class="mt-2 text-sm text-ink-soft">{ruta.texto}</p>
+          </Card>
+        ))}
+      </div>
+    </PageContainer>
+  </section>
+
+  <!-- Itinerario -->
+  <section id="itinerario" class="border-b border-line">
+    <PageContainer class="py-14">
+      <SectionHeading
+        eyebrow="Itinerario"
+        titulo="Nueve niveles, del primer programa a la ingeniería agéntica"
+        descripcion="Cada nivel resuelve una pregunta concreta y termina en un entregable verificable. Un nivel se supera cuando puedes demostrarlo, no cuando lo has leído."
+      />
+      <Progression />
+      <p class="mt-6 max-w-[62ch] text-sm text-ink-soft">
+        El mapa completo —los nueve niveles con todas sus fichas de módulo— ya está publicado y
+        navegable; las lecciones se añaden módulo a módulo, a medida que superan la revisión
+        editorial.
+      </p>
+      <div class="mt-6">
+        <ButtonLink href="/curriculo/" variant="secondary">
+          Abrir el mapa completo del currículo
+        </ButtonLink>
+      </div>
+    </PageContainer>
+  </section>
+
+  <!-- Proyecto longitudinal -->
+  <section id="proyecto" class="border-b border-line">
+    <PageContainer class="py-14">
+      <SectionHeading
+        eyebrow="Proyecto longitudinal"
+        titulo="Un proyecto que acompaña todo el currículo"
+        descripcion="Empezarás construyendo una aplicación sencilla con pruebas y terminarás con un sistema de desarrollo asistido por agentes, con pruebas, permisos, validación y supervisión humana."
+      />
+      <ol class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {fasesProyecto.map((fase) => (
+          <Card>
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="font-mono text-sm text-accent">{fase.id}</span>
+              <span class="font-mono text-xs text-ink-faint">{fase.niveles}</span>
+            </div>
+            <h3 class="mt-2 text-base font-semibold">{fase.titulo}</h3>
+            <p class="mt-1 text-sm text-ink-soft">{fase.descripcion}</p>
+          </Card>
+        ))}
+      </ol>
+    </PageContainer>
+  </section>
+
+  <!-- Enfoque práctico -->
+  <section id="enfoque" class="border-b border-line">
+    <PageContainer class="py-14">
+      <SectionHeading
+        eyebrow="Enfoque"
+        titulo="Rigor técnico antes que volumen de páginas"
+        descripcion="La calidad del currículo, los ejemplos y los ejercicios tiene prioridad sobre la cantidad de lecciones o los efectos visuales."
+      />
+      <dl class="mt-8 border-t border-line">
+        {principios.map((principio) => (
+          <div class="grid gap-1 border-b border-line py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] sm:gap-6">
+            <dt class="font-semibold">{principio.titulo}</dt>
+            <dd class="text-sm text-ink-soft">{principio.texto}</dd>
+          </div>
+        ))}
+      </dl>
+      <figure class="prose mt-10">
+        <figcaption>
+          Salida real de un ejemplo publicado en el primer módulo (<code>n0/m1</code>, lección
+          <code>l01</code>), ejecutada el 2026-10-19 con Node v24.22.0:
+        </figcaption>
+        <pre><code>{`$ node saludo.js
+Hola, mundo
+1. escribir
+2. ejecutar
+3. comprobar`}</code></pre>
+      </figure>
+    </PageContainer>
+  </section>
+
+  <!-- Llamada a la acción -->
+  <section>
+    <PageContainer class="py-14">
+      <div class="max-w-[62ch]">
+        <h2 class="text-2xl sm:text-3xl">Empieza por el principio</h2>
+        <p class="mt-4 text-ink-soft">
+          Si nunca has programado, el nivel <span class="font-mono text-sm">n0</span> es tu punto de
+          entrada. Si ya programas, empieza por <span class="font-mono text-sm">n1</span> y
+          aprenderás a trabajar con asistentes sin ceder en verificación.
+        </p>
+        <div class="mt-6">
+          <ButtonLink href="/curriculo/n0/">Empezar por el nivel n0</ButtonLink>
+        </div>
+        <p class="mt-4 text-sm text-ink-soft">
+          El currículo ya tiene sus nueve niveles y todas sus fichas de módulo; las lecciones llegan
+          por fases. La primera (<span class="font-mono text-xs">n0 · m1 · l01</span>) ya está
+          publicada.
+        </p>
+      </div>
+    </PageContainer>
+  </section>
+</BaseLayout>

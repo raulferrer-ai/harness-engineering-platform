@@ -1,0 +1,32 @@
+---
+/**
+ * Encabezado de sección: etiqueta monoespaciada + título + descripción opcional.
+ * `nivel="h1"` lo usan las páginas de contenido como encabezado principal.
+ */
+interface Props {
+  /** Etiqueta corta en mayúsculas (recurso editorial). */
+  eyebrow?: string;
+  titulo: string;
+  descripcion?: string;
+  /** Nivel de encabezado semántico. */
+  nivel?: "h1" | "h2" | "h3";
+  id?: string;
+}
+
+const { eyebrow, titulo, descripcion, nivel = "h2", id } = Astro.props;
+const Etiqueta = nivel;
+
+const tamanos = {
+  h1: "text-3xl sm:text-4xl",
+  h2: "text-2xl sm:text-3xl",
+  h3: "text-xl",
+};
+---
+
+<div class="max-w-[60ch]">
+  {eyebrow && <p class="label-mono mb-2">{eyebrow}</p>}
+  <Etiqueta id={id} class:list={[tamanos[nivel]]}>
+    {titulo}
+  </Etiqueta>
+  {descripcion && <p class="mt-3 text-ink-soft">{descripcion}</p>}
+</div>

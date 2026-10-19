@@ -1,0 +1,147 @@
+---
+titulo: "Leer errores y depurar"
+resumen: "Un error de JavaScript no es un castigo: es el programa describiendo exactamente dónde y por qué se detuvo. Aplies un método de lectura de tres pasos —nombre del error, ubicación, causa— sobre tres errores reales y terminas diagnosticándolos antes de ejecutarlos."
+nivel: "n0"
+modulo: "m1"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Leer una traza de error identificando nombre, ubicación y causa"
+  - "Distinguir las familias SyntaxError, ReferenceError y TypeError"
+  - "Diagnosticar tres errores provocados antes de ejecutarlos"
+  - "Usar impresiones de depuración para acotar un fallo"
+prerrequisitos:
+  - "n0/m1/l04-tu-primer-programa-y-sus-pruebas"
+actualizado: "2026-10-19"
+tags:
+  - "errores"
+  - "depuracion"
+  - "trazas"
+fuentes:
+  - titulo: "Errors | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/docs/latest-v24.x/api/errors.html"
+    fecha: "2026-10-19"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Cuando un programa falla, Node imprime una **traza**: el nombre de la clase de error (`SyntaxError`, `ReferenceError`, `TypeError`…), el mensaje, el fichero y la línea exacta con un cursor (`^`) sobre la columna del problema. El método de lectura es siempre el mismo: **1) nombre del error → 2) ubicación en tu código → 3) causa**, y solo después tocar el código. Las clases de error están documentadas oficialmente ([Errors], consultada el 2026-10-19) y las tres más frecuentes al empezar tienen firma reconocible.
+
+## Conceptos
+
+**Anatomía de una traza.** Ejemplo real de esta lección (`ejemplos/errores/roto.js`, ejecutado el 2026-10-19 con Node v24.22.0; la ruta absoluta aparecería en tu equipo):
+
+```text
+file:///…/errores/roto.js:2
+console.log(Hola)
+            ^
+
+ReferenceError: Hola is not defined
+    at file:///…/errores/roto.js:2:13
+    ...
+```
+
+Lectura en tres pasos:
+
+1. **Nombre**: `ReferenceError` — se usó un nombre que no existe.
+2. **Ubicación**: `roto.js:2`, columna 13; el cursor `^` señala `Hola`.
+3. **Causa**: `Hola is not defined` — falta comillas para tratarlo como texto.
+
+Las últimas líneas (`at …`) son la pila de llamadas. Las que empiezan por `node:internal/…` son internals: ignóralas al principio; busca la primera que apunte a **tu** fichero.
+
+**Tres familias, tres respuestas.**
+
+- **`SyntaxError`**: el fichero ni se llega a ejecutar; la forma del código es inválida (paréntesis, comillas, llaves sin cerrar). Ubicación: la línea final del problema.
+- **`ReferenceError`**: se ejecuta, pero aparece un nombre que no está definido (comillas olvidadas, variable mal escrita).
+- **`TypeError`**: el valor existe pero no es del tipo que la operación necesita (`total()` sobre un número: «no es una función»).
+
+**Depurar es acotar.** Cuando el error no es inmediato: ejecuta menos. Añade `console.log(...)` entre sospechosos para ver qué partes se ejecutan y con qué valores, o divide el programa en la mitad y sube. Es primitivo y funciona: en módulos verás herramientas mejores, pero el principio (reducir el espacio de lo posible) no cambia.
+
+**Predecir antes de ejecutar.** El mismo hábito de l01, aplicado a errores: mira el código, di qué error esperarías y dónde, y solo entonces ejecuta. Comparar tu predicción con la traza real es lo que convierte el error en aprendizaje.
+
+## Ejercicio
+
+En `ejemplos/errores/` hay tres ficheros rotos (`sintaxis.js`, `roto.js`, `tipos.js`). Sin ejecutar ninguno todavía, escribe para cada uno: la clase de error que esperas, la línea y la causa. Después ejecútalos y contrasta tu diagnóstico con la traza real.
+
+Esto se cumple cuando:
+
+- para los tres ficheros has escrito **nombre + línea + causa** antes de la primera ejecución;
+- los tres diagnósticos coinciden con las trazas reales (o anotas en qué se separaron);
+- sabes justificar por qué `sintaxis.js` se detiene antes de imprimir nada, aunque su `console.log` esté «casi bien» escrito.
+
+Pista: empieza por `tipos.js` (dos líneas, la causa se ve a simple vista) y deja `sintaxis.js` para el final: su traza apunta al final del fichero, no al principio.
+
+## Solución explicada
+
+Las tres trazas reales, ejecutadas el 2026-10-19 con Node v24.22.0 (rutas abreviadas; las tres terminan con código de salida `1`):
+
+**1. `errores/sintaxis.js`** — `console.log("hola"` sin cerrar el paréntesis:
+
+```text
+SyntaxError: missing ) after argument list
+```
+
+El cursor señala el texto de la llamada incompleta. Node **no ejecuta ni la primera línea**: todo el fichero se rechaza al leerlo. Por eso no hay salida previa, por muy «casi correcto» que parezca.
+
+**2. `errores/roto.js`** — `console.log(Hola)` sin comillas:
+
+```text
+ReferenceError: Hola is not defined
+    at file:///…/errores/roto.js:2:13
+```
+
+`Hola` se interpreta como nombre de variable y no existe. Es el error de la lección l01; ahora sabes leer su traza entera, no solo su mensaje.
+
+**3. `errores/tipos.js`** — `total()` sobre un número:
+
+```text
+TypeError: total is not a function
+    at file:///…/errores/tipos.js:3:1
+```
+
+El nombre existe y vale `5`; llamarlo como función no tiene sentido. «No es una función» suele significar **«esto no es lo que crees que es»**: un valor de otro tipo, una propiedad mal escrita, un import olvidado.
+
+Errores típicos al resolverlo:
+
+- **«Arreglar» a ciegas comentando la línea.** El error desaparece y el problema queda escondido. Primero el diagnóstico escrito; el cambio viene después.
+- **Leer solo el mensaje.** El mensaje describe el síntoma; el nombre de la clase y la ubicación describen la naturaleza y el sitio. Los tres datos juntos son el diagnóstico.
+- **Perseguir la última línea de la pila.** Las frames `node:internal/…` no son la causa; la primera frame de **tu** fichero sí lo es casi siempre.
+
+Una alternativa válida de depuración para errores no iniciales: `console.log` de valores intermedios. Úsalo en el ejercicio si dudas entre dos sospechosos y comprueba cuál se ejecuta.
+
+## Cómo verificarlo
+
+1. Ejecuta los tres ficheros desde `ejemplos/` y compara con tus diagnósticos:
+
+   ```sh
+   node errores/sintaxis.js; echo "código: $?"
+   node errores/roto.js; echo "código: $?"
+   node errores/tipos.js; echo "código: $?"
+   ```
+
+   Observa: los tres con `SyntaxError`, `ReferenceError` y `TypeError` respectivamente, y `código: 1` en cada caso.
+
+2. Verifica la afirmación «`sintaxis.js` no imprime nada» por ti mismo: no aparece `hola` en ninguna salida, aunque la instrucción exista en el fichero. La forma se valida antes de ejecutar.
+
+3. Cierra el ciclo con un error tuyo: rompe una de tus pruebas de l04 (cambia un valor esperado), ejecuta y di en voz alta el triple diagnóstico antes de restaurar. Debe tardarte menos de un minuto: esa velocidad es el objetivo de la lección.
+
+## Errores comunes
+
+**Copiar el mensaje entero a un buscador sin mirar la traza.** El mensaje genérico (`is not a function`) da miles de resultados; la combinación **tu fichero + línea + mensaje** da la respuesta concreta. Mira primero, busque después.
+
+**Culpar a Node del `SyntaxError`.** No es un fallo de instalación: es el fichero. Si dudas, ejecuta `node --version` (l02): si imprime versión, Node funciona y el problema está en el código.
+
+**Ignorar el cursor `^`.** Señala la columna exacta del token problemático dentro de la línea. En errores de sintaxis finos (coma, paréntesis, comilla), es la pista más rápida.
+
+**Pensar que un programa sin errores está correcto.** Los errores solo cubren lo que el programa **no puede hacer**. Lo que hace mal sin fallar lo detectan las pruebas (l04) y la revisión (l06).
+
+## Fuentes
+
+- [Errors | Node.js v24.22.0 Documentation](https://nodejs.org/docs/latest-v24.x/api/errors.html) — consultada el 2026-10-19. Aporta el catálogo de clases de error (`SyntaxError`, `ReferenceError`, `TypeError`, etc.) y su semántica. Las tres trazas de esta lección son salidas reales de Node v24.22.0, no citas de la documentación.
+
+## Siguientes pasos
+
+- Siguiente lección del módulo: [l06 «Cómo verificar lo que genera una IA»](/curriculo/n0/m1/l06-como-verificar-lo-que-genera-una-ia/), donde aplicas este mismo método de lectura a código que no has escrito tú.
+- Proyecto longitudinal: el entregable de la fase `f1` incluye la nota de «qué verifiqué y qué no puedo afirmar»; diagnosticar errores es la primera mitad de esa nota.

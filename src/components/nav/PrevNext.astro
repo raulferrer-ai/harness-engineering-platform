@@ -1,0 +1,53 @@
+---
+/**
+ * Enlaces «anterior / siguiente» entre lecciones de un mismo módulo.
+ * Los pares se calculan en `src/lib/curriculum.ts` (desde el campo `orden`);
+ * aquí solo se dibujan. Sin pares: no se emite nada.
+ */
+interface Enlace {
+  href: string;
+  titulo: string;
+}
+
+interface Props {
+  anterior?: Enlace | null;
+  siguiente?: Enlace | null;
+}
+
+const { anterior = null, siguiente = null } = Astro.props;
+---
+
+{(anterior || siguiente) && (
+  <nav
+    aria-label="Lecciones del módulo"
+    class="mt-10 border-t border-line pt-6"
+    data-pagefind-ignore
+  >
+    <div class="flex flex-col gap-3 sm:flex-row sm:justify-between">
+      {anterior ? (
+        <a
+          href={anterior.href}
+          rel="prev"
+          data-astro-prefetch
+          class="group inline-flex max-w-[38ch] flex-col rounded-md px-3 py-2 hover:bg-accent-soft"
+        >
+          <span class="label-mono">← Anterior</span>
+          <span class="text-sm font-medium group-hover:text-accent">{anterior.titulo}</span>
+        </a>
+      ) : (
+        <span aria-hidden="true" class="hidden sm:block" />
+      )}
+      {siguiente && (
+        <a
+          href={siguiente.href}
+          rel="next"
+          data-astro-prefetch
+          class="group inline-flex max-w-[38ch] flex-col items-end rounded-md px-3 py-2 text-right hover:bg-accent-soft sm:ml-auto"
+        >
+          <span class="label-mono">Siguiente →</span>
+          <span class="text-sm font-medium group-hover:text-accent">{siguiente.titulo}</span>
+        </a>
+      )}
+    </div>
+  </nav>
+)}

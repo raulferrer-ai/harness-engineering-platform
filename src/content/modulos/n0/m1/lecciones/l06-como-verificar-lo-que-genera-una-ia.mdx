@@ -1,0 +1,151 @@
+---
+titulo: "Cómo verificar lo que genera una IA"
+resumen: "El código que produce un asistente merece el mismo trato que el tuyo: predicción, pruebas, diff y criterio de descarte. Aplicas el ciclo completo —pedir, ejecutar, revisar, descartar— sobre un caso registrado con su instrucción, su código, sus pruebas en rojo y su corrección en verde."
+nivel: "n0"
+modulo: "m1"
+orden: 6
+dificultad: "intermedio"
+tiempoEstimado: 60
+objetivos:
+  - "Formular una instrucción con requisitos verificables"
+  - "Ejecutar las pruebas de un código generado y leer el fallo"
+  - "Revisar el diff de una corrección y explicar el fallo original"
+  - "Aplicar el criterio de descarte: no se integra lo que no se entiende"
+prerrequisitos:
+  - "n0/m1/l05-leer-errores-y-depurar"
+actualizado: "2026-10-19"
+tags:
+  - "ia"
+  - "verificacion"
+  - "revision"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El ciclo es el de siempre, sin atajos: **pedir** (instrucción con requisitos verificables) → **ejecutar** (sus pruebas, en tu máquina) → **revisar** (diff y explicación línea a línea) → **descartar o integrar** (con registro de qué comprobaste). Un asistente acelera la escritura, no la responsabilidad: si no puedes explicar el código, no está terminado, aunque sus pruebas pasen. En esta lección recorres el ciclo sobre un caso real registrado: la instrucción, el código generado con un fallo, las pruebas que lo delataron y la corrección.
+
+## Conceptos
+
+**Pedir: la instrucción también se prueba.** Un pedido útil describe el comportamiento esperado, no la implementación, y es lo bastante concreto para escribir pruebas desde él. El pedido de este caso:
+
+```text
+Escribe una función en JavaScript celsiusAFahrenheit(celsius) que devuelva
+la temperatura equivalente en Fahrenheit. Incluye comprobaciones.
+```
+
+Dos observaciones honestas: el pedido no especifica la fórmula ni los casos extremos, y quien lo firmó (quien escribe esta lección, un asistente de IA) generó a partir de él el siguiente código. **El ejemplo está registrado tal cual**: instrucción, código, salida de las pruebas.
+
+**El código generado, con su fallo.** Lo que se generó para el pedido anterior fue esto:
+
+```js
+export function celsiusAFahrenheit(celsius) {
+  return (celsius * 5) / 9 + 32; // fórmula invertida: convierte mal salvo en el origen
+}
+```
+
+La fórmula correcta es `(celsius * 9) / 5 + 32`; la generada usa `5 / 9`, que es la conversión inversa. El código es **plausible**: compila, tiene nombre correcto y estilo limpio. Sin pruebas, pasaría una lectura rápida.
+
+**Ejecutar: las pruebas deciden, no la impresión.** Las pruebas (`ejemplos/celsius-a-fahrenheit.test.js`) cubren tres casos: `0 → 32`, `100 → 212` y `-40 → -40`. Contra la versión generada, la salida real (2026-10-19, Node v24.22.0) fue:
+
+```text
+✔ 0 grados Celsius son 32 Fahrenheit (0.520542ms)
+✖ 100 grados Celsius son 212 Fahrenheit (0.650625ms)
+✖ -40 es el punto donde ambas escalas coinciden (0.151458ms)
+ℹ tests 3
+ℹ pass 1
+ℹ fail 2
+```
+
+Y aquí está la lección más importante del módulo: **`0 °C` pasa con la fórmula equivocada** (cualquier número por cero es cero, así que el resultado es `32` de rebote). Un verde solo prueba los casos que cubre. El valor de `-40` (punto donde ambas escalas coinciden) y de `100` fue el que destapó el fallo: `87.5555…` en lugar de `212`.
+
+**Revisar: el diff cuenta la historia.** La corrección fue un solo cambio:
+
+```diff
+-  return (celsius * 5) / 9 + 32;
++  return (celsius * 9) / 5 + 32;
+```
+
+Revisar no es solo mirar que «se ve bien»: es **explicar** por qué la línea corregida es la correcta y por qué la antigua fallaba donde fallaba. Si no puedes hacerlo, pide la explicación o descarta.
+
+**Descartar con criterio.** Criterios de este módulo: no se integra código que no se puede explicar; no se acepta un verde que no cubre casos límite; y toda revisión deja registro (qué probaste, qué falló, qué cambiaste). Ese registro es la nota de «qué verifiqué y qué no puedo afirmar» del entregable.
+
+**Nota de honestidad del ejemplo.** Este caso fue producido y registrado por un asistente de IA durante la escritión de esta lección, con sus salidas reales. No afirma que «la IA siempre falle así»: afirma que **puede fallar así** y que el método detecta el fallo por completo sin depender de quién escribió el código. Ese método es el que usarás en `n1` con cualquier asistente.
+
+## Ejercicio
+
+Reproduce el ciclo sobre el caso registrado: guarda la versión histórica con fallo, ejecuta sus pruebas, documenta el fallo y la corrección, y restaura el verde. Si dispones de un asistente, repite además el ciclo con una función nueva tuya.
+
+Esto se cumple cuando:
+
+- has ejecutado las pruebas contra la versión con fallo y has anotado **qué** dos casos fallaron y **con qué valores**;
+- has escrito el diff de la corrección y puedes explicar por qué `0 °C` pasaba igualmente;
+- has restaurado la versión corregida y ves el verde de nuevo;
+- (opcional, con asistente) has pedido una función nueva con tu instrucción escrita, has escrito sus pruebas desde el requisito y has anotado el primer fallo encontrado.
+
+Pista: al escribir la instrucción para el caso opcional, incluye al menos un caso extremo (`qué pasa con 0`, `con vacíos`, `con entradas inválidas`): estás escribiendo las pruebas con palabras.
+
+## Solución explicada
+
+El ciclo completo, paso a paso, con las salidas reales de esta lección:
+
+1. **Pedir**: instrucción del bloque anterior (registrada antes de generar).
+2. **Ejecutar**: `pass 1`, `fail 2`; los fallos con diff real `+ 87.55555555555556 / - 212` y `+ 9.777777777777779 / - -40`.
+3. **Revisar**: el diff de una línea; explicación: `5/9` es la conversión de Fahrenheit a Celsius; en `0` no se nota porque `0 * cualquier cosa = 0`.
+4. **Corregir**: el fichero actual (`ejemplos/celsius-a-fahrenheit.js`) contiene la versión corregida; sus pruebas dan el verde real: `pass 3`, `fail 0`.
+5. **Registrar**: instrucción + fallo + diff + verde, que es lo que estás leyendo.
+
+Errores típicos al resolverlo:
+
+- **Ajustar la expectativa en vez de la función.** Si al ver `87.55` cambias la prueba a `87.55`, has borrado la evidencia. El requisito manda sobre el código, siempre.
+- **Aceptar el verde del caso fácil.** `0 °C` pasaba. Los casos límite y los extremos son la sangre de una suite; sin ellos, el verde es una opinión.
+- **Integrar sin explicar.** «Funciona en las pruebas» no es «lo entiendo». En este módulo la regla es tajante: no se entrega lo que no se puede explicar.
+- **Pedir «arreglarlo» sin pruebas.** Un bucle de «arregla y arregla» sin suite es fe con suerte. Las pruebas existen antes de pedir el arreglo; esa es su función.
+
+Una alternativa válida del ciclo: escribir tú las pruebas **antes** de pedir el código (pruebas primero). Con asistente, es la forma más robusta de dirigirlo: el requisito se codifica en pruebas y el asistente solo puede pasarlas si el comportamiento es el correcto.
+
+## Cómo verificarlo
+
+1. Reproduce el rojo sobre una copia (desde la carpeta `ejemplos/`):
+
+   ```sh
+   mkdir -p /tmp/celsius-roto
+   cp celsius-a-fahrenheit.test.js /tmp/celsius-roto/
+   ```
+
+   Escribe en `/tmp/celsius-roto/celsius-a-fahrenheit.js` la versión con fallo del bloque de Conceptos y ejecuta:
+
+   ```sh
+   cd /tmp/celsius-roto && node --test celsius-a-fahrenheit.test.js; echo "código de salida: $?"
+   ```
+
+   Observa: `fail 2`, el diff `+ 87.55555555555556`, `código de salida: 1`.
+
+2. Vuelve a la carpeta `ejemplos/` del módulo y restaura el verde real:
+
+   ```sh
+   node --test celsius-a-fahrenheit.test.js
+   ```
+
+   Observa: `pass 3`, `fail 0`.
+
+3. Cierra el registro del ciclo: en tu cuaderno (o en el `README` de tu proyecto), anota en tres líneas qué pediste, qué falló y qué cambiaste. Ese hábito es el entregable real de esta lección.
+
+## Errores comunes
+
+**Confundir «pasa mis pruebas» con «es correcto».** Las pruebas son la mejor herramienta imperfecta que tenemos: cubren lo que imaginaste cubrir. Amplía los casos cuando el código es importante.
+
+**Pedir código sin decir para qué sirve.** La instrucción vaga produce código vago (el propio ejemplo lo ilustra: sin fórmula ni casos extremos especificados). Requisito concreto, resultado discutible; requisito ambiguo, resultado arbitrario.
+
+**No mirar el diff por ser «solo una línea».** Los fallos graves suelen caber en una línea: una división al revés, un signo, un índice. El diff es la unidad mínima de revisión.
+
+**Descartar el registro porque «ya quedó verde».** El registro (qué comprobaste y qué no) es lo que después te permite afirmar algo con garantías, y es la mitad del entregable del módulo.
+
+## Fuentes
+
+Sin fuentes externas: la instrucción, el código generado y todas las salidas de esta lección son registros propios ejecutados el 2026-10-19 con Node v24.22.0 (los ficheros `celsius-a-fahrenheit.js` y su prueba están en `ejemplos/`). No se afirma nada sobre la conducta general de los modelos: el caso documenta un fallo posible y un método que lo detecta.
+
+## Siguientes pasos
+
+- Siguiente lección del módulo: [l07 «Primeros pasos con Git»](/curriculo/n0/m1/l07-primeros-pasos-con-git/), donde el registro de tus revisiones se vuelve historial que puedes revisar y deshacer.
+- Proyecto longitudinal: el criterio de verificación de la fase `f1` exige revisión de diffs; el registro que empezaste aquí es su plantilla.

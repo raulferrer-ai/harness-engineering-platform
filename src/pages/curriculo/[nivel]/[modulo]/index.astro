@@ -1,0 +1,194 @@
+---
+import { getCollection, render } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import Breadcrumb from "../../../../components/nav/Breadcrumb.astro";
+import Notice from "../../../../components/ui/Notice.astro";
+import PageContainer from "../../../../components/ui/PageContainer.astro";
+import SectionHeading from "../../../../components/ui/SectionHeading.astro";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { rutaDeUnidad, rutaLeccion, rutaNivel } from "../../../../lib/curriculum";
+
+export async function getStaticPaths() {
+  const modulos = await getCollection("modulos");
+  return modulos.map((modulo) => ({
+    params: { nivel: modulo.data.nivel, modulo: modulo.data.modulo },
+    props: { modulo },
+  }));
+}
+
+interface Props {
+  modulo: CollectionEntry<"modulos">;
+}
+
+const { modulo } = Astro.props;
+const { Content } = await render(modulo);
+
+const niveles = await getCollection("niveles");
+const nivel = niveles.find((n) => n.id === modulo.data.nivel);
+
+const lecciones = (await getCollection("lecciones"))
+  .filter(
+    (leccion) =>
+      leccion.data.nivel === modulo.data.nivel && leccion.data.modulo === modulo.data.modulo,
+  )
+  .sort((a, b) => a.data.orden - b.data.orden)
+  .map((leccion) => ({
+    slug: leccion.id.split("/").at(-1) ?? "",
+    orden: leccion.data.orden,
+    titulo: leccion.data.titulo,
+    tiempoEstimado: leccion.data.tiempoEstimado,
+    tipo: leccion.data.tipo,
+  }));
+
+const descripcion = `${modulo.data.objetivos[0]} Entregable: ${modulo.data.entregable}`;
+const rutaActual = `/curriculo/${modulo.data.nivel}/${modulo.data.modulo}/`;
+const conCuerpo = Boolean(modulo.body);
+// Identificadores de las lecciones (para el progreso local del módulo, H4).
+const unidades = lecciones
+  .map((l) => `${modulo.data.nivel}/${modulo.data.modulo}/${l.slug}`)
+  .join(",");
+---
+
+<BaseLayout titulo={modulo.data.titulo} descripcion={descripcion} rutaActual={rutaActual}>
+  <PageContainer class="py-10">
+    <Breadcrumb
+      migas={[
+        { href: "/", etiqueta: "Inicio" },
+        { href: "/curriculo/", etiqueta: "Currículo" },
+        ...(nivel
+          ? [{ href: rutaNivel(nivel.id), etiqueta: `Nivel ${nivel.id} · ${nivel.data.titulo}` }]
+          : []),
+        { etiqueta: `${modulo.data.modulo} · ${modulo.data.titulo}` },
+      ]}
+    />
+
+    {/* Cuerpo indexable de Pagefind (H4): título, contenido y lecciones de
+        este módulo; la miga, el pie y las navegaciones quedan fuera. */}
+    <div data-pagefind-body>
+      <div class="mt-6">
+        <SectionHeading
+          nivel="h1"
+          eyebrow={`Nivel ${modulo.data.nivel} · Módulo ${modulo.data.modulo}`}
+          titulo={modulo.data.titulo}
+          descripcion={modulo.data.objetivos[0]}
+        />
+      </div>
+
+      {conCuerpo && (
+        <div class="prose mt-6">
+          <Content />
+        </div>
+      )}
+
+      <section class="mt-8 max-w-[68ch]" aria-labelledby="objetivos">
+        <h2 id="objetivos" class="text-xl">
+          Objetivos de aprendizaje
+        </h2>
+        <ol class="mt-2 list-decimal space-y-1 pl-5 text-ink-soft">
+          {modulo.data.objetivos.map((objetivo) => (
+            <li>{objetivo}</li>
+          ))}
+        </ol>
+      </section>
+
+      <section class="mt-8 max-w-[68ch]" aria-labelledby="entregable">
+        <h2 id="entregable" class="text-xl">
+          Entregable
+        </h2>
+        <div class="mt-2 rounded-lg border border-line bg-surface p-5">
+          <p>{modulo.data.entregable}</p>
+        </div>
+        <p class="mt-2 text-sm text-ink-soft">
+          El nivel se aprueba cuando este entregable se ejecuta y se comprueba (criterio del nivel{" "}
+          <span class="font-mono">{modulo.data.nivel}</span>).
+        </p>
+      </section>
+
+      {modulo.data.prerrequisitos.length > 0 && (
+        <section class="mt-8 max-w-[68ch]" aria-labelledby="prerrequisitos">
+          <h2 id="prerrequisitos" class="text-xl">
+            Prerrequisitos
+          </h2>
+          <ul class="mt-2 list-disc pl-5 text-ink-soft">
+            {modulo.data.prerrequisitos.map((id) => (
+              <li>
+                <a href={rutaDeUnidad(id)} class="hover:text-accent">
+                  {id}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section
+        class="mt-10"
+        aria-labelledby="lecciones"
+        data-progreso-unidades={lecciones.length > 0 ? unidades : undefined}
+      >
+        <h2 id="lecciones" class="text-xl">
+          Lecciones <span class="font-mono text-sm text-ink-faint">{lecciones.length}</span>
+        </h2>
+        {lecciones.length > 0 && (
+          <p
+            class="mt-3 max-w-[68ch] rounded-lg border border-line bg-surface px-4 py-3 text-sm text-ink-soft"
+            data-pagefind-ignore
+          >
+            Progreso del módulo en este navegador:
+            <span data-progreso-resumen class="font-medium text-ink">
+              —
+            </span>
+            . Se guarda solo en este navegador (localStorage), sin cuenta ni servidor.
+          </p>
+        )}
+        {lecciones.length > 0 ? (
+          <ol class="mt-3 border-t border-line">
+            {lecciones.map((leccion) => (
+              <li class="border-b border-line">
+                <a
+                  href={rutaLeccion(modulo.data.nivel, modulo.data.modulo, leccion.slug)}
+                  data-astro-prefetch
+                  class="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-2 py-3 hover:bg-accent-soft"
+                >
+                  <span class="font-mono text-sm text-accent">
+                    l{String(leccion.orden).padStart(2, "0")}
+                  </span>
+                  <span class="font-medium">{leccion.titulo}</span>
+                  <span class="ml-auto font-mono text-xs text-ink-faint">
+                    {leccion.tiempoEstimado} min
+                    {leccion.tipo !== "leccion" && ` · ${leccion.tipo}`}
+                  </span>
+                  <span
+                    data-progreso-marca={`${modulo.data.nivel}/${modulo.data.modulo}/${leccion.slug}`}
+                    hidden
+                    class="text-accent"
+                  >
+                    <span aria-hidden="true">✓</span>
+                    <span class="sr-only">completada</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div class="mt-3">
+            <Notice titulo="Este módulo todavía no tiene lecciones publicadas">
+              Su ficha, sus objetivos y su entregable ya forman parte del mapa del currículo. Las
+              lecciones se escriben y se verifican por fases; no enlazamos a páginas que aún no
+              existen.
+              <span class="mt-2 block">
+                <a href="/curriculo/" class="font-medium text-accent hover:underline">
+                  Volver al mapa del currículo
+                </a>
+              </span>
+            </Notice>
+          </div>
+        )}
+      </section>
+    </div>
+
+    <script>
+      import "../../../../scripts/progreso";
+    </script>
+  </PageContainer>
+</BaseLayout>

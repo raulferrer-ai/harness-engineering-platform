@@ -1,0 +1,42 @@
+---
+import Breadcrumb from "../../components/nav/Breadcrumb.astro";
+import CurriculumMap from "../../components/nav/CurriculumMap.astro";
+import ButtonLink from "../../components/ui/ButtonLink.astro";
+import PageContainer from "../../components/ui/PageContainer.astro";
+import SectionHeading from "../../components/ui/SectionHeading.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+/** Mapa completo del currículo: `/curriculo/` (IMPLEMENTATION_PLAN.md §2.3). */
+const descripcion =
+  "Mapa completo del currículo: los nueve niveles del itinerario con sus módulos, preguntas y entregables, del primer programa a la ingeniería de agentes.";
+---
+
+<BaseLayout titulo="Currículo" descripcion={descripcion} rutaActual="/curriculo/">
+  <PageContainer class="py-10">
+    <Breadcrumb migas={[{ href: "/", etiqueta: "Inicio" }, { etiqueta: "Currículo" }]} />
+
+    <div class="mt-6">
+      <SectionHeading
+        nivel="h1"
+        eyebrow="Currículo"
+        titulo="Del primer programa a la ingeniería agéntica"
+        descripcion="Nueve niveles secuenciales. Cada nivel resuelve una pregunta concreta y se aprueba con un entregable verificable; cada módulo declara su objetivo y su entregable antes de que exista su contenido."
+      />
+    </div>
+
+    <CurriculumMap />
+
+    <div class="mt-10 max-w-[62ch]">
+      <p class="text-sm text-ink-soft">
+        Las lecciones se publican módulo a módulo, con revisión editorial: la ficha de cada módulo
+        indica si sus lecciones ya están disponibles. Todas las rutas de este mapa existen hoy;
+        ninguna apunta a una página inexistente.
+      </p>
+      <div class="mt-5">
+        <ButtonLink href="/curriculo/n0/" variant="secondary">
+          Empezar por el nivel n0
+        </ButtonLink>
+      </div>
+    </div>
+  </PageContainer>
+</BaseLayout>

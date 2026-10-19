@@ -1,0 +1,2 @@
+# Versiones con las que está verificado este módulo (2026-10-19)
+node=24.22.0

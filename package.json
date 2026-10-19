@@ -1,0 +1,50 @@
+{
+  "name": "harness-engineering-platform",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Academia abierta y gratuita de Harness Engineering. Sitio estático construido con Astro.",
+  "engines": {
+    "node": "^24.16.0",
+    "npm": ">=9.6.5"
+  },
+  "volta": {
+    "node": "24.22.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && npm run pagefind",
+    "pagefind": "pagefind",
+    "pagefind:check": "node tests/links/check-pagefind.mjs",
+    "build:deploy": "npm run verify && npm run build && npm run links && npm run pagefind:check",
+    "links": "node tests/links/check-links.mjs",
+    "preview": "astro preview",
+    "check": "astro check",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "npm run check && npm run lint && npm run format:check && npm test"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/mdx": "^8.1.0",
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.19.2",
+    "@typescript-eslint/parser": "^8.71.2",
+    "astro": "^7.4.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-astro": "^3.2.1",
+    "globals": "^17.13.0",
+    "pagefind": "^1.5.2",
+    "prettier": "^3.9.10",
+    "prettier-plugin-astro": "^1.1.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1"
+  }
+}
