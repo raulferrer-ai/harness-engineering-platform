@@ -89,19 +89,19 @@ La arquitectura completa (rutas, colecciones de contenido, sistema de diseño) e
 
 Sitio publicado en **Cloudflare Workers (assets estáticos)**, conectado por Git al repositorio (producción desde `main`): **https://harness-engineering-platform.raul-ferrer-caio.workers.dev**. La configuración de despliegue vive en el repo (`wrangler.jsonc`: assets `./dist` + página `404.html`). Valores verificados el 20-10-2026 (detalle y gate en `IMPLEMENTATION_PLAN.md` §8 y §8.5):
 
-| Campo                | Valor                                                                             |
-| -------------------- | --------------------------------------------------------------------------------- |
-| Tipo de proyecto     | Workers con assets estáticos (Git integration; deploy vía `npx wrangler deploy`)  |
-| Rama de producción   | `main`                                                                            |
-| Install command      | `npm ci` (instalación automática con `package-lock.json`)                         |
-| Build command        | **`npm run build:deploy`** (el panel aún tiene `npm run build`: cambio pendiente) |
-| Deploy command       | `npx wrangler deploy` (usa `wrangler.jsonc`: `./dist` + `404-page`)               |
-| Node                 | `24.22.0` vía `.nvmrc`/`.node-version`                                            |
-| Variables de entorno | Ninguna obligatoria. **Sin secretos**                                             |
+| Campo                | Valor                                                                            |
+| -------------------- | -------------------------------------------------------------------------------- |
+| Tipo de proyecto     | Workers con assets estáticos (Git integration; deploy vía `npx wrangler deploy`) |
+| Rama de producción   | `main`                                                                           |
+| Install command      | `npm ci` (instalación automática con `package-lock.json`)                        |
+| Build command        | **`npm run build:deploy`** (corregido en el panel el 20-10-2026)                 |
+| Deploy command       | `npx wrangler deploy` (usa `wrangler.jsonc`: `./dist` + `404-page`)              |
+| Node                 | `24.22.0` vía `.nvmrc`/`.node-version`                                           |
+| Variables de entorno | Ninguna obligatoria. **Sin secretos**                                            |
 
-**Incidencia abierta (20-10-2026)**: el despliegue publica el HTML correcto, pero no se publica `dist/pagefind/` (la búsqueda no funcionará en el navegador) y la 404 responde con cuerpo vacío; la corrección (`wrangler.jsonc` + cambio de build command) está preparada y pendiente de redespliegue y re-verificación (`IMPLEMENTATION_PLAN.md` §8.4).
+**Incidencia resuelta (20-10-2026)**: con `wrangler.jsonc` en el repo y el build command corregido a `npm run build:deploy`, el despliegue publica los 162 ficheros de `dist/` (incluido `pagefind/`) y la 404 responde con la página del sitio (`IMPLEMENTATION_PLAN.md` §8.4).
 
-Pasos que dependen del usuario: cambiar el build command del panel a `npm run build:deploy`, autorizar el commit/push de `wrangler.jsonc`, redesplegar, proteger `main` exigiendo el check de CI y autorizar la prueba de fallo deliberado.
+Pasos que dependen del usuario: proteger `main` exigiendo el check de CI y autorizar la prueba de fallo deliberado.
 
 ## Documentación del proyecto
 

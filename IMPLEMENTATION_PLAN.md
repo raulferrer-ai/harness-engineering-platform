@@ -1,6 +1,6 @@
 # Plan de implementación — Harness Engineering Platform
 
-Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 en curso**: commits `9d16d60` y `68d2d4e` publicados en `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en ambas ejecuciones**, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34). **Incidencia abierta (20-10-2026)**: el despliegue publica el HTML correcto pero **no `dist/pagefind/`** y la 404 responde con cuerpo vacío; corrección preparada (`wrangler.jsonc` + build command `npm run build:deploy`; §8.4 y §10.5). **Pendientes de H5**: gate de rama, prueba de fallo deliberado y verificación en navegador (H6). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
+Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 en curso**: commits `9d16d60`, `68d2d4e` y `7acd50b` publicados en `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en las tres ejecuciones**, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34; versión `cef5718d`: 162 assets incluido `pagefind/`, rutas inexistentes con 404 con contenido y build command `npm run build:deploy` con gate completo; incidencias cerradas el 20-10-2026, §8.4 y §10.5). **Pendientes de H5**: gate de rama (protección de `main`), prueba de fallo deliberado y verificación en navegador (H6). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
 Fecha de verificación de versiones: **19 de octubre de 2026** (fuentes: registro de npm, documentación de Astro, documentación de Cloudflare).
 
 Documentos relacionados: `VISION.md` (qué construir), `TECH_STACK.md` (decisiones tecnológicas ya tomadas), `AGENTS.md` (reglas de trabajo), `CURRICULUM.md` (mapa del contenido).
@@ -328,7 +328,7 @@ Estado tras la auditoría del H5 y la publicación inicial (20 de octubre de 202
 
 ### 8.2 Conexión en el panel de Cloudflare
 
-> **Realidad desplegada (20-10-2026)**: el proyecto creado por el usuario es de tipo **Workers con assets estáticos** (no un proyecto Pages clásico): repositorio conectado por Git (`raulferrer-ai/harness-engineering-platform`, rama de producción `main`), build command `npm run build` (pendiente de corregir a `npm run build:deploy`), deploy command `npx wrangler deploy` y URL `https://harness-engineering-platform.raul-ferrer-caio.workers.dev`. La configuración de assets vive **en el repo** (`wrangler.jsonc`, D34): `assets.directory: ./dist` y `not_found_handling: "404-page"`. Los valores de la tabla siguiente siguen siendo los correctos del build; la diferencia es quién ejecuta el despliegue (Wrangler, en lugar del integrado de Pages).
+> **Realidad desplegada (20-10-2026)**: el proyecto creado por el usuario es de tipo **Workers con assets estáticos** (no un proyecto Pages clásico): repositorio conectado por Git (`raulferrer-ai/harness-engineering-platform`, rama de producción `main`), build command **`npm run build:deploy`** (corregido el 20-10-2026; antes `npm run build`), deploy command `npx wrangler deploy` y URL `https://harness-engineering-platform.raul-ferrer-caio.workers.dev`. La configuración de assets vive **en el repo** (`wrangler.jsonc`, D34): `assets.directory: ./dist` y `not_found_handling: "404-page"`. Los valores de la tabla siguiente siguen siendo los correctos del build; la diferencia es quién ejecuta el despliegue (Wrangler, en lugar del integrado de Pages).
 
 1. Cloudflare Dashboard → **Workers & Pages** → **Create** → pestaña **Pages** → **Connect to Git**.
 2. Instalar la aplicación de GitHub de Cloudflare concediendo acceso **solo** a este repositorio.
@@ -376,14 +376,14 @@ Estado tras la auditoría del H5 y la publicación inicial (20 de octubre de 202
 | --- | --- | --- |
 | 1 | URL pública 200 + HTML estático | ✔ 200, `text/html`, `cf-cache-status: HIT`, `cache-control: public, max-age=0, must-revalidate` |
 | 2 | Mapa y navegación | ✔ `/`, `/curriculo/`, `/curriculo/n0/`, `/curriculo/n0/m1/`, lección `l01`, `/buscar/`, `n0/m2` y `n8/m6` → 200 con títulos correctos; `/curriculo` sin barra → 307 a la variante con barra |
-| 3 | Pagefind público | ✘ **`/pagefind/*` → 404**: `pagefind.js`, `pagefind-entry.json` y la carpeta no están desplegados (78 ficheros) |
-| 4 | 404 en ruta inexistente | ◑ status **404 correcto con cuerpo vacío** (falta `not_found_handling: "404-page"`); la exclusión de la 404 del índice está verificada en local (gate `pagefind:check`) |
+| 3 | Pagefind público | ✔ **Tras el redespliegue con `wrangler.jsonc`** (20-10-2026): `pagefind.js` → 200 (`text/javascript`), `pagefind-entry.json` → JSON válido (idioma `es`) y fragmentos del índice → 200 |
+| 4 | 404 en ruta inexistente | ✔ Tras el redespliegue: status **404 con la página del sitio** (`<title>Página no encontrada · …`, cuerpo con contenido); la exclusión de la 404 del índice está verificada en local (gate `pagefind:check`) |
 | 5 | Fallo deliberado del gate | pendiente |
 | 6 | `robots.txt` + títulos | ✔ `User-agent: * / Allow: /` (`text/plain`); títulos correctos en home, mapa, nivel, módulo, lección y buscar |
 | 7 | Recursos estáticos | ✔ CSS (`text/css`), JS (`text/javascript`) y favicon (`image/svg+xml`) → 200 desde `/_astro/` |
 | 8 | Progreso local en navegador | pendiente (H6; navegador de escritorio no conectado) |
 | 9 | Contenido no publicable | ✔ esquemas sin campo de estado; los commits posteriores a la auditoría solo tocan documentación |
-| 10 | Log del build (instalación + Node) | pendiente de aportar el usuario |
+| 10 | Log del build (instalación + Node) | ✔ Log aportado por el usuario: instalación `npm clean-install --progress=false` (= `npm ci`; 402 paquetes en 9 s con caché), **Node 24.22.0 detectado del entorno (`.nvmrc`)**, gate completo en verde antes del despliegue y `wrangler@4.151.2` subiendo **162 assets** (155 nuevos + 7); versión desplegada `cef5718d` |
 
 Integridad del contenido: home, mapa, módulo, lección y buscar son **idénticas al build local** normalizando el hash del CSS (`ByQnelms` local / `CPseglJG` remoto: diferencia esperada del rebuild en la imagen Linux de Cloudflare). Recuento local: **162 ficheros en `dist/`, 78 de ellos en `pagefind/`**; el recuento de ficheros del despliegue (visible en el panel) distingue «no subidos» de «subidos y no enrutados».
 
@@ -393,9 +393,9 @@ Integridad del contenido: home, mapa, módulo, lección y buscar son **idéntica
 | --- | --- | --- | --- | --- |
 | Validación local | Máquina del desarrollador | `npm run verify` / `npm run build:deploy` | No se genera un `dist/` nuevo | ✔ Activa (usada en H0–H4) |
 | CI en GitHub | GitHub Actions (`.github/workflows/ci.yml`) | `npm ci` → `npm run verify` → `npm run build:deploy` en push a `main`, pull request y `workflow_dispatch` | El check del commit/PR queda rojo | ✅ **Ejecutada en GitHub**: CI #1 sobre `9d16d60` → **verde** (push a `main`, 20-10-2026, 47 s); validada en local antes (YAML + Prettier) |
-| Build de producción | Cloudflare (rama `main`; build command del panel) | Instalación de dependencias + build command — **objetivo: `npm run build:deploy`**; hoy el panel tiene `npm run build` (sin `links` ni `pagefind:check`) | Exit ≠ 0 → build **fallido** → no se publica; la versión anterior sigue publicada | ◑ **Ya se ejecuta** (20-10-2026) pero **con incidencias**: no publica `dist/pagefind/` y la 404 sale vacía; corrección preparada (`wrangler.jsonc` + build command; §8.4 y D34) |
+| Build de producción | Cloudflare (rama `main`; build command del panel) | Instalación de dependencias (`npm ci`) + **`npm run build:deploy`** (gate completo: `verify` → `build` → `links` → `pagefind:check`) | Exit ≠ 0 → build **fallido** → no se publica; la versión anterior sigue publicada | ✅ **Activa y verificada en el log** (20-10-2026): gate completo en verde antes de cada despliegue |
 | Despliegue de preview | Cloudflare (ramas ≠ `main`) | El mismo build | Sin preview nuevo; producción intacta | ⏳ Aún sin previews: solo hay despliegues de producción |
-| Despliegue de producción | Cloudflare (`main` con build correcto) | `npx wrangler deploy` sube `dist/` como assets (gobernado por `wrangler.jsonc`) | Solo llega a producción lo que superó las capas anteriores | ✅ **Publicada** (20-10-2026) en `harness-engineering-platform.raul-ferrer-caio.workers.dev`; pendiente resolver las incidencias de la capa 3 |
+| Despliegue de producción | Cloudflare (`main` con build correcto) | `npx wrangler deploy` sube `dist/` como assets (gobernado por `wrangler.jsonc`) | Solo llega a producción lo que superó las capas anteriores | ✅ **Publicada y verificada** (20-10-2026) en `harness-engineering-platform.raul-ferrer-caio.workers.dev` (versión `cef5718d`, 162 assets incluido `pagefind/`, 404 servida con contenido) |
 
 **Cómo se exige CI verde antes de publicar** (documentado, **no activo**; D33):
 
@@ -590,6 +590,13 @@ Fuente: «Build image» de Cloudflare Pages (actualizada 16-10-2026). Imagen **v
 - El usuario empujó `68d2d4e` (documentación; **CI #2 verde**) y conectó el repositorio a Cloudflare: proyecto **Workers + assets estáticos** (`harness-engineering-platform`, rama `main`, build command `npm run build`, deploy command `npx wrangler deploy`), publicado en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev`.
 - Verificación anónima completa del §8.4 sobre la URL real: contenido **correcto e íntegro** (idéntico al build local normalizando el hash del CSS que difiere por el rebuild en Linux), salvo **dos incidencias**: `dist/pagefind/` no está desplegado (la búsqueda quedará rota en el navegador) y la 404 responde con **cuerpo vacío**. Ambas apuntan a la configuración de assets del proyecto: sin `wrangler.jsonc`, Wrangler desplegó con valores por defecto (documentados: sin `not_found_handling` → 404 vacío).
 - Corrección preparada en esta fecha: **`wrangler.jsonc` en la raíz del repo** (`assets.directory: ./dist` + `not_found_handling: "404-page"`, D34) y **cambio del build command del panel a `npm run build:deploy`** (el comando con gate completo); pendientes de commit/push, redespliegue y re-verificación, más el log de build (punto 10 del §8.4).
+
+**Actualización (20-10-2026, cierre de las incidencias de despliegue):**
+
+- El usuario **corrigió el build command** del panel a `npm run build:deploy`, **commiteó y empujó** el conjunto preparado (`7acd50b`: `wrangler.jsonc` + documentación; **CI #3 verde**, 3/3 ejecuciones en verde) y Cloudflare **redesplegó** con la configuración del repo.
+- **Log del build (§8.4, punto 10)**: instalación `npm clean-install --progress=false` (= `npm ci`; 402 paquetes en 9 s con caché de dependencias), **Node 24.22.0 detectado del entorno (`.nvmrc`)** —mecanismo de la §8.2 confirmado en producción—, gate completo en verde (87/87 tests, 76 páginas, Pagefind 63, enlaces 1727 y 404 excluida) y `wrangler@4.151.2` subiendo **162 assets** (155 nuevos + 7 ya subidos): recuento idéntico al `dist/` local. Versión desplegada `cef5718d`.
+- **Verificación posterior en la URL pública**: `/pagefind/pagefind.js` → 200 (`text/javascript`), `pagefind-entry.json` → JSON válido (idioma `es`), fragmentos del índice → 200 y rutas inexistentes → **404 con la página del sitio**. Cerradas las incidencias de `pagefind/` y de la 404 (puntos 3 y 4 del §8.4 en verde).
+- **Quedan de H5**: gate de rama (protección de `main`, D33), prueba de fallo deliberado (§8.4.5) y la verificación en navegador (H6).
 
 #### Decisiones de diseño de H5 (D32–D34)
 
