@@ -2,7 +2,7 @@
 
 Academia online, gratuita y abierta, para aprender a desarrollar software asistido por inteligencia artificial: desde los fundamentos de programación hasta Harness Engineering y sistemas multiagente.
 
-**Estado actual: hitos H0, H1, H2, H3 y H4** — scaffolding, sistema de diseño, sistema de contenidos, el **primer módulo completo** del currículo (las 7 lecciones de `n0/m1` con ejemplos ejecutados y ejercicios verificados) y, desde el H4, la **navegación lateral por módulo, la búsqueda estática con Pagefind (`/buscar/`) y el progreso local**. El mapa navegable en `/curriculo/` (9 niveles y 56 módulos) suma **76 páginas** (incluida `/buscar/`), el gate `npm run verify` supera **87 tests** y `npm run build:deploy` valida además enlaces internos e índice de búsqueda. El **H5** (CI en GitHub + despliegue en Cloudflare Pages) está **en curso**: el repositorio ya está **publicado en GitHub** (`github.com/raulferrer-ai/harness-engineering-platform`, commit inicial `9d16d60`) y la **primera ejecución de CI en GitHub fue verde** (20-10-2026); quedan pendientes la conexión a Cloudflare Pages, el gate de rama y la verificación en vivo.
+**Estado actual: hitos H0, H1, H2, H3 y H4** — scaffolding, sistema de diseño, sistema de contenidos, el **primer módulo completo** del currículo (las 7 lecciones de `n0/m1` con ejemplos ejecutados y ejercicios verificados) y, desde el H4, la **navegación lateral por módulo, la búsqueda estática con Pagefind (`/buscar/`) y el progreso local**. El mapa navegable en `/curriculo/` (9 niveles y 56 módulos) suma **76 páginas** (incluida `/buscar/`), el gate `npm run verify` supera **87 tests** y `npm run build:deploy` valida además enlaces internos e índice de búsqueda. El **H5** (CI en GitHub + despliegue en Cloudflare) está **en curso**: repositorio **publicado** (`github.com/raulferrer-ai/harness-engineering-platform`) con **CI en verde en los 4 commits de `main`**, sitio **desplegado y verificado** en producción (Pagefind y 404 incluidos) y **gate de rama activo y verificado** el 20-10-2026 (ruleset «Comprobaciones y compilación» + prueba de fallo deliberada: PR con check rojo no fusionable); **queda pendiente la verificación en navegador (H6)**.
 
 ## Requisitos
 
@@ -101,7 +101,7 @@ Sitio publicado en **Cloudflare Workers (assets estáticos)**, conectado por Git
 
 **Incidencia resuelta (20-10-2026)**: con `wrangler.jsonc` en el repo y el build command corregido a `npm run build:deploy`, el despliegue publica los 162 ficheros de `dist/` (incluido `pagefind/`) y la 404 responde con la página del sitio (`IMPLEMENTATION_PLAN.md` §8.4).
 
-Pasos que dependen del usuario: proteger `main` exigiendo el check de CI y autorizar la prueba de fallo deliberado.
+Pasos completados por el usuario (20-10-2026): protección de `main` activa (ruleset «Comprobaciones y compilación») y prueba de fallo deliberada verificada (PR con check rojo no fusionable, rama borrada). El ruleset **rechaza además los pushes directos a `main`** (GH013): a partir de ahora todo cambio pasa por **PR con CI verde**. Queda la verificación en navegador (H6).
 
 ## Documentación del proyecto
 
