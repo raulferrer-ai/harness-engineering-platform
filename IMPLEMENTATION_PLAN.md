@@ -1,6 +1,6 @@
 # Plan de implementación — Harness Engineering Platform
 
-Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 en preparación**: auditoría previa, workflow de CI y documentación de despliegue preparados en local (§8.1–§8.5 y §10.5); commit, push, conexión con GitHub/Cloudflare, primer despliegue y verificación en vivo **pendientes de autorización y de pasos del usuario**. El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
+Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 en curso**: commit inicial `9d16d60` publicado en `https://github.com/raulferrer-ai/harness-engineering-platform` (20 de octubre de 2026, identidad personal configurada solo en este repositorio) y **primera ejecución de CI en GitHub verde** (CI #1 sobre `9d16d60`, 47 s). **Pendientes de H5**: conexión y primer despliegue en Cloudflare Pages, activación del gate de rama y verificación posterior al despliegue (§8.1–§8.5 y §10.5). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
 Fecha de verificación de versiones: **19 de octubre de 2026** (fuentes: registro de npm, documentación de Astro, documentación de Cloudflare).
 
 Documentos relacionados: `VISION.md` (qué construir), `TECH_STACK.md` (decisiones tecnológicas ya tomadas), `AGENTS.md` (reglas de trabajo), `CURRICULUM.md` (mapa del contenido).
@@ -317,14 +317,14 @@ Requisitos de entorno: Node 24.22.0 (`.nvmrc`), npm ≥ 9.6.5 (incluido con Node
 
 ### 8.1 Preparación del repositorio
 
-Estado tras la auditoría del H5 (19 de octubre de 2026):
+Estado tras la auditoría del H5 y la publicación inicial (20 de octubre de 2026):
 
-1. Repositorio en GitHub con rama por defecto `main`. — **Pendiente (usuario)**: el repositorio local está en `main` sin ningún commit y **no tiene remoto** (`git remote -v` vacío); `gh` está instalado pero con la sesión caducada (token inválido), así que crearlo requiere `gh auth login` o hacerlo en la interfaz de GitHub.
-2. Comprometer `package-lock.json` (builds reproducibles con `npm ci`). — **Preparado**: incluido en el commit propuesto (aún sin crear).
-3. Comprometer `.nvmrc` y `.node-version` con `24.22.0`. — **Preparado**: ambos ficheros presentes con `24.22.0`.
-4. `.gitignore` mínimo: `node_modules/`, `dist/`, `.astro/`, cobertura, logs, `.env*`. — **Verificado**: `dist/`, `node_modules/`, `.astro/` y `.env*` figuran como ignorados y no entran en el commit; no existe ningún `.env` en el árbol.
-5. Workflow `.github/workflows/ci.yml`: `actions/checkout@v7` → `actions/setup-node@v7` con `node-version-file: .nvmrc` y caché npm → `npm ci` → `npm run verify` → `npm run build:deploy` (+ `workflow_dispatch` y `concurrency`), actualizado en H5 (D32). — **Preparado y validado en local** (sintaxis YAML y Prettier); **sin ejecutar en GitHub** hasta que exista el remoto.
-6. Proteger `main` exigiendo el check de CI. — **Documentado en §8.5 (D33), pendiente de configurar**; el gate no está activo.
+1. Repositorio en GitHub con rama por defecto `main`. — **Hecho**: `https://github.com/raulferrer-ai/harness-engineering-platform` (cuenta personal; público y vacío antes del primer push).
+2. Comprometer `package-lock.json` (builds reproducibles con `npm ci`). — **Hecho** (commit `9d16d60`).
+3. Comprometer `.nvmrc` y `.node-version` con `24.22.0`. — **Hecho** (commit `9d16d60`).
+4. `.gitignore` mínimo: `node_modules/`, `dist/`, `.astro/`, cobertura, logs, `.env*`. — **Verificado** antes y después del commit: `dist/`, `node_modules/`, `.astro/` y `.env*` siguen ignorados; no existe ningún `.env` y no entraron en el historial.
+5. Workflow `.github/workflows/ci.yml`: `actions/checkout@v7` → `actions/setup-node@v7` con `node-version-file: .nvmrc` y caché npm → `npm ci` → `npm run verify` → `npm run build:deploy` (+ `workflow_dispatch` y `concurrency`), actualizado en H5 (D32). — **Ejecutado en GitHub**: CI #1 sobre `9d16d60` → **verde** (20-10-2026, 47 s); antes, validado en local (sintaxis YAML y Prettier).
+6. Proteger `main` exigiendo el check de CI. — **Sigue pendiente** (§8.5, D33): el gate no está activo.
 
 ### 8.2 Conexión en el panel de Cloudflare
 
@@ -370,10 +370,10 @@ Estado tras la auditoría del H5 (19 de octubre de 2026):
 
 ### 8.5 Gate de publicación (H5): cinco capas y cómo activarlo
 
-| Capa | Dónde | Qué ejecuta | Si falla | Estado (19-10-2026) |
+| Capa | Dónde | Qué ejecuta | Si falla | Estado (20-10-2026) |
 | --- | --- | --- | --- | --- |
 | Validación local | Máquina del desarrollador | `npm run verify` / `npm run build:deploy` | No se genera un `dist/` nuevo | ✔ Activa (usada en H0–H4) |
-| CI en GitHub | GitHub Actions (`.github/workflows/ci.yml`) | `npm ci` → `npm run verify` → `npm run build:deploy` en push a `main`, pull request y `workflow_dispatch` | El check del commit/PR queda rojo | 🟡 Workflow preparado y validado en local (YAML + Prettier); **sin ejecutar en GitHub** (no hay remoto) |
+| CI en GitHub | GitHub Actions (`.github/workflows/ci.yml`) | `npm ci` → `npm run verify` → `npm run build:deploy` en push a `main`, pull request y `workflow_dispatch` | El check del commit/PR queda rojo | ✅ **Ejecutada en GitHub**: CI #1 sobre `9d16d60` → **verde** (push a `main`, 20-10-2026, 47 s); validada en local antes (YAML + Prettier) |
 | Build de producción | Cloudflare Pages (rama de producción `main`) | Instalación de dependencias + `npm run build:deploy` | Exit ≠ 0 → build **fallido** → **no se sube nada**; la versión anterior sigue publicada | ⏳ Sin conexión: no existe proyecto en Pages |
 | Despliegue de preview | Cloudflare Pages (ramas ≠ `main`) | El mismo build | Sin preview nuevo; producción intacta | ⏳ Pendiente de conexión |
 | Despliegue de producción | Cloudflare Pages (`main` con build correcto) | Sube `dist/` a la red de Cloudflare | Solo llega a producción lo que superó las capas anteriores | ⏳ Pendiente de conexión y de autorización |
@@ -420,7 +420,7 @@ Cada hito es pequeño, verificable y deja el proyecto en un estado compilable.
 | H2 | Colecciones, esquemas y rutas de currículo (mapa completo, nivel, módulo, lección, 404) + breadcrumb y prev/next | Tests de reglas de currículo + `build:deploy` (incluye `npm run links`) | ✔ Completado (2026-10-19) |
 | H3 | Plantilla de lección + primer módulo completo (`n0/m1`) con ejemplos y ejercicios | Revisión editorial + verificación de cada ejercicio | ✔ Completado (2026-10-19) |
 | H4 | Navegación fina (sidebar por módulo, prefetch) + búsqueda Pagefind + progreso local | Búsqueda funcional, enlaces internos sin errores, índice verificado | ✔ Completado (2026-10-19) |
-| H5 | CI en GitHub + conexión Cloudflare Pages + gate de despliegue | Despliegue verde y prueba de fallo deliberado | 🟡 En preparación (19-10-2026): auditoría, `ci.yml` y documentación listos en local (§10.5); commit/push/conexión/despliegues/verificación en vivo pendientes |
+| H5 | CI en GitHub + conexión Cloudflare Pages + gate de despliegue | Despliegue verde y prueba de fallo deliberado | 🟡 En curso (20-10-2026): repo creado, commit `9d16d60` publicado en `main` y CI #1 verde ✓ (§10.5); pendientes Cloudflare Pages, gate de rama, fallo deliberado y verificación en vivo |
 | H6 | Documentación de ejecución y mantenimiento, auditoría manual a11y | Checklist firmada en el PR correspondiente | ⏳ Pendiente |
 
 ### 10.1 Registro de ejecución de H1 (2026-10-19)
@@ -520,7 +520,7 @@ Límites de H4 (no hecho a propósito o pendiente):
 - **Sin pruebas visuales ni de teclado en navegador** (el navegador de escritorio no está conectado): todo lo anterior es verificación por comandos, HTML generado y sondas; la revisión visual queda para H6.
 - En `astro dev` no existe el índice (se genera post-compilación): la interfaz muestra su estado de error documentado; la búsqueda se prueba con `npm run build` + `npm run preview`.
 - La efectividad del prefetch en Firefox/Safari depende de las cabeceras de caché del hosting: comprobable tras el primer despliegue (H5).
-- Progreso limitado a completadas + resumen (sin punto de lectura ni notas); sin commits, sin CI probado y sin despliegue externo (H5). El repositorio sigue con 0 commits.
+- Progreso limitado a completadas + resumen (sin punto de lectura ni notas); en el cierre de H4 aún no había commits, CI ni despliegue externo: los dos primeros se hicieron en H5 (commit `9d16d60` + CI #1 verde), el despliegue sigue pendiente.
 
 #### Decisiones de diseño de H4 (D26–D31)
 
@@ -531,29 +531,40 @@ Límites de H4 (no hecho a propósito o pendiente):
 30. **Globals de navegador en ESLint, `src/scripts` vía `astro check`** (D30): los `<script>` de los `.astro` (incluido el inline de restauración del progreso) se lintian con `globals.browser` declarado explícitamente en `devDependencies`; los módulos `src/scripts/*.ts` no pasan por ESLint (igual que el resto de `.ts`, coherente con H0) y se validan con `astro check` + Vitest.
 31. **El índice tiene gate propio** (D31): en lugar de confiar en el exit 0 de la CLI, `pagefind:check` verifica la utilidad estructural del índice (presente, no vacío, coincidencia exacta con el contenido marcado, 404 fuera) dentro de `build:deploy`; la usabilidad real (búsquedas con resultados) se comprobó con la sonda de §10.4 sobre `astro preview`, que no es un gate automático porque Pagefind usa `fetch` de origen del navegador.
 
-### 10.5 Registro de H5 — preparación (19-10-2026)
+### 10.5 Registro de H5 — preparación y ejecución (19–20 de octubre de 2026)
 
-Hito **parcial**: ejecutadas todas las fases de preparación en local; **no se ha creado commit, push ni conexión alguna** (a la espera de autorización y de los pasos del usuario en GitHub/Cloudflare).
+Hito **en curso**: todas las fases de preparación completadas en local el **19-10-2026**; el **20-10-2026** se creó y publicó el commit inicial y el CI de GitHub se ejecutó en verde. **Pendientes**: conexión a Cloudflare Pages (§8.2), gate de rama (§8.5), verificación posterior al despliegue y fallo deliberado (§8.4) — ver «Actualización (20-10-2026)» más abajo.
 
 **Fase 1 — Auditoría previa (hallazgos reales)**
 
-- Git: rama `main`, **0 commits**, 24 entradas sin seguimiento (todo el proyecto H0–H4), **sin remoto** (`git remote -v` vacío). Identidad global de Git configurada en `~/.gitconfig` (nombre y correo de autoría; no se reproducen aquí): será la autoría de los commits; en un repositorio público ese nombre y correo quedan visibles en el historial (decisión del usuario).
+- Git (instantánea del **19-10-2026**, antes del commit): rama `main`, **0 commits**, 24 entradas sin seguimiento (todo el proyecto H0–H4), **sin remoto** (`git remote -v` vacío). Identidad global de Git configurada en `~/.gitconfig` (nombre y correo de autoría; no se reproducen aquí): su uso daría esa autoría a los commits y haría visibles esos datos en el historial público (decisión del usuario); **en el commit real se usó identidad local propia** (`git config --local`), sin tocar la global — ver «Actualización (20-10-2026)» más abajo.
 - Sin configuración de despliegue previa: no existen `wrangler.toml`, `.wrangler/`, `CNAME` ni ficheros `.env`; ninguna variable `CLOUDFLARE_*`/`GH_*`/`GITHUB_*` en el entorno. `gh` CLI instalado con la cuenta `raulferrer-ai` pero **token inválido** (sesión caducada): no puedo crear el repositorio hasta `gh auth login` o hasta que el usuario lo haga en la interfaz.
 - Seguridad: `.gitignore` cubre `dist/`, `node_modules/`, `.astro/`, `coverage/`, logs y `.env*`; `.npmrc` solo contiene `engine-strict=true` (sin tokens); escaneo de patrones de secretos (`ghp_`, `github_pat_`, `AKIA…`, claves privadas, `Bearer…`, etc.) sobre los 24 ficheros a publicar: **0 coincidencias**; escaneo de correos en el contenido: **0** (ningún dato personal en ficheros). Los esquemas de colección **no tienen campo de estado/privacidad**: todo lo de `src/content` es público por diseño.
 - Versiones reales: Node local v24.22.0, npm 11.19.1; `node_modules/astro/package.json` exige `node >=22.22.0` y `npm >=9.6.5`; `engines` del proyecto `^24.16.0`; `.nvmrc`/`.node-version` = `24.22.0`.
 - Coherencia de scripts: el workflow referencia únicamente comandos existentes (`npm ci`, `npm run verify`, `npm run build:deploy`, este último = `verify && build && links && pagefind:check`).
 
+**Fase 2 — Actualización de la documentación (19-10-2026)**
+
+Actualizados `IMPLEMENTATION_PLAN.md` (cabecera, §6.2, §8.1, §8.2, §8.4 punto 1–10, §8.5 con el gate de cinco capas, fila H5 de la tabla de hitos y este §10.5 con las decisiones D32–D33) y `README.md` (estado, sección «Comprobaciones y CI» y tabla de despliegue): todos los estados reflejan únicamente lo verificado ese día, sin adelantar ejecuciones reales.
+
 **Fase 3 — Workflow de GitHub Actions (D32)**
 
-Respecto a H4, `ci.yml` pasa de (`verify`, `build`, `links`, `pagefind:check` sueltos) a: paso visible `npm run verify` + paso único `npm run build:deploy` (mismo alcance total, con la compilación de producción ejecutándose **una sola vez**, dentro del paso del gate, y paridad literal con el comando de despliegue de Cloudflare); se añaden `workflow_dispatch` (re-ejecución manual, necesaria para la prueba de fallo deliberado), `concurrency` con `cancel-in-progress` (cancela ejecuciones obsoletas del mismo push/PR) y se mantienen permisos `contents: read`, `actions/checkout@v7`, `actions/setup-node@v7` con `node-version-file: .nvmrc` y caché npm. Validación local realizada: parseo con la dependencia `yaml` (5 pasos; triggers `push`, `pull_request`, `workflow_dispatch`; `permissions: contents:read`) y `prettier --check` conforme. **No ejecutado en GitHub Actions** (imposible sin remoto): la validación local y la ejecución real en GitHub son cosas distintas y esto es solo la primera.
+Respecto a H4, `ci.yml` pasa de (`verify`, `build`, `links`, `pagefind:check` sueltos) a: paso visible `npm run verify` + paso único `npm run build:deploy` (mismo alcance total, con la compilación de producción ejecutándose **una sola vez**, dentro del paso del gate, y paridad literal con el comando de despliegue de Cloudflare); se añaden `workflow_dispatch` (re-ejecución manual, necesaria para la prueba de fallo deliberado), `concurrency` con `cancel-in-progress` (cancela ejecuciones obsoletas del mismo push/PR) y se mantienen permisos `contents: read`, `actions/checkout@v7`, `actions/setup-node@v7` con `node-version-file: .nvmrc` y caché npm. Validación local realizada: parseo con la dependencia `yaml` (5 pasos; triggers `push`, `pull_request`, `workflow_dispatch`; `permissions: contents:read`) y `prettier --check` conforme. **Ejecutado en GitHub Actions el 20-10-2026** (CI #1 sobre `9d16d60` → «completed successfully», 47 s): la validación local y la ejecución real en GitHub son cosas distintas y ahora ya están **ambas** superadas.
 
 **Fase 4 — Compatibilidad de Node con el build de Cloudflare (comprobada el 19-10-2026)**
 
 Fuente: «Build image» de Cloudflare Pages (actualizada 16-10-2026). Imagen **v3**: Node.js **22.16.0** por defecto (por debajo del `>=22.22.0` de Astro 7); admite **cualquier versión** mediante la variable `NODE_VERSION` **o** los ficheros `.nvmrc`/`.node-version` (el repo trae ambos con `24.22.0`); en v3 **no** se detecta Node desde `engines` de `package.json`; npm «corresponde con la versión de Node» (11.x, y se exige `>=9.6.5`). Compatibilidad local confirmada con el propio `node -v`/`npm -v`. El sitio es puramente estático: **sin adaptador SSR**, sin Pages Functions, sin variables secretas.
 
-**Fase 5 — Gate**: cinco capas y configuración exacta en §8.5 (D33). Ninguna capa se da por verificada en un servicio real: GitHub Actions y Cloudflare Pages **no se han ejecutado todavía**.
+**Fase 5 — Gate**: cinco capas y configuración exacta en §8.5 (D33). La capa de CI ya está verificada en un servicio real (CI #1 verde, 20-10-2026); las capas de Cloudflare Pages **todavía no se han ejecutado**.
 
-**Pendientes (requieren al usuario)**: 1) autorizar la creación del commit inicial; 2) crear o reutilizar el repositorio en GitHub (interfaz o `gh auth login`) y autorizar el push; 3) conectar Cloudflare Pages (§8.2) y autorizar el primer despliegue; 4) configurar la protección de `main` (§8.5); 5) ejecutar la verificación posterior al despliegue (§8.4) y la prueba de fallo deliberado.
+**Pendientes (requieren al usuario)**: 1) conectar Cloudflare Pages (§8.2) y autorizar el primer despliegue; 2) configurar la protección de `main` (§8.5); 3) ejecutar la verificación posterior al despliegue (§8.4) y la prueba de fallo deliberado.
+
+**Actualización (20-10-2026) — ejecución real:**
+
+- Commit inicial creado localmente y publicado: `9d16d601752b2b17536ee3397bdbea7f4ba0f9df` (152 ficheros, 14.828 líneas), con **identidad personal configurada solo en este repositorio** (`git config --local user.name/user.email`; `~/.gitconfig` corporativa intacta, mismo hash antes y después) y verificada con `git var GIT_AUTHOR_IDENT` antes de commitear.
+- El **push lo ejecutó el usuario** con su cuenta personal (`raulferrer-ai`). Verificaciones anónimas posteriores: `remote.origin.url` sin credenciales (0 `@`), `.git/config` sin tokens ni helpers (`credential.helper` local vacío), y **solo `refs/heads/main`** en el remoto (sin tags ni otras ramas) con hash idéntico al local.
+- **Primera ejecución real de GitHub Actions**: **CI #1 → «completed successfully»** sobre `9d16d60` (push a `main`, 20-10-2026, **47 s**): `npm ci` → `npm run verify` → `npm run build:deploy`. Esto valida en el servicio real lo que antes solo estaba validado en local.
+- Actualizados en esta fecha: cabecera, §8.1, §8.5, esta sección y `README.md`.
 
 #### Decisiones de diseño de H5 (D32–D33)
 

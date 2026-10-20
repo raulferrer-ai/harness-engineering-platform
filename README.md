@@ -2,7 +2,7 @@
 
 Academia online, gratuita y abierta, para aprender a desarrollar software asistido por inteligencia artificial: desde los fundamentos de programación hasta Harness Engineering y sistemas multiagente.
 
-**Estado actual: hitos H0, H1, H2, H3 y H4** — scaffolding, sistema de diseño, sistema de contenidos, el **primer módulo completo** del currículo (las 7 lecciones de `n0/m1` con ejemplos ejecutados y ejercicios verificados) y, desde el H4, la **navegación lateral por módulo, la búsqueda estática con Pagefind (`/buscar/`) y el progreso local**. El mapa navegable en `/curriculo/` (9 niveles y 56 módulos) suma **76 páginas** (incluida `/buscar/`), el gate `npm run verify` supera **87 tests** y `npm run build:deploy` valida además enlaces internos e índice de búsqueda. El **H5** (CI en GitHub + despliegue en Cloudflare Pages) está **en preparación**: workflow y configuración documentados y validados en local, pero **sin remoto, sin commit y sin despliegue todavía**.
+**Estado actual: hitos H0, H1, H2, H3 y H4** — scaffolding, sistema de diseño, sistema de contenidos, el **primer módulo completo** del currículo (las 7 lecciones de `n0/m1` con ejemplos ejecutados y ejercicios verificados) y, desde el H4, la **navegación lateral por módulo, la búsqueda estática con Pagefind (`/buscar/`) y el progreso local**. El mapa navegable en `/curriculo/` (9 niveles y 56 módulos) suma **76 páginas** (incluida `/buscar/`), el gate `npm run verify` supera **87 tests** y `npm run build:deploy` valida además enlaces internos e índice de búsqueda. El **H5** (CI en GitHub + despliegue en Cloudflare Pages) está **en curso**: el repositorio ya está **publicado en GitHub** (`github.com/raulferrer-ai/harness-engineering-platform`, commit inicial `9d16d60`) y la **primera ejecución de CI en GitHub fue verde** (20-10-2026); quedan pendientes la conexión a Cloudflare Pages, el gate de rama y la verificación en vivo.
 
 ## Requisitos
 
@@ -65,7 +65,7 @@ La arquitectura completa (rutas, colecciones de contenido, sistema de diseño) e
 
 - `npm run verify` es el gate obligatorio: tipos, lint, formato y tests. El despliegue usa `npm run build:deploy`, que lo ejecuta antes de compilar y añade la comprobación de enlaces internos y del índice de Pagefind: si algo falla, **no se publica nada**.
 - GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada push a `main`, en cada pull request y bajo demanda (`workflow_dispatch`): `npm ci` (con caché de npm), un paso visible de `npm run verify` y un paso `npm run build:deploy` (la compilación de producción corre **una sola vez**, dentro de ese paso). Permisos mínimos (`contents: read`), cancelación de ejecuciones obsoletas del mismo push/PR (`concurrency`) y versión de Node leída de `.nvmrc`.
-- **Estado**: el workflow está preparado y validado en local (sintaxis YAML y formato), pero **aún no se ha ejecutado en GitHub** porque el repositorio todavía no tiene remoto. La exigencia de «CI verde antes de publicar» (protección de rama de `main`) se documenta en `IMPLEMENTATION_PLAN.md` §8.5 y **no está activa**.
+- **Estado (20-10-2026)**: el workflow **ya se ha ejecutado en GitHub**: CI #1 sobre `9d16d60` → **verde** (47 s). La exigencia de «CI verde antes de publicar» (protección de rama de `main`) sigue **sin estar activa**: se configura según `IMPLEMENTATION_PLAN.md` §8.5.
 
 ## Búsqueda, progreso local y prefetch
 
@@ -87,7 +87,7 @@ La arquitectura completa (rutas, colecciones de contenido, sistema de diseño) e
 
 ## Despliegue
 
-Cloudflare Pages conectado al repositorio de GitHub (producción desde `main`, previews desde ramas). **Todavía no está conectado** (y el repositorio aún no tiene remoto). Valores exactos verificados el 19-10-2026 contra la documentación pública de Cloudflare (detalle y gate en `IMPLEMENTATION_PLAN.md` §8 y §8.5):
+Cloudflare Pages conectado al repositorio de GitHub (producción desde `main`, previews desde ramas). El repositorio **ya existe y tiene el push inicial** (CI verde); Pages **todavía no está conectado**. Valores exactos verificados el 19-10-2026 contra la documentación pública de Cloudflare (detalle y gate en `IMPLEMENTATION_PLAN.md` §8 y §8.5):
 
 | Campo                  | Valor                                                                                                                                   |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,7 +98,7 @@ Cloudflare Pages conectado al repositorio de GitHub (producción desde `main`, p
 | Node                   | `24.22.0` vía `.nvmrc`/`.node-version` (la imagen v3 trae Node 22.16.0, insuficiente para Astro 7, y no lee `engines`)                  |
 | Variables de entorno   | Ninguna obligatoria; `SITE_URL` opcional y pública. **Sin secretos**                                                                    |
 
-Pasos que dependen del usuario: crear el repositorio en GitHub y hacer el push, conectar Pages (Workers & Pages → Create → Pages → Connect to Git), proteger `main` exigiendo el check de CI y autorizar el primer despliegue.
+Pasos que dependen del usuario: conectar Pages (Workers & Pages → Create → Pages → Connect to Git), proteger `main` exigiendo el check de CI y autorizar el primer despliegue y la verificación en vivo.
 
 ## Documentación del proyecto
 
