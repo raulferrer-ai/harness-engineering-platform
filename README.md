@@ -87,18 +87,21 @@ La arquitectura completa (rutas, colecciones de contenido, sistema de diseño) e
 
 ## Despliegue
 
-Cloudflare Pages conectado al repositorio de GitHub (producción desde `main`, previews desde ramas). El repositorio **ya existe y tiene el push inicial** (CI verde); Pages **todavía no está conectado**. Valores exactos verificados el 19-10-2026 contra la documentación pública de Cloudflare (detalle y gate en `IMPLEMENTATION_PLAN.md` §8 y §8.5):
+Sitio publicado en **Cloudflare Workers (assets estáticos)**, conectado por Git al repositorio (producción desde `main`): **https://harness-engineering-platform.raul-ferrer-caio.workers.dev**. La configuración de despliegue vive en el repo (`wrangler.jsonc`: assets `./dist` + página `404.html`). Valores verificados el 20-10-2026 (detalle y gate en `IMPLEMENTATION_PLAN.md` §8 y §8.5):
 
-| Campo                  | Valor                                                                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework preset       | Astro (salida estática; sin adaptador SSR ni funciones)                                                                                 |
-| Install command        | `npm ci` si el panel lo expone; si no, instalación automática de Pages con `package-lock.json` (se confirma en el log del primer build) |
-| Build command          | `npm run build:deploy`                                                                                                                  |
-| Build output directory | `dist`                                                                                                                                  |
-| Node                   | `24.22.0` vía `.nvmrc`/`.node-version` (la imagen v3 trae Node 22.16.0, insuficiente para Astro 7, y no lee `engines`)                  |
-| Variables de entorno   | Ninguna obligatoria; `SITE_URL` opcional y pública. **Sin secretos**                                                                    |
+| Campo                | Valor                                                                             |
+| -------------------- | --------------------------------------------------------------------------------- |
+| Tipo de proyecto     | Workers con assets estáticos (Git integration; deploy vía `npx wrangler deploy`)  |
+| Rama de producción   | `main`                                                                            |
+| Install command      | `npm ci` (instalación automática con `package-lock.json`)                         |
+| Build command        | **`npm run build:deploy`** (el panel aún tiene `npm run build`: cambio pendiente) |
+| Deploy command       | `npx wrangler deploy` (usa `wrangler.jsonc`: `./dist` + `404-page`)               |
+| Node                 | `24.22.0` vía `.nvmrc`/`.node-version`                                            |
+| Variables de entorno | Ninguna obligatoria. **Sin secretos**                                             |
 
-Pasos que dependen del usuario: conectar Pages (Workers & Pages → Create → Pages → Connect to Git), proteger `main` exigiendo el check de CI y autorizar el primer despliegue y la verificación en vivo.
+**Incidencia abierta (20-10-2026)**: el despliegue publica el HTML correcto, pero no se publica `dist/pagefind/` (la búsqueda no funcionará en el navegador) y la 404 responde con cuerpo vacío; la corrección (`wrangler.jsonc` + cambio de build command) está preparada y pendiente de redespliegue y re-verificación (`IMPLEMENTATION_PLAN.md` §8.4).
+
+Pasos que dependen del usuario: cambiar el build command del panel a `npm run build:deploy`, autorizar el commit/push de `wrangler.jsonc`, redesplegar, proteger `main` exigiendo el check de CI y autorizar la prueba de fallo deliberado.
 
 ## Documentación del proyecto
 

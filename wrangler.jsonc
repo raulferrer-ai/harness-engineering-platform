@@ -1,0 +1,13 @@
+// Configuración de despliegue para Cloudflare Workers (assets estáticos).
+// La ejecuta el paso «Deploy command» del proyecto conectado a Git: `npx wrangler deploy`.
+// Sin `main`: despliegue de assets puro (sin Worker, sin funciones, sin SSR).
+// Documentación: https://developers.cloudflare.com/workers/static-assets/
+{
+  "name": "harness-engineering-platform",
+  "compatibility_date": "2026-10-20",
+  "assets": {
+    "directory": "./dist",
+    // Rutas inexistentes → 404 con la página 404.html más cercana (status 404).
+    "not_found_handling": "404-page",
+  },
+}
