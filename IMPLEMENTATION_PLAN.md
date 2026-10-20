@@ -1,6 +1,6 @@
 # Plan de implementación — Harness Engineering Platform
 
-Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 en curso**: commits `9d16d60`, `68d2d4e` y `7acd50b` publicados en `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en las tres ejecuciones**, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34; versión `cef5718d`: 162 assets incluido `pagefind/`, rutas inexistentes con 404 con contenido y build command `npm run build:deploy` con gate completo; incidencias cerradas el 20-10-2026, §8.4 y §10.5). **Pendientes de H5**: gate de rama (protección de `main`), prueba de fallo deliberado y verificación en navegador (H6). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
+Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 en curso**: commits `9d16d60`, `68d2d4e` y `7acd50b` publicados en `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en las tres ejecuciones**, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34; versión `cef5718d`: 162 assets incluido `pagefind/`, rutas inexistentes con 404 con contenido y build command `npm run build:deploy` con gate completo; incidencias cerradas el 20-10-2026, §8.4 y §10.5). **Gate de rama activo y verificado** (ruleset «Comprobaciones y compilación» sobre `main` + prueba de fallo deliberada: PR con check rojo no fusionable; §8.4 y §8.5, 20-10-2026). **Pendiente de H5**: verificación en navegador (H6). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
 Fecha de verificación de versiones: **19 de octubre de 2026** (fuentes: registro de npm, documentación de Astro, documentación de Cloudflare).
 
 Documentos relacionados: `VISION.md` (qué construir), `TECH_STACK.md` (decisiones tecnológicas ya tomadas), `AGENTS.md` (reglas de trabajo), `CURRICULUM.md` (mapa del contenido).
@@ -278,7 +278,7 @@ MDX se usa cuando la lección necesita componentes (ejercicios con pestañas, di
 ### 6.2 Política de despliegue
 
 - El comando de build en Cloudflare Pages ejecuta las comprobaciones **antes** de compilar: si cualquier comprobación falla, el build falla y **no se publica nada** (requisito de `TECH_STACK.md`).
-- GitHub Actions ejecuta los mismos comandos en cada push a `main`, en cada pull request y bajo demanda (`workflow_dispatch`): paso visible de `npm run verify` + paso `npm run build:deploy` (§8.5 y D32). Que `main` **exija** CI verde depende de la protección de rama en GitHub: queda documentado en §8.5 (D33), **pendiente de configurar y de verificarlo en la interfaz**; no se da por activo.
+- GitHub Actions ejecuta los mismos comandos en cada push a `main`, en cada pull request y bajo demanda (`workflow_dispatch`): paso visible de `npm run verify` + paso `npm run build:deploy` (§8.5 y D32). Que `main` **exija** CI verde depende de la protección de rama en GitHub: configurada y **verificada el 20-10-2026** en §8.5 (D33): ruleset «Comprobaciones y compilación» + prueba de fallo deliberada.
 - No se afirma una funcionalidad como terminada sin haberla verificado; cada hito deja constancia de qué se comprobó y qué queda pendiente.
 
 ### 6.3 Qué queda fuera por ahora
@@ -324,7 +324,7 @@ Estado tras la auditoría del H5 y la publicación inicial (20 de octubre de 202
 3. Comprometer `.nvmrc` y `.node-version` con `24.22.0`. — **Hecho** (commit `9d16d60`).
 4. `.gitignore` mínimo: `node_modules/`, `dist/`, `.astro/`, cobertura, logs, `.env*`. — **Verificado** antes y después del commit: `dist/`, `node_modules/`, `.astro/` y `.env*` siguen ignorados; no existe ningún `.env` y no entraron en el historial.
 5. Workflow `.github/workflows/ci.yml`: `actions/checkout@v7` → `actions/setup-node@v7` con `node-version-file: .nvmrc` y caché npm → `npm ci` → `npm run verify` → `npm run build:deploy` (+ `workflow_dispatch` y `concurrency`), actualizado en H5 (D32). — **Ejecutado en GitHub**: CI #1 sobre `9d16d60` → **verde** (20-10-2026, 47 s); antes, validado en local (sintaxis YAML y Prettier).
-6. Proteger `main` exigiendo el check de CI. — **Sigue pendiente** (§8.5, D33): el gate no está activo.
+6. Proteger `main` exigiendo el check de CI. — ✅ **Hecho y verificado** (20-10-2026, §8.5 y D33): ruleset activa sobre `main`; PR #1 con check rojo y fusión bloqueada.
 
 ### 8.2 Conexión en el panel de Cloudflare
 
@@ -378,7 +378,7 @@ Estado tras la auditoría del H5 y la publicación inicial (20 de octubre de 202
 | 2 | Mapa y navegación | ✔ `/`, `/curriculo/`, `/curriculo/n0/`, `/curriculo/n0/m1/`, lección `l01`, `/buscar/`, `n0/m2` y `n8/m6` → 200 con títulos correctos; `/curriculo` sin barra → 307 a la variante con barra |
 | 3 | Pagefind público | ✔ **Tras el redespliegue con `wrangler.jsonc`** (20-10-2026): `pagefind.js` → 200 (`text/javascript`), `pagefind-entry.json` → JSON válido (idioma `es`) y fragmentos del índice → 200 |
 | 4 | 404 en ruta inexistente | ✔ Tras el redespliegue: status **404 con la página del sitio** (`<title>Página no encontrada · …`, cuerpo con contenido); la exclusión de la 404 del índice está verificada en local (gate `pagefind:check`) |
-| 5 | Fallo deliberado del gate | pendiente |
+| 5 | Fallo deliberado del gate | ✔ **Verificado (20-10-2026)**: rama `prueba/fallo-deliberado` con test rojo (`npm run verify` → exit 1) → **PR #1** → check «Comprobaciones y compilación (pull_request)» en **failure** con etiqueta **`Required`** y **botón «Merge pull request» deshabilitado** («All checks have failed»); API: `state: closed`, `merged: False` (el commit `56fc6a9` nunca llegó a `main`). `mergeable_state: unstable` = «mergeable with non-passing commit status» (enum `MergeStateStatus`): ese campo REST no refleja la ruleset; el bloqueo se ejerce al fusionar. Rama borrada en local y remoto |
 | 6 | `robots.txt` + títulos | ✔ `User-agent: * / Allow: /` (`text/plain`); títulos correctos en home, mapa, nivel, módulo, lección y buscar |
 | 7 | Recursos estáticos | ✔ CSS (`text/css`), JS (`text/javascript`) y favicon (`image/svg+xml`) → 200 desde `/_astro/` |
 | 8 | Progreso local en navegador | pendiente (H6; navegador de escritorio no conectado) |
@@ -392,20 +392,20 @@ Integridad del contenido: home, mapa, módulo, lección y buscar son **idéntica
 | Capa | Dónde | Qué ejecuta | Si falla | Estado (20-10-2026) |
 | --- | --- | --- | --- | --- |
 | Validación local | Máquina del desarrollador | `npm run verify` / `npm run build:deploy` | No se genera un `dist/` nuevo | ✔ Activa (usada en H0–H4) |
-| CI en GitHub | GitHub Actions (`.github/workflows/ci.yml`) | `npm ci` → `npm run verify` → `npm run build:deploy` en push a `main`, pull request y `workflow_dispatch` | El check del commit/PR queda rojo | ✅ **Ejecutada en GitHub**: CI #1 sobre `9d16d60` → **verde** (push a `main`, 20-10-2026, 47 s); validada en local antes (YAML + Prettier) |
+| CI en GitHub | GitHub Actions (`.github/workflows/ci.yml`) | `npm ci` → `npm run verify` → `npm run build:deploy` en push a `main`, pull request y `workflow_dispatch` | El check del commit/PR queda rojo | ✅ **Ejecutada en GitHub**: **4/4 verdes en `main`** (`9d16d60`, `68d2d4e`, `7acd50b`, `e71d010`) y **rojo a propósito en el PR #1** (prueba de fallo deliberada); validada en local antes (YAML + Prettier) |
 | Build de producción | Cloudflare (rama `main`; build command del panel) | Instalación de dependencias (`npm ci`) + **`npm run build:deploy`** (gate completo: `verify` → `build` → `links` → `pagefind:check`) | Exit ≠ 0 → build **fallido** → no se publica; la versión anterior sigue publicada | ✅ **Activa y verificada en el log** (20-10-2026): gate completo en verde antes de cada despliegue |
-| Despliegue de preview | Cloudflare (ramas ≠ `main`) | El mismo build | Sin preview nuevo; producción intacta | ⏳ Aún sin previews: solo hay despliegues de producción |
+| Despliegue de preview | Cloudflare (ramas ≠ `main`) | El mismo build (el bot de Cloudflare anunció «Deploying Preview» en el PR #1) | Build fallido → sin URL de preview; producción intacta | ✅ **Intentado y cortado por el gate** (20-10-2026): los previews de rama **sí están activos** en la integración Git y su build también corre `build:deploy` |
 | Despliegue de producción | Cloudflare (`main` con build correcto) | `npx wrangler deploy` sube `dist/` como assets (gobernado por `wrangler.jsonc`) | Solo llega a producción lo que superó las capas anteriores | ✅ **Publicada y verificada** (20-10-2026) en `harness-engineering-platform.raul-ferrer-caio.workers.dev` (versión `cef5718d`, 162 assets incluido `pagefind/`, 404 servida con contenido) |
 
-**Cómo se exige CI verde antes de publicar** (documentado, **no activo**; D33):
+**Cómo se exige CI verde antes de publicar** (**activo y verificado el 20-10-2026**; D33):
 
-1. **GitHub — donde vive el gate de fusión**: Settings → Branches (o Settings → Rules) → regla para `main` → activar **Require status checks to pass before merging** y añadir el check **«Comprobaciones y compilación»** (el `name` del job del workflow). Recomendables: **Require branches to be up to date before merging** (strict), **Include administrators** y restringir los pushes directos a `main`. Con eso ningún PR se fusiona sin CI verde; como Pages despliega producción desde `main`, nada no verificado puede publicarse.
+1. **GitHub — donde vive el gate de fusión**: Settings → Branches (o Settings → Rules) → regla para `main` → activar **Require status checks to pass before merging** y añadir el check **«Comprobaciones y compilación»** (el `name` del job del workflow). Recomendables: **Require branches to be up to date before merging** (strict), **Include administrators** y restringir los pushes directos a `main`. Con eso ningún PR se fusiona sin CI verde; como Pages despliega producción desde `main`, nada no verificado puede publicarse. **Estado (20-10-2026)**: configurado por el usuario en *Settings → Rules → Rulesets* — ruleset «Comprobaciones y compilación» con `enforcement: active`, condición `refs/heads/main`, `required_status_checks.context: «Comprobaciones y compilación»` (`integration_id` de GitHub Actions) y reglas extra `deletion` + `non_fast_forward`; **verificado con la prueba de fallo deliberada** (fila 5 del §8.4). Sin `strict`, pero **los pushes directos a `main` quedan rechazados** (GH013: «Required status check "Comprobaciones y compilación" is expected»): el check requerido debe reportar con éxito y un commit local aún no tiene ejecución → **flujo de cambios obligatorio por PR con CI verde** (verificado con el propio push de este commit).
 2. **Cloudflare no ofrece un ajuste «exigir los checks de GitHub»**: su gate propio es el código de salida de `npm run build:deploy` (capa 3 de la tabla). Además, el Git integration de Pages publica sus propios **build and deployment status checks** en el repositorio, que pueden sumarse a la lista de checks requeridos.
 3. **Restricciones de plan (documentación oficial consultada el 19-10-2026)**:
    - *Protección de rama/rulesets* (GitHub): gratis en **repositorios públicos** con GitHub Free; en privados exige GitHub Pro/Team/Enterprise.
    - *GitHub Actions* (GitHub): gratis e **ilimitado en repos públicos**; en privados, 2.000 min/mes (Free) y 500 MB de artefactos — con ejecuciones de pocos minutos el margen es amplio.
    - *Cloudflare Pages Free* (doc. «Limits», 05-09-2026): **500 builds/mes**, 1 build concurrente, timeout de 20 min y máximo 20.000 ficheros por sitio (este sitio tiene 76 páginas y cientos de ficheros); previews ilimitados.
-4. **Regla de honestidad**: el gate **no se da por activo** hasta verificar en GitHub que un PR con el check rojo no puede fusionarse (prueba de fallo deliberado, §8.4.5).
+4. **Regla de honestidad**: el gate **no se da por activo** hasta verificar en GitHub que un PR con el check rojo no puede fusionarse (prueba de fallo deliberado, §8.4.5). **Cumplido (20-10-2026)**: PR #1 con check en `failure`, etiqueta `Required` y botón de fusión deshabilitado (fila 5 del §8.4).
 
 Nota de ramas: el workflow cubre push a `main` + `pull_request` (todas las ramas) + disparo manual; una rama sin PR no ejecuta CI hasta que se abra el PR.
 
@@ -439,7 +439,7 @@ Cada hito es pequeño, verificable y deja el proyecto en un estado compilable.
 | H2 | Colecciones, esquemas y rutas de currículo (mapa completo, nivel, módulo, lección, 404) + breadcrumb y prev/next | Tests de reglas de currículo + `build:deploy` (incluye `npm run links`) | ✔ Completado (2026-10-19) |
 | H3 | Plantilla de lección + primer módulo completo (`n0/m1`) con ejemplos y ejercicios | Revisión editorial + verificación de cada ejercicio | ✔ Completado (2026-10-19) |
 | H4 | Navegación fina (sidebar por módulo, prefetch) + búsqueda Pagefind + progreso local | Búsqueda funcional, enlaces internos sin errores, índice verificado | ✔ Completado (2026-10-19) |
-| H5 | CI en GitHub + conexión Cloudflare Pages + gate de despliegue | Despliegue verde y prueba de fallo deliberado | 🟡 En curso (20-10-2026): repo creado, commit `9d16d60` publicado en `main` y CI #1 verde ✓ (§10.5); pendientes Cloudflare Pages, gate de rama, fallo deliberado y verificación en vivo |
+| H5 | CI en GitHub + conexión Cloudflare Pages + gate de despliegue | Despliegue verde y prueba de fallo deliberado | 🟡 En curso (20-10-2026): repo y CI en verde (4/4), sitio desplegado y verificado en Workers (§8.2–§8.4), incidencias de despliegue cerradas y **gate de rama activo + fallo deliberado verificado** (§8.5, D33); **pendiente solo la verificación en navegador (H6)** |
 | H6 | Documentación de ejecución y mantenimiento, auditoría manual a11y | Checklist firmada en el PR correspondiente | ⏳ Pendiente |
 
 ### 10.1 Registro de ejecución de H1 (2026-10-19)
@@ -552,7 +552,7 @@ Límites de H4 (no hecho a propósito o pendiente):
 
 ### 10.5 Registro de H5 — preparación y ejecución (19–20 de octubre de 2026)
 
-Hito **en curso**: todas las fases de preparación completadas en local el **19-10-2026**; el **20-10-2026** se creó y publicó el commit inicial y el CI de GitHub se ejecutó en verde. **Pendientes**: conexión a Cloudflare Pages (§8.2), gate de rama (§8.5), verificación posterior al despliegue y fallo deliberado (§8.4) — ver «Actualización (20-10-2026)» más abajo.
+Hito **en curso**: todas las fases de preparación completadas en local el **19-10-2026**; el **20-10-2026** se creó y publicó el commit inicial y el CI de GitHub se ejecutó en verde. **Pendientes**: solo la verificación en navegador (H6); Cloudflare, gate de rama y fallo deliberado quedaron cerrados y verificados el 20-10-2026 — ver «Actualización (20-10-2026, cierre de las incidencias de despliegue)» más abajo.
 
 **Fase 1 — Auditoría previa (hallazgos reales)**
 
@@ -576,7 +576,7 @@ Fuente: «Build image» de Cloudflare Pages (actualizada 16-10-2026). Imagen **v
 
 **Fase 5 — Gate**: cinco capas y configuración exacta en §8.5 (D33). La capa de CI ya está verificada en un servicio real (CI #1 verde, 20-10-2026); las capas de Cloudflare Pages **todavía no se han ejecutado**.
 
-**Pendientes (requieren al usuario)**: 1) conectar Cloudflare Pages (§8.2) y autorizar el primer despliegue; 2) configurar la protección de `main` (§8.5); 3) ejecutar la verificación posterior al despliegue (§8.4) y la prueba de fallo deliberado.
+**Completados (requerían al usuario; 20-10-2026)**: 1) Cloudflare conectado, desplegado y verificado (§8.2 y §8.4); 2) protección de `main` configurada y verificada (§8.5); 3) verificación posterior al despliegue y prueba de fallo deliberada (§8.4). **Pendiente**: H6 (navegador).
 
 **Actualización (20-10-2026) — ejecución real:**
 
@@ -596,12 +596,21 @@ Fuente: «Build image» de Cloudflare Pages (actualizada 16-10-2026). Imagen **v
 - El usuario **corrigió el build command** del panel a `npm run build:deploy`, **commiteó y empujó** el conjunto preparado (`7acd50b`: `wrangler.jsonc` + documentación; **CI #3 verde**, 3/3 ejecuciones en verde) y Cloudflare **redesplegó** con la configuración del repo.
 - **Log del build (§8.4, punto 10)**: instalación `npm clean-install --progress=false` (= `npm ci`; 402 paquetes en 9 s con caché de dependencias), **Node 24.22.0 detectado del entorno (`.nvmrc`)** —mecanismo de la §8.2 confirmado en producción—, gate completo en verde (87/87 tests, 76 páginas, Pagefind 63, enlaces 1727 y 404 excluida) y `wrangler@4.151.2` subiendo **162 assets** (155 nuevos + 7 ya subidos): recuento idéntico al `dist/` local. Versión desplegada `cef5718d`.
 - **Verificación posterior en la URL pública**: `/pagefind/pagefind.js` → 200 (`text/javascript`), `pagefind-entry.json` → JSON válido (idioma `es`), fragmentos del índice → 200 y rutas inexistentes → **404 con la página del sitio**. Cerradas las incidencias de `pagefind/` y de la 404 (puntos 3 y 4 del §8.4 en verde).
-- **Quedan de H5**: gate de rama (protección de `main`, D33), prueba de fallo deliberado (§8.4.5) y la verificación en navegador (H6).
+- **Queda de H5**: la verificación en navegador (H6). El gate de rama y la prueba de fallo deliberada se cerraron el 20-10-2026 — ver «Actualización (20-10-2026, gate de rama y prueba de fallo deliberada)» más abajo.
+
+**Actualización (20-10-2026, gate de rama y prueba de fallo deliberada):**
+
+- El usuario **configuró la protección de `main`** (D33 → **activo**) con una *ruleset* en *Settings → Rules*: «Comprobaciones y compilación», `enforcement: active`, condición `refs/heads/main`, `required_status_checks.context` = «Comprobaciones y compilación» (`integration_id` 15368 = GitHub Actions), más `deletion` y `non_fast_forward` (sin `strict` ni exigencia de PR).
+- **Prueba de fallo deliberada (§8.4.5)**: rama local `prueba/fallo-deliberado` con un test rojo (`npm run verify` → exit 1) → push de `56fc6a9` → **PR #1** → check «Comprobaciones y compilación (pull_request)» en **failure** con etiqueta **`Required`** y **botón «Merge pull request» deshabilitado** («All checks have failed»); después el usuario cerró el PR (**`merged: False`**) y borró la rama (local y remoto). **El gate bloquea la fusión de PRs con CI rojo.**
+- Matiz técnico: `mergeable_state: unstable` (REST) = «mergeable with non-passing commit status» (enum `MergeStateStatus` del esquema GraphQL): ese campo no refleja la ruleset — el bloqueo se ejerce al fusionar (UI/API), no en ese campo.
+- Cloudflare intentó además un **preview de rama** en el PR («Deploying Preview to Cloudflare») y su build falló con el mismo gate → sin preview publicado; producción intacta (solo despliega `main`).
+- **Consecuencia verificada el mismo día**: el ruleset **también rechaza pushes directos a `main`**: el intento de publicar este commit falló con `remote: error: GH013: Repository rule violations found for refs/heads/main — Required status check "Comprobaciones y compilación" is expected` y no existe forma de que el check reporte antes de que el commit aterrice. Flujo resultante: **PR obligatorio con CI verde** para cualquier cambio en `main` (este mismo documento viajó así).
+- **Queda de H5**: H6 (verificación en navegador).
 
 #### Decisiones de diseño de H5 (D32–D34)
 
 32. **CI: paso `verify` visible + paso `build:deploy`** (D32): el pipeline ejecuta `npm run verify` como paso propio (fallo rápido y visible en la interfaz de GitHub) y después `npm run build:deploy`, que es literalmente el comando de despliegue de Cloudflare (vuelve a incluir `verify`, por lo que la comprobación completa se ejecuta dos veces), mientras que **la compilación de producción corre una sola vez**, dentro del paso del gate. Se añaden `workflow_dispatch` y `concurrency: cancel-in-progress`, con permisos `contents: read` y acciones `checkout@v7`/`setup-node@v7`.
-33. **Exigir CI verde = protección de rama en GitHub, no un ajuste de Cloudflare** (D33): Pages no ofrece «no desplegar producción si falla el CI de GitHub»; sí ofrece (a) que su propio build falle y no publique nada, y (b) publicar status checks en el repositorio. El gate de fusión se configura en GitHub (required status check «Comprobaciones y compilación» sobre `main`; gratuito en repos públicos) y, como Pages despliega producción desde `main`, eso encadena CI verde → publicación. Estado: **documentado, no activo**, hasta verificarlo en la interfaz.
+33. **Exigir CI verde = protección de rama en GitHub, no un ajuste de Cloudflare** (D33): Pages no ofrece «no desplegar producción si falla el CI de GitHub»; sí ofrece (a) que su propio build falle y no publique nada, y (b) publicar status checks en el repositorio. El gate de fusión se configura en GitHub (required status check «Comprobaciones y compilación» sobre `main`; gratuito en repos públicos) y, como Pages despliega producción desde `main`, eso encadena CI verde → publicación. Estado: **ACTIVO y VERIFICADO (20-10-2026)** — ruleset «Comprobaciones y compilación» sobre `main` + PR #1 con check rojo no fusionable (§8.4, fila 5, y §8.5).
 34. **Configuración de despliegue en el repo (`wrangler.jsonc`), no solo en el panel** (D34): el proyecto real es tipo **Workers con assets estáticos**, y su comportamiento de assets (qué directorio servir y qué hacer con las rutas inexistentes) se gobierna por el fichero de configuración de Wrangler. Al comprometerlo, el repositorio vuelve a ser la única fuente de verdad del despliegue (auditable, versionada y reproducible): `assets.directory: ./dist`, `not_found_handling: "404-page"` (la 404 del sitio, con status 404, como en Pages) y `compatibility_date` fijado. Sin `main`: despliegue de **assets puro**, sin funciones ni SSR, coherente con `VISION.md`. Sintaxis verificada en la documentación oficial («Static Assets», actualizada 12-10-2026): sin esa configuración, las rutas sin asset devuelven un 404 vacío —comportamiento observado el 20-10-2026—.
 
 ---
