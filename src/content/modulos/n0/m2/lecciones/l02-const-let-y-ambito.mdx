@@ -1,0 +1,153 @@
+---
+titulo: "const, let y ámbito"
+resumen: "Dos formas de declarar variables, una regla de oro (const por defecto) y una frontera invisible: el ámbito de bloque. Ejecutas los dos errores clásicos de variables —reasignar una const y usar una let antes de declararla— y aprendes a leerlos por su clase, no por su longitud."
+nivel: "n0"
+modulo: "m2"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 30
+objetivos:
+  - "Elegir entre const y let según si la referencia se reasignará"
+  - "Explicar qué es el ámbito de bloque y por qué una sombra no es un error"
+  - "Reconocer un TypeError por reasignar una const"
+  - "Reconocer un ReferenceError de zona prohibida (TDZ)"
+  - "Nombrar variables con nombres que expliquen qué guardan"
+prerrequisitos:
+  - "n0/m2/l01-valores-tipos-y-variables"
+actualizado: "2026-10-21"
+tags:
+  - "variables"
+  - "const"
+  - "let"
+  - "ambito"
+fuentes:
+  - titulo: "const | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/const"
+    fecha: "2026-10-21"
+  - titulo: "let | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let"
+    fecha: "2026-10-21"
+  - titulo: "block | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/block"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`const` declara una referencia que **no se puede reasignar**; `let` declara una que sí. Usa `const` por defecto y `let` solo cuando vayas a reasignar. Cada variable vive en su **ámbito de bloque**: lo que declares dentro de llaves `{}` no existe fuera de ellas, y si declaras otra variable con el mismo nombre dentro, es una **sombra** distinta. Usar una `let` o `const` antes de su línea de declaración lanza `ReferenceError` (zona prohibida o _TDZ_).
+
+## Conceptos
+
+### `const` frente a `let`
+
+`const` no hace inmutable al **valor**, solo impide **reasignar la etiqueta**. Para primitivos eso significa que el valor queda fijo; verás en la l06 que un objeto declarado con `const` sí puede modificarse por dentro. `let` es la que necesitas para contadores y acumuladores que se actualizan.
+
+```js
+// variables.js — ámbito de bloque y por qué const es el valor por defecto (lección l02)
+const nombre = "Ada";
+
+if (typeof nombre === "string") {
+  // Sombra: dentro del bloque existe OTRA variable llamada nombre.
+  const nombre = "Grace";
+  console.log("dentro del bloque:", nombre);
+}
+
+console.log("fuera del bloque:", nombre);
+
+let contador = 0;
+contador = contador + 1; // let sí admite reasignación
+console.log("contador:", contador);
+```
+
+### Ámbito de bloque y sombras
+
+Las llaves de un `if`, de un `for` o de cualquier bloque crean un ámbito. La `const nombre` de dentro **no es la misma variable** que la `const nombre` de fuera: es una sombra, válida y deliberada. Al salir del bloque, la sombra desaparece y la original vuelve a ser visible.
+
+### La zona prohibida (TDZ)
+
+Una variable `let` o `const` **existe** en todo su ámbito, pero su valor no está disponible desde el inicio del bloque hasta su declaración. Leerla antes produce `ReferenceError: Cannot access 'total' before initialization`. No es un error de sintaxis (el programa parsea bien), sino de **orden de ejecución**.
+
+### Convención de nombres
+
+Variables con nombres de sustantivo que describan el dato (`precioUnitario`, `totalFactura`); en la l05 verás que las funciones llevan nombres de verbo. Un nombre honesto ahorra el comentario que lo explica.
+
+## Ejercicio
+
+Crea `ejercicios/sombra.js`:
+
+```js
+let puntos = 10;
+if (puntos >= 10) {
+  let puntos = 20;
+  console.log("dentro:", puntos);
+}
+console.log("fuera:", puntos);
+```
+
+Predice la salida y ejecútalo. Después, en la **segunda línea**, cambia `let puntos = 20;` por `const puntos = 20;` y añade una reasignación `puntos = 30;` justo después.
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime dos números distintos y puedes explicar por qué;
+- la segunda versión termina en rojo con `TypeError: Assignment to constant variable.`;
+- puedes decir qué línea lanza el error y por qué el resto del programa no llegó a ejecutarse.
+
+Pista: piensa en cada `{...}` como en una caja con sus propias etiquetas.
+
+## Solución explicada
+
+Primera versión, salida real ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+dentro: 20
+fuera: 10
+```
+
+La variable de dentro del bloque es una **sombra**: dentro de la caja manda `20`, pero la original no se toca y al salir se imprime `10`. No es un error de programación; a veces se usa a propósito para no pisar un valor exterior.
+
+Segunda versión (misma sombra con `const` y una reasignación), salida real:
+
+```text
+TypeError: Assignment to constant variable.
+```
+
+El error lanza en la línea de la reasignación y el programa se detiene ahí: el `console.log("dentro:")` nunca llegó a ejecutarse. Fíjate en la **clase** del error (`TypeError`, no `ReferenceError`): te dice que el tipo de la operación no es válido —reesignar una `const`—, y eso es más informativo que leer la pila completa.
+
+## Cómo verificarlo
+
+1. Guarda la primera versión en `ejercicios/sombra.js` y ejecútala:
+
+   ```sh
+   node ejercicios/sombra.js
+   ```
+
+   Código de salida `0` y las dos líneas de la solución.
+
+2. Aplica el cambio a `const` más la reasignación y ejecuta de nuevo. Debe terminar en rojo con código `1`.
+3. Ejecuta los dos ficheros de error del módulo y compara sus clases:
+
+   ```sh
+   node src/content/modulos/n0/m2/ejemplos/errores/const-reasignada.js
+   node src/content/modulos/n0/m2/ejemplos/errores/tdz.js
+   ```
+
+   El primero lanza `TypeError: Assignment to constant variable.`; el segundo, `ReferenceError: Cannot access 'total' before initialization`. Ambos con código de salida `1`.
+
+## Errores comunes
+
+- **Reasignar una `const` por error.** `TypeError: Assignment to constant variable.`. Solución: si la reasignación es legítima, cambia la declaración a `let`.
+- **Usar la variable antes de declararla.** `ReferenceError: Cannot access 'x' before initialization` (TDZ). Solución: declara siempre arriba del todo en su bloque.
+- **Creer que `const` congela el valor.** Solo impide reasignar la etiqueta; un objeto `const` se puede modificar por dentro (l06).
+- **Nombres que ocultan el dato.** `x`, `dato2`, `temp` no dicen nada. Nómbralo por lo que representa: `totalCesta`, `precioUnitario`.
+
+## Fuentes
+
+- [const | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/const) — consultado el 2026-10-21.
+- [let | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let) — consultado el 2026-10-21.
+- [block | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/block) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l03 «Textos y plantillas»](/curriculo/n0/m2/l03-textos-y-plantillas/): el tipo `string` en profundidad —cómo comparar textos fiables con normalización y cómo escribir tu primera función con pruebas.
+- Si el TDZ te sorprendió, revisa la salida de `errores/tdz.js` otra vez y sigue el orden de ejecución línea a línea con el dedo.

@@ -1,0 +1,152 @@
+---
+titulo: "Valores, tipos y variables"
+resumen: "Todo programa manipula valores y cada valor tiene un tipo que decide qué operaciones le funcionan. Aquí mapeas los tipos primitivos de JavaScript con typeof, aprendes a guardar un valor en una variable y ves por qué el comparador === es el único que conviene usar."
+nivel: "n0"
+modulo: "m2"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 30
+objetivos:
+  - "Distinguir los tipos primitivos de JavaScript y el tipo object"
+  - "Usar typeof para averiguar el tipo de un valor"
+  - "Guardar valores en variables con const y leer por qué var no se usa"
+  - "Explicar por qué === compara sin convertir y == convierte a escondidas"
+  - "Predecir qué lanza un programa al leer una propiedad de undefined"
+prerrequisitos:
+  - "n0/m1/l07-primeros-pasos-con-git"
+actualizado: "2026-10-21"
+tags:
+  - "tipos"
+  - "javascript"
+  - "valores"
+fuentes:
+  - titulo: "JavaScript data types and data structures | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures"
+    fecha: "2026-10-21"
+  - titulo: "typeof | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof"
+    fecha: "2026-10-21"
+  - titulo: "Equality comparisons and equality operators | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Equality"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **valor** es un dato concreto (`42`, `"hola"`, `true`) y cada valor tiene un **tipo** que decide qué operaciones le funcionan: no es lo mismo un texto que un número. Una **variable** es una etiqueta con nombre que apunta a un valor; en JavaScript se declara con `const` (valor fijo) o `let` (valor que puede cambiar). La comparación segura es `===`: compara valor **y** tipo sin convertir nada a escondidas.
+
+## Conceptos
+
+### Tipos primitivos y el tipo object
+
+JavaScript tiene siete tipos primitivos. Con `typeof` puedes preguntarle a un valor de qué tipo es:
+
+```js
+// tipos.js — mapa de tipos primitivos y dos trampas de typeof (lección l01)
+const texto = "mundo";
+const numero = 42;
+const decimal = 3.14;
+const booleano = true;
+const indefinido = undefined;
+const nada = null;
+const objeto = { clave: "valor" };
+
+console.log(typeof texto, typeof numero, typeof decimal, typeof booleano);
+console.log("typeof undefined =", typeof indefinido);
+console.log("typeof null =", typeof nada, "(trampa conocida: null se reporta como objeto)");
+console.log("typeof objeto =", typeof objeto);
+console.log('"5" === 5 es', "5" === 5, 'pero "5" == 5 es', "5" == 5);
+```
+
+Los tres que usarás a diario son `string` (texto), `number` (enteros y decimales, en el mismo tipo) y `boolean` (`true` o `false`). `undefined` aparece cuando algo no tiene valor todavía; `null` lo escribes tú para decir «aquí no hay nada».
+
+Dos trampas que conviene conocer desde el principio:
+
+- `typeof null` devuelve `"object"`. Es un error histórico del lenguaje que se mantiene por compatibilidad; no confíes en `typeof` para descartar `null`.
+- `typeof undefined` devuelve `"undefined"`, y acceder a una propiedad de `undefined` **detiene el programa** con un `TypeError`. Lo verás en «Errores comunes».
+
+### Variables: la etiqueta sobre el valor
+
+```js
+const nombre = "Ada";
+```
+
+Esta línea crea la etiqueta `nombre` asociada al valor `"Ada"`. Con `const` esa asociación no se puede reasignar: `nombre = "Grace"` detiene el programa con un `TypeError` (lo ejecuta la lección l02 con su fichero de error). `let` permite reasignar. La regla práctica: **empieza siempre por `const` y baja a `let` solo cuando necesites reasignar**. `var` es la forma antigua, con reglas de ámbito confusas; no la uses.
+
+### `===` frente a `==`
+
+`===` compara sin convertir: `"5" === 5` es `false` porque un texto no es un número. `==` convierte los operandos antes de comparar, y eso produce igualdades sorprendentes: `"5" == 5` es `true`. La única regla que necesitas: **usa siempre `===` y `!==`**; si la comparación «no funciona», casi siempre es porque falta convertir un valor de forma **explícita**.
+
+## Ejercicio
+
+Crea `ejercicios/tipo-y-valor.js` con el siguiente contenido, **predice la salida antes de ejecutarlo** y después ejecútalo con `node ejercicios/tipo-y-valor.js` para comprobarlo:
+
+```js
+const entero = 7;
+const texto = "7";
+const coincide = entero === texto;
+console.log(typeof entero, typeof texto, coincide);
+console.log(typeof null);
+```
+
+Esto se cumple cuando:
+
+- has anotado tu predicción (tres valores en la primera línea y el resultado de `typeof null` en la segunda);
+- la salida real coincide con tu predicción, o has explicado por qué no;
+- puedes decir qué cambiaría si en lugar de `===` usaras `==`.
+
+Pista: recuerda que `typeof` devuelve un texto con el nombre del tipo, y que `===` no convierte nada.
+
+## Solución explicada
+
+Salida real ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+number string false
+object
+código=0
+```
+
+Línea por línea:
+
+- `typeof entero` es `number`, `typeof texto` es `string` y `entero === texto` es `false`: `7` y `"7"` tienen tipos distintos, y `===` no los convierte para hacerlos coincidir.
+- `typeof null` imprime `object`: la trampa histórica de la que hablamos. Para descartar `null` no uses `typeof`; compara con `=== null` directamente.
+
+Si cambiaras `===` por `==`, la primera línea imprimiría `number string true`, porque `==` convertiría el texto `"7"` en el número `7`. La comparación diría «iguales» de forma silenciosa, y ese es exactamente el tipo de sorpresa que `===` elimina.
+
+## Cómo verificarlo
+
+1. Guarda el fichero en la carpeta `ejercicios/` de tu proyecto de `n0`.
+2. Ejecútalo:
+
+   ```sh
+   node ejercicios/tipo-y-valor.js
+   ```
+
+3. Comprueba que el código de salida es `0` (imprímelo con `echo $?` tras el comando) y que la salida es la de la solución.
+4. Como contraste, ejecuta el ejemplo de error del módulo y observa la clase de error:
+
+   ```sh
+   node src/content/modulos/n0/m2/ejemplos/errores/acceso-undefined.js
+   ```
+
+   Termina en rojo con código `1` y `TypeError: Cannot read properties of undefined (reading 'nombre')`.
+
+## Errores comunes
+
+- **Confiar en `typeof null`.** Devuelve `"object"`. Para descartar `null` escribe `valor === null`.
+- **Usar `==` «para que funcione».** `"5" == 5` es `true` y oculta un error de tipos. Usa `===` y convierte de forma explícita con `Number(texto)` o `String(numero)` cuando haga falta.
+- **Leer una propiedad de un valor que puede ser `undefined`.** Es el error del fichero `errores/acceso-undefined.js`: `TypeError: Cannot read properties of undefined`. Aprenderás a defender tus funciones contra entradas así en la l05.
+- **Declarar la variable después de usarla.** El nombre existe en todo el bloque, pero su valor no está disponible hasta la línea de declaración; lo verás en detalle en la l02.
+
+## Fuentes
+
+- [JavaScript data types and data structures | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures) — consultado el 2026-10-21.
+- [typeof | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof) — consultado el 2026-10-21.
+- [Equality comparisons and equality operators | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Equality) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l02 «const, let y ámbito»](/curriculo/n0/m2/l02-const-let-y-ambito/): profundizas en las dos formas de declarar variables, el ámbito de bloque y los dos errores clásicos (`TypeError` al reasignar una `const` y `ReferenceError` en la zona prohibida).
+- Si quieres repasar cómo se ejecutan los scripts, vuelve a [l01 de m1 «Qué es programar»](/curriculo/n0/m1/l01-que-es-programar/).

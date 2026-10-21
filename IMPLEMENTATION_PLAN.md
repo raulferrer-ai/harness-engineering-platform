@@ -1,6 +1,6 @@
 # Plan de implementación — Harness Engineering Platform
 
-Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 completado** (cierre el 21-10-2026): repositorio `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en los cinco pushes a `main`** (`9d16d60`, `68d2d4e`, `7acd50b`, `e71d010` y el merge `c3e29ad`) y en el PR #2, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34; versión `cef5718d`: 162 assets incluido `pagefind/`, rutas inexistentes con 404 con contenido y build command `npm run build:deploy` con gate completo; incidencias cerradas el 20-10-2026, §8.4 y §10.5). **Gate de rama activo y verificado** (ruleset «Comprobaciones y compilación» sobre `main` + prueba de fallo deliberada: PR con check rojo no fusionable; §8.4 y §8.5, 20-10-2026). **Verificación en navegador completada** el 21-10-2026 (§8.4, punto 8). **H6 completado** el 21-10-2026: documentación de ejecución y mantenimiento (`docs/MANTENIMIENTO.md`) y auditoría a11y con checklist firmada (`docs/AUDITORIA_A11Y.md`): accessibility **1.0 en 11 rutas** con Lighthouse, 4 hallazgos corregidos (contraste de `--color-ink-faint`, contraste de comentarios de código, foco del skip link y estructura de listas); §10.6. El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
+Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 completado** (cierre el 21-10-2026): repositorio `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en los cinco pushes a `main`** (`9d16d60`, `68d2d4e`, `7acd50b`, `e71d010` y el merge `c3e29ad`) y en el PR #2, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34; versión `cef5718d`: 162 assets incluido `pagefind/`, rutas inexistentes con 404 con contenido y build command `npm run build:deploy` con gate completo; incidencias cerradas el 20-10-2026, §8.4 y §10.5). **Gate de rama activo y verificado** (ruleset «Comprobaciones y compilación» sobre `main` + prueba de fallo deliberada: PR con check rojo no fusionable; §8.4 y §8.5, 20-10-2026). **Verificación en navegador completada** el 21-10-2026 (§8.4, punto 8). **H6 completado** el 21-10-2026: documentación de ejecución y mantenimiento (`docs/MANTENIMIENTO.md`) y auditoría a11y con checklist firmada (`docs/AUDITORIA_A11Y.md`): accessibility **1.0 en 11 rutas** con Lighthouse, 4 hallazgos corregidos (contraste de `--color-ink-faint`, contraste de comentarios de código, foco del skip link y estructura de listas); §10.6. **H7 completado** el 21-10-2026: segundo módulo del nivel `n0` publicado (`n0/m2` «Tipos, variables y funciones»: 7 lecciones con la plantilla de §6, 15 ficheros de ejemplo ejecutados y 20 pruebas `node --test` en verde; §10.7). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
 Fecha de verificación de versiones: **19 de octubre de 2026** (fuentes: registro de npm, documentación de Astro, documentación de Cloudflare).
 
 Documentos relacionados: `VISION.md` (qué construir), `TECH_STACK.md` (decisiones tecnológicas ya tomadas), `AGENTS.md` (reglas de trabajo), `CURRICULUM.md` (mapa del contenido).
@@ -441,6 +441,7 @@ Cada hito es pequeño, verificable y deja el proyecto en un estado compilable.
 | H4 | Navegación fina (sidebar por módulo, prefetch) + búsqueda Pagefind + progreso local | Búsqueda funcional, enlaces internos sin errores, índice verificado | ✔ Completado (2026-10-19) |
 | H5 | CI en GitHub + conexión Cloudflare Pages + gate de despliegue | Despliegue verde y prueba de fallo deliberado | ✅ **Completado (21-10-2026)**: CI verde en los 5 pushes a `main`, sitio desplegado y verificado en Workers con Pagefind y 404 correctos (§8.2–§8.4), **gate de rama activo** (fallo deliberado bloqueado + GH013, §8.5/D33) y **verificación en navegador** (§8.4, puntos 1–10) |
 | H6 | Documentación de ejecución y mantenimiento, auditoría manual a11y | Checklist firmada en el PR correspondiente | ✅ **Completado (21-10-2026)**: `docs/MANTENIMIENTO.md` + `docs/AUDITORIA_A11Y.md` (checklist firmada); Lighthouse accessibility **1.0 en 11 rutas**, 0 fallos de axe y 0 errores de consola tras corregir 4 hallazgos reales (§10.6). **Pendiente honesto**: verificación visual en viewport móvil de 320 px (la herramienta solo ofrece modo desktop) |
+| H7 | Contenido: `n0/m2` completo («Tipos, variables y funciones»): 7 lecciones con ejemplos ejecutables y pruebas | Revisión editorial + verificación de cada ejercicio + gate `npm run build:deploy` | ✅ **Completado (21-10-2026)**: 7 lecciones con la plantilla de §6, 15 ficheros de ejemplo ejecutados (20 pruebas `node --test` en verde y 3 rojos deliberados con su clase de error verificada), ejercicios resueltos y ejecutados antes de documentarlos, `tests/content/ejemplos.test.ts` ampliado a m2 (§10.7) |
 
 ### 10.1 Registro de ejecución de H1 (2026-10-19)
 
@@ -645,6 +646,32 @@ Nueve secciones: requisitos (Node 24.22.0 desde `.nvmrc`; sin secretos ni variab
 - **Ratio de contraste del token `--color-ink-soft`** sobre paper: 7.23:1 (medido; el comentario del token en el CSS decía «≥4.5:1» antes de que la auditoría lo verificara con precisión).
 
 **Nota de proceso**: tras la activación del gate de rama (D33), H6 viajará —al igual que el cierre de H5— por **rama → PR → CI verde → merge**; esta sección se documenta antes del PR y el checklist de `docs/AUDITORIA_A11Y.md` queda como prueba firmada en el historial.
+
+---
+
+### 10.7 Registro de H7 — contenido `n0/m2` (21 de octubre de 2026)
+
+Hito ejecutado en la rama `feat/n0-m2-tipos-variables-funciones`, partiendo de `main` = `51af949` (merge del PR #4 que cerró H6). Es el primero de la fase de ampliación de contenido aprobada («un módulo por hito»).
+
+**Contenido publicado** (`src/content/modulos/n0/m2/`)
+
+- **7 lecciones** con la plantilla obligatoria de CURRICULUM.md §6 (secciones en el orden exacto validado por `tests/content/curriculo.test.ts`) y prerrequisito en cadena desde `n0/m1/l07-primeros-pasos-con-git`: `l01-valores-tipos-y-variables`, `l02-const-let-y-ambito`, `l03-textos-y-plantillas`, `l04-numeros-precision-y-conversion`, `l05-funciones-contrato-y-entrada`, `l06-objetos-como-modelos` y `l07-componer-funciones-pequenas`. Cuerpo editorial añadido al `index.mdx` del módulo (público y cierre).
+- **15 ficheros de ejemplo ejecutables** en `ejemplos/` (`src/content/modulos/n0/m2/ejemplos/`): 5 módulos con sus pruebas (`normalizar` 4, `dinero` 4, `dividir` 4, `articulo` 5, `descripcion-articulo` 3 = **20 pruebas `node --test` en verde, 0 en rojo**), 2 scripts verdes (`tipos.js`, `variables.js`) y **3 rojos deliberados** con su clase verificada ejecutando: `errores/acceso-undefined.js` (`TypeError`), `errores/const-reasignada.js` (`TypeError: Assignment to constant variable.`) y `errores/tdz.js` (`ReferenceError: Cannot access 'total' before initialization`), los tres con código 1.
+- **Toda salida documentada en las lecciones es real**: ejemplos, rojos deliberados y soluciones de los ejercicios se ejecutaron el 2026-10-21 con Node v24.22.0 antes de escribirse (incluidos los rojos registrados: `dinero` sin `Math.round` → `+ 30.000000000000004 / - 30`; `articulo` sin `Object.freeze` → «Missing expected exception (TypeError).»; `descripcion-articulo` sin `normalizar` → diff de mayúsculas). Las cinco soluciones de ejercicio (`capitalizar` 2/2, prueba `19.99` + rojo `Math.trunc` con `1998 !== 1999`, `factorial` 4/4, `crearCliente` 2/2, `aplicarDescuento` 3/3) también se ejecutaron y pasan a documentarse.
+- **Fuentes**: MDN y Node.js v24.x, todas verificadas con HTTP 200 el 2026-10-21 antes de citarse (se descartaron dos rutas 404 de MDN: `Guide/Using_objects` y `Guide/Detailed_object_guide`).
+
+**Tests** (`tests/content/ejemplos.test.ts` ampliado, +16)
+
+- `describe` nuevo «ejemplos del módulo n0/m2: ejecución real»: 5 casos directos (con código de salida y clase de error), salida exacta documentada de `tipos.js` y `variables.js`, las 5 suites con su recuento de pruebas, la suite completa (`node --test` → `tests 20 / pass 20 / fail 0`) y 2 rojos registrados en carpetas temporales (dinero sin `Math.round`, articulo sin `Object.freeze`).
+- Cobertura sin huérfanos **por módulo**: los manifiestos de `m1` y `m2` se comparan con el disco por separado (helper `archivosVerificables`).
+
+**Coherencia**: m1/l07 dejó de decir que las lecciones de m2 «se publican en la siguiente fase» y ahora enlaza su `l01`; `README.md` actualizado con el estado y las métricas reales.
+
+**Validación realizada**: `npm run format` (sin cambios pendientes tras aplicarse), `npm run build:deploy` exit 0 — `astro check` 0 errores/0 avisos, ESLint limpio, **103/103 tests** (87 de H6 + 16 nuevos), build con **83 páginas** (76 + 7 lecciones), `npm run links` → «Enlaces internos OK: 2042 comprobados en 83 páginas HTML (31 externos omitidos)» y Pagefind → «70 páginas indexadas = 70 ficheros con data-pagefind-body de 83 HTML». Corregido en el camino un enlace rojo real detectado por el gate: m2/l07 apuntaba a `/proyecto/`, ruta inexistente (la fase `f1` vive en la home, como en m1/l07).
+
+**Nota de proceso**: al igual que H6, H7 viajará por **rama → PR → CI verde → merge** (gate de rama activo desde D33); esta sección se documenta antes del PR.
+
+**Pendiente siguiente** (no forma parte de H7): `n0/m3` «Control de flujo y estructuras de datos», entregable «Script que procesa un fichero real».
 
 ---
 

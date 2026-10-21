@@ -1,0 +1,192 @@
+---
+titulo: "Objetos: modelar datos con registros"
+resumen: "Cuando una función necesita tres parámetros que siempre viajan juntos, el dato pide convertirse en un objeto. Modelas un artículo como registro validado y congelado con Object.freeze, escribes funciones que reciben y devuelven registros y pruebas que comprueban también la congelación."
+nivel: "n0"
+modulo: "m2"
+orden: 6
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Crear registros con literales de objeto y acceder a sus propiedades"
+  - "Agrupar parámetros que viajan juntos en una función constructora"
+  - "Validar cada campo al construir el registro"
+  - "Congelar el registro con Object.freeze y comprobarlo en las pruebas"
+  - "Comparar registros con assert.deepStrictEqual"
+prerrequisitos:
+  - "n0/m2/l05-funciones-contrato-y-entrada"
+actualizado: "2026-10-21"
+tags:
+  - "objetos"
+  - "registros"
+  - "inmutabilidad"
+  - "modelado"
+fuentes:
+  - titulo: "Object | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object"
+    fecha: "2026-10-21"
+  - titulo: "Object.freeze() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze"
+    fecha: "2026-10-21"
+  - titulo: "Details of the Object Model | MDN JavaScript Guide"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Details_of_the_Object_Model"
+    fecha: "2026-10-21"
+  - titulo: "Object basics | MDN Learn Web Development"
+    url: "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Object_basics"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **objeto** agrupa datos bajo nombres: `{ nombre: "café", precio: 2.5, cantidad: 3 }` es un **registro** que representa algo del mundo real. Cuando los registros son datos de tu dominio, conviene **construirlos con una función que valida cada campo** y devolverlos **congelados** con `Object.freeze`, para que nadie los mutate por sorpresa. Las pruebas comprueban el contenido con `deepStrictEqual` y la congelación con `assert.throws`.
+
+## Conceptos
+
+### Registros y acceso
+
+```js
+const articulo = { nombre: "café", precio: 2.5, cantidad: 3 };
+console.log(articulo.nombre); // "café"
+```
+
+Las propiedades se leen con `objeto.propiedad` (o `objeto["propiedad"]`). Recuerda de la l01 que `typeof` de un objeto es `"object"` —y también de `null`, la trampa que ya conoces—, y de la l02 que `const` no impide modificar el objeto por dentro: `articulo.precio = 99` funciona y nadie se entera.
+
+### La función constructora: validar al nacer
+
+El patrón del módulo: una función `crearX` que valida y devuelve el registro. La validación ocurre **una sola vez**, al construir; después, todo el código que reciba ese artículo puede confiar en él.
+
+```js
+// articulo.js — modelar un artículo como registro validado y congelado (lección l06)
+export function crearArticulo(nombre, precio, cantidad = 1) {
+  if (typeof nombre !== "string" || nombre.trim() === "") {
+    throw new TypeError("crearArticulo espera un nombre no vacío");
+  }
+  if (typeof precio !== "number" || Number.isNaN(precio) || precio < 0) {
+    throw new TypeError("espera un precio numérico no negativo");
+  }
+  if (!Number.isInteger(cantidad) || cantidad < 1) {
+    throw new RangeError("espera una cantidad entera mayor o igual a 1");
+  }
+  return Object.freeze({ nombre: nombre.trim(), precio, cantidad });
+}
+
+export function totalArticulo(articulo) {
+  if (articulo === null || typeof articulo !== "object") {
+    throw new TypeError("totalArticulo espera un artículo");
+  }
+  return articulo.precio * articulo.cantidad;
+}
+```
+
+Dos apuntes:
+
+- **`cantidad = 1`** es un valor por defecto: `crearArticulo("té", 1.2)` funciona y el registro nace con una unidad.
+- **`Object.freeze`** devuelve el mismo objeto pero **sin permisos de escritura**. En un módulo ES (que siempre es modo estricto), `articulo.precio = 99` lanza `TypeError`. Congelar no convierte el objeto en copia inmutable profunda, pero para registros planos de datos es exactamente lo que necesitas.
+
+### Funciones que reciben registros
+
+`totalArticulo(articulo)` sustituye a una hipotética `total(precio, cantidad)`: el registro viaja entero, se valida una vez y el código de consumo es más legible. Es el mismo contrato de la l05, aplicado al primer parámetro: si no es un objeto, `TypeError`.
+
+### Comparar registros completos
+
+`assert.strictEqual` compara por referencia (el mismo objeto). Para comparar **contenido** existe `assert.deepStrictEqual`, que recorre las propiedades: `deepStrictEqual(articulo, { nombre: "café", precio: 2.5, cantidad: 3 })` pasa aunque sean dos objetos distintos.
+
+## Ejercicio
+
+Escribe `cliente.js` y `cliente.test.js` con el patrón de `crearArticulo`.
+
+Contrato de `crearCliente(nombre, email)`: nombre no vacío (texto), email que contiene `@`; devuelve `{ nombre, email }` recortados y **congelados**.
+
+Esto se cumple cuando:
+
+- `crearCliente("  Ada Lovelace ", "ada@ejemplo.com")` devuelve un registro congelado con los dos campos recortados;
+- intentar modificar `cliente.email` lanza `TypeError` y tu prueba lo comprueba con `assert.throws`;
+- nombre vacío y email sin `@` lanzan `TypeError`;
+- `node --test cliente.test.js` termina con `pass 2 / fail 0`.
+
+Pista: `email.includes("@")` basta para el formato; no intentes validar el dominio.
+
+## Solución explicada
+
+```js
+// cliente.js — el ejercicio resuelto (lección l06)
+export function crearCliente(nombre, email) {
+  if (typeof nombre !== "string" || nombre.trim() === "") {
+    throw new TypeError("crearCliente espera un nombre no vacío");
+  }
+  if (typeof email !== "string" || !email.includes("@")) {
+    throw new TypeError("crearCliente espera un email con «@»");
+  }
+  return Object.freeze({ nombre: nombre.trim(), email: email.trim() });
+}
+```
+
+El mismo esqueleto que `crearArticulo`: validar campo a campo con `TypeError` (aquí no hay rangos que distingan clases), recortar al construir y congelar al devolver. Dos pruebas bastan porque cada una cubre una zona del contrato:
+
+```js
+test("crearCliente devuelve un registro congelado", () => {
+  const cliente = crearCliente("  Ada Lovelace ", "ada@ejemplo.com");
+  assert.deepStrictEqual(cliente, { nombre: "Ada Lovelace", email: "ada@ejemplo.com" });
+  assert.throws(() => {
+    cliente.email = "otra@ejemplo.com";
+  }, TypeError);
+});
+
+test("crearCliente valida nombre y email", () => {
+  assert.throws(() => crearCliente("", "ada@ejemplo.com"), TypeError);
+  assert.throws(() => crearCliente("Ada", "ada-sin-arroba"), TypeError);
+});
+```
+
+Salida real de `node --test cliente.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ crearCliente devuelve un registro congelado (3.752291ms)
+✔ crearCliente valida nombre y email (0.249208ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+```
+
+## Cómo verificarlo
+
+1. Ejecuta las pruebas del ejemplo:
+
+   ```sh
+   node --test articulo.test.js
+   ```
+
+   Salida real (verde), ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ crearArticulo devuelve un registro con los tres campos (2.731709ms)
+   ✔ crearArticulo recorta el nombre y usa cantidad 1 por defecto (0.200167ms)
+   ✔ el artículo congelado rechaza cambios (1.71725ms)
+   ✔ crearArticulo valida cada campo con su tipo de error (0.279791ms)
+   ✔ totalArticulo multiplica precio por cantidad (0.322167ms)
+   ℹ tests 5
+   ℹ pass 5
+   ℹ fail 0
+   ```
+
+2. Quita la congelación a propósito: cambia `return Object.freeze({...})` por `return {...}` y ejecuta de nuevo. Salida real: `pass 4 / fail 1`, con `AssertionError [ERR_ASSERTION]: Missing expected exception (TypeError).` —la prueba esperaba que la escritura lanzara y no lanzó nada—. Restaura el verde.
+3. Ejecuta tu `cliente.test.js` y confirma `pass 2 / fail 0`.
+
+## Errores comunes
+
+- **Creer que `const` congela el objeto.** `const` fija la etiqueta; el objeto sigue abierto. `Object.freeze` es quien cierra las propiedades.
+- **`freeze` en profundidad.** Solo congela el nivel superficial; para anidamientos necesitarías `structuredClone` + freeze o inmutabilidad por convención. Con registros planos no te afectará.
+- **Confiar en cualquier objeto.** `totalArticulo("café")` no debe multiplicar letras: por eso valida su entrada como hace `dividir`.
+- **Comparar registros con `===`.** Dos objetos con los mismos campos nunca son `===`; usa `deepStrictEqual`.
+
+## Fuentes
+
+- [Object | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) — consultado el 2026-10-21.
+- [Object.freeze() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze) — consultado el 2026-10-21.
+- [Details of the Object Model | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Details_of_the_Object_Model) — consultado el 2026-10-21.
+- [Object basics | MDN Learn Web Development](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Object_basics) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l07 «Componer funciones pequeñas»](/curriculo/n0/m2/l07-componer-funciones-pequenas/): conectas `normalizar`, `dinero` y `articulo` en una función que produce una línea de descripción, y cierras el módulo con el entregable.
+- Si el `deepStrictEqual` te resultó cómodo, ya tienes la herramienta con la que las suites del resto del currículo compararán registros.
