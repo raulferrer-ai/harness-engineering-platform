@@ -2,14 +2,19 @@
 /**
  * Tarjeta de contenido: superficie elevada con borde fino.
  * Sin interacción propia; si se necesita enlazar, envuelve un enlace.
+ * `como` permite renderizar la tarjeta como `li` cuando forma parte de una
+ * lista semántica (`ol`/`ul`): los hijos directos de una lista deben ser `li`
+ * (regla axe `list`, auditoría a11y del hito H6).
  */
 interface Props {
   class?: string;
+  como?: "div" | "li";
 }
 
-const { class: clase } = Astro.props;
+const { class: clase, como = "div" } = Astro.props;
+const Etiqueta = como;
 ---
 
-<div class:list={["rounded-lg border border-line bg-surface p-5", clase]}>
+<Etiqueta class:list={["rounded-lg border border-line bg-surface p-5", clase]}>
   <slot />
-</div>
+</Etiqueta>
