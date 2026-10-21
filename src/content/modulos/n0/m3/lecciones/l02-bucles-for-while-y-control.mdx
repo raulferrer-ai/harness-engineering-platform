@@ -1,0 +1,198 @@
+---
+titulo: "Bucles: for, while y control"
+resumen: "Repetir una operación sobre muchos datos es el trabajo normal de un programa. Aquí recorres listas con for y for...of, acumulas con una variable preparada antes del bucle, sales a tiempo con break y controlas while para que termine siempre."
+nivel: "n0"
+modulo: "m3"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 40
+objetivos:
+  - "Recorrer una lista con for...of cuando solo necesitas cada elemento"
+  - "Usar for con un índice cuando necesitas la posición"
+  - "Acumular en una variable inicializada antes de entrar al bucle"
+  - "Controlar la repetición con break, continue y condiciones de salida en while"
+prerrequisitos:
+  - "n0/m3/l01-decisiones-if-else-y-switch"
+actualizado: "2026-10-21"
+tags:
+  - "bucles"
+  - "for"
+  - "while"
+fuentes:
+  - titulo: "for | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for"
+    fecha: "2026-10-21"
+  - titulo: "for...of | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of"
+    fecha: "2026-10-21"
+  - titulo: "while | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/while"
+    fecha: "2026-10-21"
+  - titulo: "break | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/break"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **bucle** repite un bloque mientras se cumpla una condición. `for...of` recorre los **elementos** de una lista y es la forma por defecto; `for` clásico te da el **índice** cuando lo necesitas; `while` repite hasta que su condición cambie y por eso esa condición debe cambiar dentro del bucle. El resultado de repetir casi siempre se acumula en una variable que **se inicializa antes de entrar**: con ella preparada, cada vuelta solo añade.
+
+## Conceptos
+
+### `for...of`: cada elemento, sin índices
+
+El ejemplo del módulo suma importes acumulando vuelta a vuelta:
+
+```js
+// acumular.js — acumuladores con for...of y for clásico (lección l02)
+export function sumaImportes(importes) {
+  if (!Array.isArray(importes)) {
+    throw new TypeError("sumaImportes espera una lista");
+  }
+  let total = 0;
+  for (const importe of importes) {
+    if (typeof importe !== "number" || Number.isNaN(importe)) {
+      throw new TypeError("todos los importes deben ser números");
+    }
+    total += importe;
+  }
+  return total;
+}
+
+export function maximoImporte(importes) {
+  if (!Array.isArray(importes)) {
+    throw new TypeError("maximoImporte espera una lista");
+  }
+  if (importes.length === 0) {
+    throw new RangeError("maximoImporte necesita al menos un importe");
+  }
+  let maximo = importes[0];
+  for (let i = 1; i < importes.length; i++) {
+    if (importes[i] > maximo) {
+      maximo = importes[i];
+    }
+  }
+  return maximo;
+}
+```
+
+`for (const importe of importes)` te entrega cada elemento con un nombre nuevo en cada vuelta. Fíjate en `let total = 0`: **el acumulador se prepara antes del bucle**, y dentro solo se actualiza. Con la lista vacía el bucle no ejecuta ni una vuelta y `total` ya es `0`, que es exactamente la suma de nada.
+
+### `for` clásico: cuando hace falta la posición
+
+`maximoImporte` compara con la anterior, así que necesita índices: `for (let i = 1; ...)` empieza en `1` porque el elemento `0` ya es el primer candidato. La forma es `let i = condición inicial; i < límite; i++` y el límite correcto con índices es **siempre `< lista.length`**: el último índice válido es `length - 1`.
+
+### `while` y el control de la salida
+
+`while` repite mientras su condición sea `true` y es la herramienta cuando no sabes de antemano cuántas vueltas hacen falta:
+
+```js
+let restante = 3;
+while (restante > 0) {
+  restante -= 1;
+}
+```
+
+La condición se reevalúa **en cada vuelta**, así que algo dentro del bucle tiene que acercarla a `false`; si no, el bucle nunca termina. Dos formas de controlar el flujo: `break` sale del bucle completo en cuanto aparece lo que buscabas, y `continue` salta a la siguiente vuelta descartando el resto de la rama actual.
+
+### Qué NO hace un bucle
+
+Un bucle no valida por ti: si la lista contiene `"12"` o `NaN`, la suma se arruina sin lanzar nada (`total += "12"` concatenaría texto). Por eso `sumaImportes` comprueba cada elemento **dentro** de la vuelta, con el mismo contrato que en m2: la guarda vive donde llega el dato dudoso.
+
+## Ejercicio
+
+Crea `ejercicios/contar.js` con una función `contarMayoresQue(importes, limite)`.
+
+Contrato: `importes` es una lista de números y `limite` es un número. Devuelve cuántos elementos son **estrictamente mayores** que `limite`, recorriendo la lista con `for...of`.
+
+Esto se cumple cuando:
+
+- `contarMayoresQue([1, 5, 9, 2], 4)` devuelve `2`; con lista vacía devuelve `0`; si ninguno supera el límite, `0`;
+- una lista que no es lista lanza `TypeError` y un `limite` que no es número lanza `TypeError`;
+- `node --test ejercicios/contar.test.js` termina en verde con las dos pruebas.
+
+Pista: prepara `let cuenta = 0` antes del bucle y suma `1` solo dentro de un `if`.
+
+## Solución explicada
+
+```js
+// contar.js — el ejercicio resuelto (lección l02)
+export function contarMayoresQue(importes, limite) {
+  if (!Array.isArray(importes)) {
+    throw new TypeError("contarMayoresQue espera una lista");
+  }
+  if (typeof limite !== "number" || Number.isNaN(limite)) {
+    throw new TypeError("contarMayoresQue espera un límite numérico");
+  }
+  let cuenta = 0;
+  for (const importe of importes) {
+    if (importe > limite) {
+      cuenta = cuenta + 1;
+    }
+  }
+  return cuenta;
+}
+```
+
+Salida real de `node --test contar.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ cuenta solo los que superan el límite (0.38475ms)
+✔ valida lista y límite (0.208584ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+```
+
+Las dos guard clauses salen antes del bucle (una lista vacía también es una lista válida, y ahí `cuenta` devuelve `0` sin entrar en el `for`). El `<` estricto es parte del contrato: un elemento igual al límite **no** cuenta, y la tercera aserción (`[1, 2]` frente a `9` → `0`) lo fija.
+
+## Cómo verificarlo
+
+1. Ejecuta la suite del ejemplo:
+
+   ```sh
+   cd src/content/modulos/n0/m3/ejemplos
+   node --test acumular.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ sumaImportes acumula la lista entera (0.414375ms)
+   ✔ sumaImportes rechaza lo que no sea lista o elemento válido (0.208ms)
+   ✔ maximoImporte devuelve el mayor de la lista (0.06825ms)
+   ✔ maximoImporte trata la lista vacía como error de rango (0.380333ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+2. Ejecuta tu ejercicio desde la raíz de tu proyecto:
+
+   ```sh
+   node --test ejercicios/contar.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código de salida `0`.
+
+## Errores comunes
+
+- **`while` cuya condición nunca cambia.** `while (true)` sin un `break` dentro no termina: detiene el proceso con Ctrl+C. Asegúrate de que algo dentro del bucle acerque la condición a `false`.
+- **Recorrer con `i <= lista.length`.** Ese último índice apunta a `undefined`; lo verás con su `TypeError` en la [l03](/curriculo/n0/m3/l03-arrays-listas-de-datos/).
+- **Dejar el acumulador sin inicializar.** `let total;` y luego `total += 2` da `NaN` sin ningún aviso (lo verificas con `node -e "let t; t += 2; console.log(t)"`).
+- **Añadir elementos a la lista mientras la recorres.** Un `push` dentro del mismo `for...of` alarga la lista que se está leyendo y las vueltas se desalinean. Acumula en otra variable o recorre una copia.
+- **Poner la validación dentro del bucle cuando el error es de la lista entera.** Si `importes` no es un array, mejor comprobarlo una vez antes, como hace `sumaImportes`.
+
+## Fuentes
+
+- [for | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for) — consultado el 2026-10-21.
+- [for...of | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of) — consultado el 2026-10-21.
+- [while | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/while) — consultado el 2026-10-21.
+- [break | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/break) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l03 «Arrays: listas de datos»](/curriculo/n0/m3/l03-arrays-listas-de-datos/): crear, ampliar y consultar listas sin mutarlas, y el `TypeError` que aparece cuando lees una posición que no existe.
+- Si quieres repasar por qué `total += importe` funciona igual con enteros y decimales, vuelve a [l04 de m2 «Números: precisión y conversión»](/curriculo/n0/m2/l04-numeros-precision-y-conversion/).

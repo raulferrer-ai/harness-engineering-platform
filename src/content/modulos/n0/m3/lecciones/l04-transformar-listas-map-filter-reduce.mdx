@@ -1,0 +1,201 @@
+---
+titulo: "Transformar listas: map, filter y reduce"
+resumen: "Los bucles funcionan, pero las transformaciones sobre listas se leen mejor declaradas: map proyecta, filter selecciona y reduce acumula con su valor inicial. Aquí las aplicas a la lista de gastos, encadenas las tres y dejas que el TypeError de reduce vacío te explique por qué el valor inicial importa."
+nivel: "n0"
+modulo: "m3"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Proyectar una lista con map manteniendo su longitud"
+  - "Seleccionar elementos con filter sin mutar la lista original"
+  - "Acumular con reduce aportando el valor inicial"
+  - "Encadenar map, filter y reduce en una expresión legible"
+prerrequisitos:
+  - "n0/m3/l03-arrays-listas-de-datos"
+actualizado: "2026-10-21"
+tags:
+  - "map"
+  - "filter"
+  - "reduce"
+fuentes:
+  - titulo: "Array.prototype.map() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map"
+    fecha: "2026-10-21"
+  - titulo: "Array.prototype.filter() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter"
+    fecha: "2026-10-21"
+  - titulo: "Array.prototype.reduce() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Tres métodos cubren el 90 % de lo que haces con listas: **`map`** transforma cada elemento y devuelve una lista de la misma longitud, **`filter`** se queda con los que pasan un criterio y **`reduce`** recorre la lista entera acumulando en un valor que **tú inicializas** (con la lista vacía, ese inicial es la respuesta). Los tres devuelven listas nuevas: encadenar `map`/`filter`/`reduce` describe _qué_ quieres sin escribir el bucle.
+
+## Conceptos
+
+### `map` proyecta, `filter` selecciona
+
+```js
+// estadisticas.js — map, filter y reduce sobre la lista de gastos (lección l04)
+export function importesDe(gastos) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("importesDe espera una lista de gastos");
+  }
+  return gastos.map((gasto) => gasto.importe);
+}
+
+export function filtrarPorCategoria(gastos, categoria) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("filtrarPorCategoria espera una lista de gastos");
+  }
+  if (typeof categoria !== "string") {
+    throw new TypeError("filtrarPorCategoria espera una categoría (texto)");
+  }
+  return gastos.filter((gasto) => gasto.categoria === categoria);
+}
+
+export function totalImportes(importes) {
+  if (!Array.isArray(importes)) {
+    throw new TypeError("totalImportes espera una lista de importes");
+  }
+  return importes.reduce((acumulado, importe) => acumulado + importe, 0);
+}
+
+export function mediaImportes(importes) {
+  if (!Array.isArray(importes)) {
+    throw new TypeError("mediaImportes espera una lista de importes");
+  }
+  if (importes.length === 0) {
+    throw new RangeError("mediaImportes necesita al menos un importe");
+  }
+  return totalImportes(importes) / importes.length;
+}
+```
+
+`importesDe(gastos)` recorre la lista **una sola vez** y devuelve `[2.5, 19, 1.5]` con tantos elementos como gastos: es una proyección, no un filtro. `filtrarPorCategoria` devuelve una lista **más corta** (o vacía) con los gastos de una categoría y la original sigue intacta — la tercera prueba de la suite lo mide (`gastos.length` sigue en `3`).
+
+### `reduce` acumula desde un valor inicial
+
+`totalImportes` hace la suma con `reduce(callback, 0)`: el `0` es el valor con el que empieza `acumulado`. Con la lista vacía no hay vueltas y la respuesta es **el inicial**: `totalImportes([])` → `0`. Sin ese `0`, `reduce` no sabe con qué empezar y lanza:
+
+```sh
+node -e "[].reduce((a, b) => a + b)"
+```
+
+```text
+TypeError: Reduce of empty array with no initial value
+código=1
+```
+
+Salida real, ejecutada el 2026-10-21 con Node v24.22.0. Por eso el valor inicial no es opcional en este módulo: además de resolver la lista vacía, hace que el tipo del resultado esté decidido desde la primera línea.
+
+### Encadenar sin perder legibilidad
+
+`mediaImportes` compone `totalImportes` (que a su vez usa `reduce`) con `gastos.length` — una línea, sin estado intermedio que mantener. La cadena completa que verás en el entregable es `gastos.map(...).filter(...).reduce(...)` o su versión ya compuesta con las funciones del módulo. Cada eslabón es puro: recibe una lista y devuelve **otra**; ninguna de las tres modifica la que entró.
+
+## Ejercicio
+
+Crea `ejercicios/mayoria.js` con dos funciones:
+
+- `gastosMayoresQue(gastos, umbral)` — devuelve la **lista de importes** de los gastos cuyo importe es mayor que `umbral`. El `umbral` debe ser número o lanza `TypeError`.
+- `sumaTotalGastos(gastos)` — devuelve la suma de todos los importes, componiendo `importesDe` y `totalImportes` de `estadisticas.js` en lugar de reimplementar el recorrido.
+
+Esto se cumple cuando:
+
+- sobre `[{ descripcion: "café", categoria: "comida", importe: 2.5 }, { descripcion: "libro", categoria: "ocio", importe: 19 }, { descripcion: "pan", categoria: "comida", importe: 1.5 }]`, `gastosMayoresQue(gastos, 5)` devuelve `[19]` y con umbral `100` devuelve `[]`;
+- `sumaTotalGastos(gastos)` devuelve `23` y `sumaTotalGastos([])` devuelve `0`;
+- `node --test ejercicios/mayoria.test.js` termina en verde con las dos pruebas.
+
+Pista: la selección es `importesDe(gastos).filter(...)`; el umbral se valida antes de tocar la lista.
+
+## Solución explicada
+
+```js
+// mayoria.js — el ejercicio resuelto (lección l04)
+import { importesDe, totalImportes } from "./estadisticas.js";
+
+export function gastosMayoresQue(gastos, umbral) {
+  if (typeof umbral !== "number" || Number.isNaN(umbral)) {
+    throw new TypeError("gastosMayoresQue espera un umbral numérico");
+  }
+  return importesDe(gastos).filter((importe) => importe > umbral);
+}
+
+export function sumaTotalGastos(gastos) {
+  return totalImportes(importesDe(gastos));
+}
+```
+
+Salida real de `node --test mayoria.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ gastosMayoresQue devuelve solo los importes que superan el umbral (0.9225ms)
+✔ sumaTotalGastos compone map y reduce (0.1025ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+```
+
+`gastosMayoresQue` encadena `map` (proyectar a importes) y `filter` (seleccionar por umbral): dos métodos en lugar de un bucle con estado. `sumaTotalGastos` ni siquiera comprueba la lista: si `gastos` no es un array, `importesDe` ya lanza su `TypeError` **con su mensaje propio**, y el error se propaga intacto (el patrón de [l07 de m2](/curriculo/n0/m2/l07-componer-funciones-pequenas/)). Nota de rigor: la comparación es `>` estricto, así que un importe igual al umbral no pasa.
+
+## Cómo verificarlo
+
+1. Ejecuta la suite del ejemplo:
+
+   ```sh
+   cd src/content/modulos/n0/m3/ejemplos
+   node --test estadisticas.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ importesDe proyecta la lista con map (1.618125ms)
+   ✔ filtrarPorCategoria selecciona sin tocar la original (0.154625ms)
+   ✔ totalImportes acumula con reduce y empieza en cero (0.115ms)
+   ✔ mediaImportes divide entre el número de elementos (0.09175ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+2. Comprueba con tus propios ojos el `reduce` sin inicial:
+
+   ```sh
+   node -e "[].reduce((a, b) => a + b)"
+   echo $?
+   ```
+
+   Rojo, código `1`, `TypeError: Reduce of empty array with no initial value`. Vuelve a ejecutar `totalImportes([])` desde una prueba y verás `0` en verde: el valor inicial es la diferencia.
+
+3. Ejecuta tu ejercicio desde la raíz de tu proyecto:
+
+   ```sh
+   node --test ejercicios/mayoria.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código de salida `0`.
+
+## Errores comunes
+
+- **`reduce` sin valor inicial y lista vacía.** Es el `TypeError` del paso 2. Pasa siempre el inicial: `0` para sumas, `[]` para acumular listas.
+- **Confundir `filter` con `map`.** `filter` selecciona elementos **tal cual** y puede devolver menos (o ninguno); `map` transforma y conserva la longitud. Si tu resultado cambió de tamaño, tocabas `filter`.
+- **Esperar que `map` o `filter` modifiquen la lista original.** Devuelven listas nuevas; si la original «no cambia», es correcto: trabaja con el resultado que devuelven.
+- **Reescribir el bucle que `map` ya expresa.** Un `for` con índice para proyectar añade estado (el índice, el acumulador) que las tres pruebas de la l03 ya te enseñaron a evitar.
+- **Sumar euros sin fijar decimales al presentar.** Los totales heredan el ruido decimal de la l04 de m2; en este módulo se redondea **al presentar** (lo verás con `toFixed(2)` en el entregable), no en cada paso.
+
+## Fuentes
+
+- [Array.prototype.map() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map) — consultado el 2026-10-21.
+- [Array.prototype.filter() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter) — consultado el 2026-10-21.
+- [Array.prototype.reduce() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l05 «Diccionarios, Map y Set»](/curriculo/n0/m3/l05-diccionarios-map-y-set/): cuando cada categoría aparece muchas veces, acumular en una estructura de clave→valor es mejor que filtrar una y otra vez.
+- El ruido decimal del que habla el último punto vive explicado en [l04 de m2 «Números: precisión y conversión»](/curriculo/n0/m2/l04-numeros-precision-y-conversion/).

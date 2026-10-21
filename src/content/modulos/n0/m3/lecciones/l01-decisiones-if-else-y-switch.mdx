@@ -1,0 +1,188 @@
+---
+titulo: "Decisiones: if, else y switch"
+resumen: "Todo programa tiene que elegir entre caminos distintos. Aquí lees una cadena de condiciones de arriba abajo, escribes las guard clauses que validan antes de calcular (el mismo esqueleto de contratos de m2) y conviertes una lista de casos en una tabla con switch."
+nivel: "n0"
+modulo: "m3"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 40
+objetivos:
+  - "Elegir entre ramas con if, else-if y else leyendo las condiciones de arriba abajo"
+  - "Escribir guard clauses que validan al principio y salen con su clase de error"
+  - "Repartir casos con switch, incluido un case que comparte el return"
+  - "Predecir qué rama gana en los límites de cada condición"
+prerrequisitos:
+  - "n0/m2/l07-componer-funciones-pequenas"
+actualizado: "2026-10-21"
+tags:
+  - "condiciones"
+  - "if"
+  - "switch"
+fuentes:
+  - titulo: "if...else | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/if...else"
+    fecha: "2026-10-21"
+  - titulo: "switch | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch"
+    fecha: "2026-10-21"
+  - titulo: "Control flow and error handling | MDN JavaScript Guide"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Control_flow_and_error_handling"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un `if` ejecuta una rama **solo si su condición es `true`**, y una cadena `if`/`else if`/`else` se lee de arriba abajo: gana la primera condición que se cumple. Las **guard clauses** validan la entrada al principio de la función y salen con `TypeError` o `RangeError` antes de calcular nada, con el mismo esqueleto de contratos que en m2. Un `switch` convierte una lista de `case` en una tabla de decisiones: compara con `===`, lleva `default` para lo inesperado y cada rama termina con `return`.
+
+## Conceptos
+
+### `if`: la rama que se cumple
+
+El ejemplo del módulo clasifica importes en tres tramos y zonas de categoría:
+
+```js
+// clasificar.js — decisiones con if/else-if y switch (lección l01)
+export function nivelImporte(importe) {
+  if (typeof importe !== "number" || Number.isNaN(importe)) {
+    throw new TypeError("nivelImporte espera un número");
+  }
+  if (importe < 0) {
+    throw new RangeError("nivelImporte no acepta negativos");
+  }
+  if (importe < 10) {
+    return "pequeño";
+  }
+  if (importe < 50) {
+    return "medio";
+  }
+  return "grande";
+}
+
+export function zonaCategoria(categoria) {
+  if (typeof categoria !== "string") {
+    throw new TypeError("zonaCategoria espera una categoría (texto)");
+  }
+  switch (categoria) {
+    case "comida":
+    case "hogar":
+      return "necesario";
+    case "ocio":
+      return "discrecional";
+    default:
+      return "sin clasificar";
+  }
+}
+```
+
+Lee `nivelImporte` de arriba abajo: cada `if` que no lanza deja pasar el control al siguiente, y en cuanto una rama hace `return`, la función termina. Si el importe es `25`, no es `< 10` pero sí `< 50`, así que devuelve `"medio"` y nunca llega al `return` final. **No hace falta un `else` al final**: el último camino es el resto de los casos.
+
+### Guard clauses: validar antes que calcular
+
+Las dos primeras condiciones no deciden un tramo: **defienden el contrato**. Comprueban el tipo (`TypeError`) y el rango (`RangeError`) y salen antes de tocar la lógica de negocio, igual que en [l05 de m2](/curriculo/n0/m2/l05-funciones-contrato-y-entrada/). Este orden —tipo, luego rango, luego cálculo— es el que vas a reutilizar en todo el módulo, y por eso las ramas de decisión solo aparecen cuando la entrada ya es válida.
+
+### `switch`: una tabla de casos
+
+`zonaCategoria` resuelve cuatro categorías con una tabla en vez de una pirámide de `if`. Tres reglas que conviene tener claras:
+
+- cada `case` compara con `===`: `switch (10)` no atrapa `"10"`;
+- dos `case` seguidos sin `return` entre ellos **comparten la misma salida** (aquí `comida` y `hogar` caen juntos en `"necesario"`) — es el único «caer» intencionado que merece la pena;
+- `default` cubre lo que ninguna rama conoce (`"viaje"` → `"sin clasificar"`). Sin él, la función devolvería `undefined` sin avisar.
+
+### Los límites deciden la rama
+
+En una cadena `if`, **el orden de las condiciones es el contrato**: `< 10` va antes que `< 50` porque los tramos se solapan. Si los invertieras, un importe de `25` entraría en el primer `if` y todo caería en `"pequeño"`. La prueba del ejemplo fija los bordes reales: `9.99` → `"pequeño"`, `10` → `"medio"`, `49.99` → `"medio"`, `50` → `"grande"`.
+
+## Ejercicio
+
+Crea `ejercicios/recargo.js` con una función `recargoFinDeSemana(importe, dia)`.
+
+Contrato: `importe` es un número y `dia` es un entero de 1 (lunes) a 7 (domingo). Si el día es sábado (6) o domingo (7) se aplica un recargo del 10 %; cualquier otro día devuelve el importe tal cual.
+
+Esto se cumple cuando:
+
+- `recargoFinDeSemana(10, 5)` devuelve `10`, y `recargoFinDeSemana(10, 6)` y `recargoFinDeSemana(10, 7)` devuelven `11`;
+- un `importe` que no es número lanza `TypeError` y un `dia` fuera de 1–7 lanza `RangeError`;
+- `node --test ejercicios/recargo.test.js` termina en verde con las tres pruebas.
+
+Pista: valida primero el tipo de `importe`, después el rango de `dia` y deja la rama del cálculo para el final: `dia === 6 || dia === 7` es una sola condición.
+
+## Solución explicada
+
+```js
+// recargo.js — el ejercicio resuelto (lección l01)
+export function recargoFinDeSemana(importe, dia) {
+  if (typeof importe !== "number" || Number.isNaN(importe)) {
+    throw new TypeError("recargoFinDeSemana espera un importe numérico");
+  }
+  if (!Number.isInteger(dia) || dia < 1 || dia > 7) {
+    throw new RangeError("recargoFinDeSemana espera un día de 1 (lunes) a 7 (domingo)");
+  }
+  if (dia === 6 || dia === 7) {
+    return importe * 1.1;
+  }
+  return importe;
+}
+```
+
+Salida real de `node --test recargo.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ entre semana no hay recargo (0.660167ms)
+✔ el fin de semana aplica un 10 % (0.086167ms)
+✔ valida importe y día (0.232125ms)
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+```
+
+El orden es el de siempre: `TypeError` si el importe no es número (incluye `NaN`), `RangeError` si el día no es un entero de 1 a 7, y solo después la única decisión real. Como el recargo tiene **un solo** caso especial, no necesitas `switch`: un `if` con `||` y un `return` final bastan. Elegir entre `if` y `switch` es una decisión de legibilidad: `if` para condiciones numéricas o compuestas, `switch` para igualdades sobre un mismo valor.
+
+## Cómo verificarlo
+
+1. Ejecuta la suite del ejemplo del módulo:
+
+   ```sh
+   cd src/content/modulos/n0/m3/ejemplos
+   node --test clasificar.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ nivelImporte reparte los importes en los tres tramos (0.464875ms)
+   ✔ nivelImporte valida el tipo y el signo (0.19775ms)
+   ✔ zonaCategoria agrupa por zona y tiene default (0.065042ms)
+   ✔ zonaCategoria rechaza lo que no sea texto (1.065208ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+2. Ejecuta tu ejercicio desde la raíz de tu proyecto y comprueba el código de salida:
+
+   ```sh
+   node --test ejercicios/recargo.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 3 / fail 0` y `0`. Si `fail` no es `0`, la primera línea `✖` te dice qué aserción se rompió.
+
+## Errores comunes
+
+- **Usar `==` en la condición.** `"10" == 10` es `true` y convierte a escondidas. En `switch` ya comparas con `===`; en los `if`, también.
+- **Dejar el `switch` sin `default`.** Devuelve `undefined` y el error aparece cuando otro código usa ese texto. Escribe siempre la rama por defecto.
+- **Encadenar `else if` con condiciones solapadas en mal orden.** Las ramas se evalúan en orden: pon lo más específico primero o los límites «se comerán» los tramos grandes.
+- **Olvidar el `return` de una rama.** La función devuelve `undefined` solo en ese camino, y el bug aparece lejos de donde se escribió.
+- **Confundir el caer de `case` con un error.** Apilar dos `case` es válido cuando comparten salida; no lo es cuando olvidaste el `return` del primero.
+
+## Fuentes
+
+- [if...else | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/if...else) — consultado el 2026-10-21.
+- [switch | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch) — consultado el 2026-10-21.
+- [Control flow and error handling | MDN JavaScript Guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Control_flow_and_error_handling) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l02 «Bucles: for, while y control»](/curriculo/n0/m3/l02-bucles-for-while-y-control/): repetir la misma operación sobre una lista con `for` y `for...of`, salir a tiempo con `break` y evitar el bucle infinito de `while`.
+- Si dudas de un contrato, repasa [l05 de m2 «Funciones: contrato y entrada»](/curriculo/n0/m2/l05-funciones-contrato-y-entrada/): aquí solo añades una rama más al mismo esqueleto.

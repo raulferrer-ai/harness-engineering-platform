@@ -5,5 +5,13 @@ modulo: "m3"
 objetivos:
   - "Decidir, repetir y organizar datos (listas, mapas, conjuntos)"
 entregable: "Script que procesa un fichero real"
-actualizado: "2026-10-19"
+actualizado: "2026-10-21"
 ---
+
+## Para quién es este módulo
+
+Continuación directa de `n0/m2`: ya sabes modelar datos con tipos y funciones pequeñas con sus pruebas; ahora esos datos **se mueven**. Se deciden caminos (`if`, `switch`), se repiten operaciones (`for`, `while`, `map`, `filter`, `reduce`), se organizan en listas, diccionarios y conjuntos, y se leen desde un fichero CSV de verdad. Público objetivo: quien tiene `m1` y `m2` a sus espaldas. Duración estimada: de 5 a 7 horas repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas un **script que procesa un fichero real**: lee `datos/gastos.csv`, valida cada fila con su número de línea, calcula totales, media, máximo y recuentos por categoría, e imprime un informe (`demo-informe.js`). La carpeta `ejemplos/` cierra con sus siete suites en verde (`node --test`, **28 pruebas**). Ese entregable es la mitad de la fase `f1` del proyecto y la puerta a `n0/m4`, donde ese código se separa en módulos con sus dependencias.

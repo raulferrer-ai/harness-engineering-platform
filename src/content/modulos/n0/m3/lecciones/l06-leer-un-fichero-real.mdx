@@ -1,0 +1,206 @@
+---
+titulo: "Leer un fichero real con node:fs"
+resumen: "Hasta aquí los datos llegaban en la llamada; ahora salen de un CSV de verdad. Aquí lees un fichero con node:fs, lo partes en líneas, quitas la cabecera, parseas cada fila validada con su número de línea y defiendes el camino completo con pruebas sobre el fichero real del módulo."
+nivel: "n0"
+modulo: "m3"
+orden: 6
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Leer un fichero de texto con readFileSync y comprobar que existe"
+  - "Partir el contenido en líneas y saltar la cabecera"
+  - "Convertir cada fila en un registro validado con el número de línea en el error"
+  - "Escribir un fixture propio con línea vacía y fila rota para probar el parser"
+prerrequisitos:
+  - "n0/m3/l05-diccionarios-map-y-set"
+actualizado: "2026-10-21"
+tags:
+  - "fs"
+  - "csv"
+  - "parseo"
+fuentes:
+  - titulo: "node:fs | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/fs.html"
+    fecha: "2026-10-21"
+  - titulo: "String.prototype.split() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split"
+    fecha: "2026-10-21"
+  - titulo: "Number.isNaN() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isNaN"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`readFileSync(ruta, "utf8")` devuelve el fichero **como texto** (sin `"utf8"` devuelve un `Buffer`, no un string). Ese texto se convierte en datos en tres pasos: `split("\n")` lo parte en líneas, la primera (cabecera) se salta y cada fila restante se separa por comas, se valida campo a campo y se guarda como registro — señalando **la línea exacta** cuando algo falla. El fichero real del módulo es `datos/gastos.csv`, y las pruebas lo leen de verdad.
+
+## Conceptos
+
+### El fichero del módulo
+
+`src/content/modulos/n0/m3/ejemplos/datos/gastos.csv` tiene cabecera y ocho gastos:
+
+```text
+fecha,descripcion,categoria,importe
+2026-10-01,café,comida,2.50
+2026-10-01,abono transporte,transporte,5.40
+2026-10-02,libro,ocio,18.99
+2026-10-02,pan,comida,1.85
+2026-10-03,cine,ocio,9.00
+2026-10-03,leche,comida,1.15
+2026-10-04,electricidad,hogar,42.30
+2026-10-04,café,comida,2.50
+```
+
+Cuatro columnas separadas por coma, UTF-8 con acentos y espacios (`abono transporte` es un solo campo), y cada línea termina en salto de línea. Este formato es el contrato que el parser va a defender.
+
+### De fichero a texto, de texto a registros
+
+```js
+// leer-gastos.js — leer y parsear un CSV real de gastos (lección l06)
+import { existsSync, readFileSync } from "node:fs";
+
+export function parseGastos(contenido) {
+  if (typeof contenido !== "string") {
+    throw new TypeError("parseGastos espera el contenido del fichero como texto");
+  }
+  const lineas = contenido.trim().split("\n").slice(1); // la primera es la cabecera
+  const gastos = [];
+  lineas.forEach((linea, indice) => {
+    const limpio = linea.trim();
+    if (limpio === "") {
+      return;
+    }
+    const [fecha, descripcion, categoria, importe] = limpio.split(",");
+    if (!fecha || !descripcion || !categoria || importe === undefined) {
+      throw new TypeError(`línea ${indice + 2}: faltan campos («${limpio}»)`);
+    }
+    const valor = Number(importe);
+    if (Number.isNaN(valor) || valor < 0) {
+      throw new RangeError(`línea ${indice + 2}: importe inválido («${importe}»)`);
+    }
+    gastos.push({ fecha, descripcion, categoria, importe: valor });
+  });
+  return gastos;
+}
+
+export function leerGastos(ruta) {
+  if (typeof ruta !== "string" || ruta.trim() === "") {
+    throw new TypeError("leerGastos espera la ruta de un fichero");
+  }
+  if (!existsSync(ruta)) {
+    throw new Error(`no existe el fichero: ${ruta}`);
+  }
+  return parseGastos(readFileSync(ruta, "utf8"));
+}
+```
+
+El recorrido, en orden: `existsSync` corta el camino si la ruta no existe (un `readFileSync` sin red de seguridad lanza `ENOENT` con un mensaje crudo), `readFileSync(ruta, "utf8")` trae el texto, `.trim()` borra los saltos finales y `.split("\n")` parte por líneas. **`.slice(1)` descarta la cabecera**: sin él, `fecha,descripcion,...` se parsearía como un gasto y `Number("importe")` daría `RangeError` — es el rojo registrado en «Cómo verificarlo».
+
+Dentro del bucle, `forEach` da el índice de la fila; como la cabecera ya se quitó, la primera fila procesada es la **línea 2** del fichero, de ahí `indice + 2` en los mensajes. `split(",")` desestructura en cuatro nombres: si falta alguno, `TypeError` con la línea; si el importe no es número o es negativo, `RangeError` con la línea. Y una comprobación que salva vidas reales: `limpio === ""` descarta líneas vacías (las de sobra al final del fichero) con `return`, que en `forEach` significa «siguiente fila».
+
+### `leerGastos` separa leer de interpretar
+
+`leerGastos` preocupa del disco (ruta válida, fichero existente, texto) y `parseGastos` del contenido (que también se puede probar con un string en línea, sin tocar el sistema de ficheros). Esa separación es lo que permite las dos familias de pruebas del módulo: fixtures en memoria y el CSV real.
+
+## Ejercicio
+
+Crea `ejercicios/fixture.test.js` con dos pruebas sobre **tu propio fixture de texto**, sin fichero en disco:
+
+- un contenido con cabecera, una fila válida, **una línea vacía** y otra fila válida: `parseGastos` devuelve `2` gastos;
+- un contenido con cabecera y una fila con un campo de menos: lanza `TypeError` cuyo mensaje contiene `línea 2: faltan campos`.
+
+Esto se cumple cuando:
+
+- los dos tests pasan con `node --test ejercicios/fixture.test.js`;
+- el número de línea del error corresponde al fichero, no al índice interno (recuerda: cabecera = línea 1, primera fila de datos = línea 2);
+- no has tocado `leer-gastos.js`: el fixture se pasa como string a `parseGastos`.
+
+Pista: construye el contenido con `["cabecera", "fila", "", "fila"].join("\n")`.
+
+## Solución explicada
+
+```js
+// fixture.test.js — el ejercicio resuelto (lección l06)
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { parseGastos } from "./leer-gastos.js";
+
+test("mi fixture: ignora la línea vacía y parsea dos gastos", () => {
+  const contenido =
+    "fecha,descripcion,categoria,importe\n2026-10-05,pan,comida,1.85\n\n2026-10-06,cine,ocio,9.00\n";
+  assert.strictEqual(parseGastos(contenido).length, 2);
+});
+
+test("mi fixture: una línea rota lanza con su número", () => {
+  const contenido = "fecha,descripcion,categoria,importe\n2026-10-05,pan,comida\n";
+  assert.throws(() => parseGastos(contenido), /línea 2: faltan campos/);
+});
+```
+
+Salida real de `node --test fixture.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ mi fixture: ignora la línea vacía y parsea dos gastos (0.437417ms)
+✔ mi fixture: una línea rota lanza con su número (0.217292ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+```
+
+El primer test ejercita el `return` de la línea vacía (si no existiera, `split(",")` de `""` daría campos undefined y lanza `TypeError`); el segundo fija el número de línea con una expresión regular sobre el mensaje, así que la prueba no depende del texto completo pero sí de que diga `línea 2`.
+
+## Cómo verificarlo
+
+1. Ejecuta la suite del ejemplo, que lee el CSV real:
+
+   ```sh
+   cd src/content/modulos/n0/m3/ejemplos
+   node --test leer-gastos.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ parseGastos convierte un CSV de texto en registros (1.274375ms)
+   ✔ parseGastos ignora las líneas vacías (0.097458ms)
+   ✔ parseGastos señala la línea exacta cuando falta un campo (0.206709ms)
+   ✔ parseGastos rechaza importes que no son números (0.075667ms)
+   ✔ leerGastos lee el fichero real del módulo (14.500583ms)
+   ✔ leerGastos defiende la ruta y el fichero inexistente (2.385041ms)
+   ℹ tests 6
+   ℹ pass 6
+   ℹ fail 0
+   ```
+
+2. Registra el rojo deliberado: en `parseGastos`, borra `.slice(1)` (la cabecera) y vuelve a ejecutar la suite. Salida real: `pass 2 / fail 4`, con cuatro `✖` — «parseGastos convierte un CSV de texto en registros», «parseGastos ignora las líneas vacías», «parseGastos señala la línea exacta cuando falta un campo» y «leerGastos lee el fichero real del módulo»: el parser intenta convertir la cabecera `importe` como número y todo se cae. Restaura el verde.
+
+3. Ejecuta tu fixture:
+
+   ```sh
+   node --test ejercicios/fixture.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código de salida `0`.
+
+## Errores comunes
+
+- **Parsear la cabecera como dato.** Es el rojo del paso 2: sin `.slice(1)` el primer «gasto» es `fecha,descripcion,...`. La cabecera se salta siempre.
+- **Olvidar `"utf8"`.** `readFileSync(ruta)` devuelve un `Buffer` (no un texto) y `split` no funciona sobre él: pasa siempre la codificación.
+- **Contar líneas desde 0 al usuario.** Tu índice interno empieza en 0, pero el fichero tiene la cabecera en la 1: muestra `indice + 2`, que es lo que quien edita el CSV puede buscar.
+- **No filtrar líneas vacías.** Un salto de línea sobrante deja `limpio` vacío y `"".split(",")` devuelve `[""]`: la desestructuración deja `descripcion`, `categoria` e `importe` en `undefined` y la guarda dispara un falso «faltan campos». El `return` de esa fila lo evita.
+- **Dejar pasar un importe vacío.** Un campo `""` no es `NaN`: `Number("")` es `0` y la fila se aceptaría con importe cero. En este módulo el CSV real no tiene filas así; si tu fichero pudiera tenerlas, añade `importe.trim() === ""` a la comprobación. (Es un hueco conocido del ejemplo, no un error documentado en rojo.)
+
+## Fuentes
+
+- [node:fs | Node.js v24.22.0 Documentation](https://nodejs.org/api/fs.html) — consultado el 2026-10-21.
+- [String.prototype.split() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split) — consultado el 2026-10-21.
+- [Number.isNaN() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isNaN) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l07 «El entregable: informe de gastos»](/curriculo/n0/m3/l07-informe-de-gastos-entregable/): todas las piezas del módulo se componen en un script que procesa el CSV real e imprime un informe con sus agregados.
+- Si quieres repasar las plantillas de texto con las que formateas los mensajes de error, vuelve a [l03 de m2 «Textos y plantillas»](/curriculo/n0/m2/l03-textos-y-plantillas/).
