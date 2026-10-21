@@ -608,7 +608,7 @@ describe("ejemplos del módulo n0/m5: ejecución real (requiere git)", () => {
     },
     {
       fichero: "revision.sh",
-      marcas: ["$ git log main..formatea-importes --stat", "$ git diff main...formatea-importes"],
+      marcas: ["$ git log ", "..formatea-importes --stat", "$ git diff ", "...formatea-importes"],
       descripcion: "l06: la rama revisada con log y diff de tres puntos",
     },
   ];
