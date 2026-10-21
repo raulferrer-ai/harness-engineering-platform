@@ -1,0 +1,167 @@
+---
+titulo: "El ciclo rojo-verde"
+resumen: "Escribir la prueba antes que la implementación convierte la suite en brújula, no en trámite. Practicas el ciclo completo —prueba roja, implementación mínima, verde— con una demostración que ejecuta las dos fases y muestra sus códigos de salida reales, y aprendes por qué ver el rojo es tan importante como ver el verde."
+nivel: "n0"
+modulo: "m6"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Describir las fases del ciclo rojo-verde y su motivación"
+  - "Escribir una prueba que falle por la razón correcta antes de implementar"
+  - "Implementar lo mínimo necesario para pasar del rojo al verde"
+  - "Ejecutar las dos fases y leer sus códigos de salida"
+prerrequisitos:
+  - "n0/m6/l03-estructura-de-una-suite"
+actualizado: "2026-10-21"
+tags:
+  - "tdd"
+  - "rojo-verde"
+  - "ciclo"
+fuentes:
+  - titulo: "Test Driven Development | Martin Fowler"
+    url: "https://martinfowler.com/bliki/TestDrivenDevelopment.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El **ciclo rojo-verde** (el corazón del TDD) tiene tres pasos: escribe una prueba que describa el comportamiento que falta, ejecútala y **comprueba que falla** — rojo, con la causa esperada—; implementa lo mínimo que la haga pasar — verde—; refactorea sin cambiar comportamiento. La disciplina clave es la fase roja: una prueba que nunca has visto fallar no te dice si prueba algo, y una que falla por un error de importación o de sintaxis no prueba tu lógica.
+
+## Conceptos
+
+### Por qué el rojo primero
+
+Si implementas antes de probar, la suite se convierte en un trámite que confirma lo que acabas de escribir: aprueba tu código, no tu intención. Escribiendo la prueba primero inviertes el orden de la evidencia — primero defines **qué significa correcto**, después persigues esa definición. Además, ver el rojo te enseña dos cosas que el verde jamás enseña: que la prueba puede ejecutarse de verdad, y cómo se ve —clase de error, mensaje, código de salida— cuando el comportamiento falta.
+
+Hay un matiz que Martin Fowler distingue en su bliki sobre TDD: no toda escritura de pruebas es TDD, y la disciplina exige el ciclo completo en unidades pequeñas. Lo que practicamos aquí es ese músculo: ciclos de minutos, no sesiones.
+
+### La demostración: dos fases, dos códigos
+
+El ejemplo `ejemplos/ciclo-rojo-verde.js` ejecuta el ciclo end-to-end contra un `sumar` con un esqueleto equivocado —devuelve la resta— y después contra la versión corregida, **con la misma suite**:
+
+- Fase 1 (rojo): escribe `sumar.test.js` (3 pruebas) y `sumar.js` roto; ejecuta `node --test`.
+- Fase 2 (verde): sustituye solo `sumar.js` por la corrección; ejecuta la misma suite.
+
+Salida real medida con Node v24.22.0 el 2026-10-21:
+
+```text
+--- paso 1: rojo ---
+ℹ tests 3
+ℹ pass 1
+ℹ fail 2
+código de salida: 1
+--- paso 2: verde ---
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+código de salida: 0
+ciclo completo: rojo (1) → verde (0)
+```
+
+Dos detalles a mirar: en el rojo, `pass 1` no es un accidente — `sumar(0, 0)` da `0` tanto restando como sumando, y eso es informativo: **un caso insuficiente puede pasar con la implementación equivocada**. Y el rojo termina en `1`, el verde en `0`: son los códigos que Git o un agente leerán sin interpretar texto (l01).
+
+### «Rojo por la razón correcta»
+
+La fase roja es legítima solo si el fallo viene de tu comportamiento ausente, no de un cable suelto. Errores de importación, ficheros mal guardados o typos en el nombre de la función producen rojos «falsos»: dicen que falta comportamiento, pero en realidad sobra conectividad. Por eso el ciclo incluye leer el fallo: la causa debe ser un `AssertionError` con tu mensaje —o la ausencia de tu excepción—, no un `ReferenceError` de módulo.
+
+### El refactor del verde
+
+El tercer paso —refactorizar— es el que convierte al ciclo en sostenible: con el verde puesto, renombras, extraes funciones, eliminas duplicación; la suite es tu red de seguridad porque **cualquier** regresión vuelve a rojo al instante. Es la misma idea que aplicaste en `n0/m5` con el diff revisable, ahora en el microscopio: cambios pequeños, verificados antes de seguir.
+
+## Ejercicio
+
+Repite el ciclo tú a mano con una función `clasificarEdad(anios)` que debe devolver `"menor"`, `"adulto"` o `"senior"` —fronteras: 0–17, 18–64, 65+—. Primero escribe `ejercicios/edades.test.js` con al menos tres pruebas, una por frontera crítica (`17`, `18`, `65`). Después crea `ejercicios/edades.js` como esqueleto que devuelve siempre `"adulto"` y ejecuta la suite: debe terminar en rojo con código `1`. Solo entonces completa la implementación hasta el verde.
+
+Esto se cumple cuando:
+
+- la fase roja muestra `fail ≥ 2` y termina con código `1`, y el fallo es un `AssertionError` con tu mensaje —no un error de importación—;
+- la fase verde muestra `fail 0` y termina con código `0` con la misma suite, sin editarla;
+- las tres fronteras (`17`, `18`, `65`) están cubiertas y sus nombres dicen el requisito;
+- documentas ambos resúmenes —rojo y verde— en tu nota de trabajo, con sus códigos.
+
+Pista: si al corregir ves `fail 0` pero no cambiaste la implementación, revisa si las fronteras son realmente distintas en tu código.
+
+## Solución explicada
+
+Esqueleto inicial —deliberadamente incompleto— y su rojo:
+
+```js
+// edades.js — esqueleto
+export function clasificarEdad(anios) {
+  return "adulto";
+}
+```
+
+```text
+ℹ tests 3
+ℹ pass 1
+ℹ fail 2
+código de salida: 1
+```
+
+Pasa `18` —el caso central— porque devuelve `"adulto"`: otro ejemplo de que **el camino feliz puede pasar con el código roto**; las fronteras `17` y `65` son las que caen. Implementación corregida:
+
+```js
+export function clasificarEdad(anios) {
+  if (anios < 0) throw new RangeError("la edad no puede ser negativa");
+  if (anios < 18) return "menor";
+  if (anios < 65) return "adulto";
+  return "senior";
+}
+```
+
+Misma suite, verde completo:
+
+```text
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+código de salida: 0
+```
+
+Los errores típicos: arreglar el rojo **editando la prueba** hasta que pase — anula el ciclo—; o saltarse la fase roja «porque ya sé que funciona» — no verificas que la prueba puede fallar, y una prueba que no sabes hacer fallar tampoco sabes cuándo ha dejado de servir.
+
+## Cómo verificarlo
+
+1. Fase roja — esqueleto puesto:
+
+   ```sh
+   node --test ejercicios/edades.test.js; echo $?
+   ```
+
+   `fail ≥ 2` y código `1`; el mensaje del fallo es tuyo.
+
+2. Fase verde — implementación completa, **sin tocar la suite**:
+
+   ```sh
+   node --test ejercicios/edades.test.js; echo $?
+   ```
+
+   `fail 0` y código `0`.
+
+3. Compara con la demostración del módulo:
+
+   ```sh
+   node src/content/modulos/n0/m6/ejemplos/ciclo-rojo-verde.js
+   ```
+
+   Imprime las dos fases y termina con `ciclo completo: rojo (1) → verde (0)` y código `0`.
+
+## Errores comunes
+
+- **Ver rojo y no leerlo.** El rojo debe fallar por tu comportamiento ausente. Un `ReferenceError` de importación es un cable suelto, no una fase del ciclo.
+- **Editar la prueba en la fase verde.** Si tocas la suite para «pasar», ya no estás en el ciclo: estás negociando con el fallo.
+- **Un único caso central.** Como vio `sumar(0, 0)`, el caso central pasa hasta con la resta. Sin fronteras, el rojo no prueba nada.
+- **Refactor en rojo.** El refactoring se hace con el verde puesto; en rojo solo persigues el comportamiento.
+
+## Fuentes
+
+- [Test Driven Development | Martin Fowler](https://martinfowler.com/bliki/TestDrivenDevelopment.html) — consultado el 2026-10-21.
+- [test runner | Node.js](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l05 «Leer la traza completa»](/curriculo/n0/m6/l05-leer-la-traza-completa/): cuando el rojo no es un `AssertionError` sino un error de tu programa, la pila de stack es el mapa para localizarlo.
+- Proyecto longitudinal: el ciclo es el protocolo que seguirás cuando un asistente te proponga un cambio en `f2` — pídele la prueba roja primero; es la única forma de saber qué cree que debe ocurrir.

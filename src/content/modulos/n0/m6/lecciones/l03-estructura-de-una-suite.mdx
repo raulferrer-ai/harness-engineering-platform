@@ -1,0 +1,210 @@
+---
+titulo: "Estructura de una suite: describe, it y beforeEach"
+resumen: "Una aserción suelta es un chequeo; una suite es una especificación ejecutable. Aprendes a agrupar pruebas con describe e it, a nombrarlas como contratos, a aislar el estado con beforeEach y a leer por qué dos pruebas que comparten un array se convierten en una trampa de orden."
+nivel: "n0"
+modulo: "m6"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Organizar aserciones en pruebas y suites con describe e it"
+  - "Nombrar pruebas que describen el comportamiento esperado, no la implementación"
+  - "Aislar el estado entre pruebas con beforeEach"
+  - "Reconocer una suite envenenada por estado compartido y corregirla"
+prerrequisitos:
+  - "n0/m6/l02-aserciones-con-intencion"
+actualizado: "2026-10-21"
+tags:
+  - "suite"
+  - "node-test"
+  - "aislamiento"
+  - "beforeEach"
+fuentes:
+  - titulo: "test runner | Node.js"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El runner de Node (`node:test`) agrupa aserciones en **pruebas** (`it`) dentro de **suites** (`describe`). El nombre de cada prueba es la especificación: debe leerse como una frase de comportamiento (`«rechaza un porcentaje fuera de rango con RangeError»`). La regla de oro del aislamiento: **cada prueba arranca desde cero**; el estado compartido se restablece en `beforeEach`. Si dos pruebas comparten un array mutado, el orden decide el resultado y la suite deja de ser confiable.
+
+## Conceptos
+
+### De aserciones sueltas a suite
+
+En l02 escribiste aserciones en un script plano. `node --test` da un paso más: cada `it` es una unidad con su nombre, su veredicto y su fallo aislado — si una cae, las demás siguen ejecutándose y el resumen te dice cuántas y cuáles. La misma batería de l01, expresada como suite:
+
+```js
+import { beforeEach, describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { aplicarDescuento } from "./descuento.js";
+
+describe("aplicarDescuento", () => {
+  let carrito;
+
+  beforeEach(() => {
+    carrito = [
+      { nombre: "teclado", precio: 45 },
+      { nombre: "raton", precio: 25 },
+    ];
+  });
+
+  it("aplica un 10 % sobre un artículo", () => {
+    assert.strictEqual(aplicarDescuento(45, 10), 40.5);
+  });
+  // …cinco pruebas más en el ejemplo completo…
+});
+```
+
+Ejecutado con `node descuento.test.js` (o `node --test descuento.test.js`), el ejemplo del módulo `ejemplos/descuento.test.js` —contra `ejemplos/descuento.js`— termina con este resumen real (Node v24.22.0, 2026-10-21; omito los tiempos, que varían):
+
+```text
+ℹ tests 6
+ℹ suites 1
+ℹ pass 6
+ℹ fail 0
+```
+
+### El nombre de la prueba es la documentación
+
+Una suite bien nombrada se lee como el listado de requisitos del módulo: «aplica un 10 %», «redondea a dos decimales», «rechaza un porcentaje fuera de rango con RangeError». Nombres del tipo `prueba 3` o `funciona bien` no documentan nada y, cuando fallan, no dicen qué contrato se rompió. El patrón que usan las suites de este currículo: **verbo en presente + escenario + resultado observable**, incluida la clase de la excepción cuando el caso es de error.
+
+### El aislamiento vive en `beforeEach`
+
+`beforeEach` se ejecuta **antes de cada `it`** de su `describe`. Es la herramienta del aislamiento: el carrito de arriba se recrea seis veces, una por prueba. Por eso la última prueba del ejemplo puede hacer `carrito.push(...)` sin envenenar a las demás — cada una ve su propia copia.
+
+### La trampa del estado compartido
+
+El rojo deliberado `ejemplos/errores/estado-compartido.js` pone el array en el ámbito del módulo y lo comparte entre dos pruebas:
+
+```js
+const carrito = []; // estado compartido en el ámbito del módulo: la trampa
+
+describe("carrito compartido", () => {
+  it("primer paso: añade un artículo", () => {
+    carrito.push({ nombre: "teclado", precio: 45 });
+    assert.strictEqual(carrito.length, 1);
+  });
+
+  it("segundo paso: el carrito sigue vacío", () => {
+    assert.strictEqual(carrito.length, 0, "cada prueba debería partir de cero");
+  });
+});
+```
+
+Salida real (Node v24.22.0, 2026-10-21), código de salida `1`:
+
+```text
+▶ carrito compartido
+  ✔ primer paso: añade un artículo
+  ✖ segundo paso: el carrito sigue vacío
+ℹ tests 2
+ℹ pass 1
+ℹ fail 1
+```
+
+La segunda prueba **solo falla porque la primera la precedió**. Ejecútalas al revés o en ficheros separados y el veredicto cambia: eso no es una especificación, es una casualidad. La corrección es el patrón de l03: estado recreado en `beforeEach` —o, mejor todavía, estado que cada prueba construye en su propio ámbito.
+
+## Ejercicio
+
+Crea `ejercicios/cesta.test.js`: una suite para una función `anadir(cesta, articulo)` que devuelve una **nueva** cesta con el artículo añadido —sin mutar la original—. La suite debe tener cuatro pruebas: la cesta original queda intacta, la nueva tiene un elemento más, añadir a una cesta vacía funciona y el mismo artículo dos veces produce dos entradas.
+
+Esto se cumple cuando:
+
+- las cuatro pruebas pasan con `node --test ejercicios/cesta.test.js` y el resumen dice `pass 4` y `fail 0`;
+- cada prueba construye su propia cesta — no hay arrays compartidos en el ámbito del módulo—;
+- rompes la implementación —haciendo `cesta.push(articulo); return cesta;`— y **todas** las pruebas de inmutabilidad caen en rojo con `fail ≥ 1` y el proceso termina con código `1`;
+- los nombres de las pruebas se leen como requisitos, no como «prueba 1…4».
+
+Pista: si necesitas `beforeEach` para crear la cesta, úsalo; si cada `it` la crea al principio, también es correcto — lo importante es que nadie comparta estado.
+
+## Solución explicada
+
+Implementación de referencia:
+
+```js
+export function anadir(cesta, articulo) {
+  return [...cesta, articulo];
+}
+```
+
+Y la suite:
+
+```js
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { anadir } from "./cesta.js";
+
+describe("anadir", () => {
+  it("la cesta original queda intacta", () => {
+    const original = [{ nombre: "raton" }];
+    anadir(original, { nombre: "teclado" });
+    assert.strictEqual(original.length, 1, "anadir no muta la entrada");
+  });
+
+  it("la nueva cesta tiene un elemento más", () => {
+    const nueva = anadir([{ nombre: "raton" }], { nombre: "teclado" });
+    assert.strictEqual(nueva.length, 2);
+  });
+
+  it("añadir a una cesta vacía funciona", () => {
+    assert.deepStrictEqual(anadir([], { nombre: "teclado" }), [{ nombre: "teclado" }]);
+  });
+
+  it("el mismo artículo dos veces produce dos entradas", () => {
+    const cesta = anadir(anadir([], { nombre: "teclado" }), { nombre: "teclado" });
+    assert.strictEqual(cesta.length, 2, "no hay deduplicación implícita");
+  });
+});
+```
+
+Salida real medida el 2026-10-21 con Node v24.22.0:
+
+```text
+ℹ tests 4
+ℹ suites 1
+ℹ pass 4
+ℹ fail 0
+```
+
+Y con la implementación mutante (`cesta.push(articulo); return cesta;`), la primera prueba cae porque la cesta original crece — rojo con `fail 1` y código `1`. Los errores típicos al resolverlo: escribir la suite contra el array que compartes entre pruebas (volverías a la trampa de esta misma lección), o «arreglar» el rojo borrando la primera prueba — la reacción correcta es dejar la prueba roja y corregir la implementación.
+
+## Cómo verificarlo
+
+1. Con `cesta.js` y `cesta.test.js` en `ejercicios/`:
+
+   ```sh
+   node --test ejercicios/cesta.test.js
+   echo $?
+   ```
+
+   Resumen `pass 4`, `fail 0` y código `0`.
+
+2. Mutación deliberada: cambia `anadir` por la versión con `push` y repite. Debe aparecer `fail 1` y código `1`.
+
+3. Ejemplos del módulo, con sus salidas documentadas:
+
+   ```sh
+   node src/content/modulos/n0/m6/ejemplos/descuento.test.js
+   node src/content/modulos/n0/m6/ejemplos/errores/estado-compartido.js; echo $?
+   ```
+
+   El primero: `pass 6`, `fail 0`, código `0`. El segundo: `pass 1`, `fail 1`, código `1`.
+
+## Errores comunes
+
+- **Estado en el ámbito del módulo.** Cualquier `let`/`const` compartido entre `it` es una bomba de orden. Recréalo en `beforeEach` o dentro de cada prueba.
+- **Nombres que repiten la implementación** (`«usa Math.round»`). Nombra el comportamiento observable; la implementación puede cambiar mañana.
+- **Un solo `it` con diez aserciones.** Cuando falla la primera, no sabes qué más estaba bien. Prefiere varias pruebas pequeñas con una intención cada una.
+- **Confiar en el orden de ejecución.** Si una prueba solo pasa «la primera», no es una prueba: es una dependencia oculta.
+
+## Fuentes
+
+- [test runner | Node.js](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l04 «El ciclo rojo-verde»](/curriculo/n0/m6/l04-el-ciclo-rojo-verde/): cómo usar la suite como brújula —escribe la prueba, mírala fallar, hazla pasar— antes de escribir la implementación.
+- Proyecto longitudinal: una suite aislada es la que puedes ejecutar cien veces —o cien copias en paralelo— sin sorpresas; eso es lo que exigirá el CI estricto de `f3`.

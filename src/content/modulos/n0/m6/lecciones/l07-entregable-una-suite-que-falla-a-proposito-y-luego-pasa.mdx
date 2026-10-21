@@ -1,0 +1,212 @@
+---
+titulo: "Entregable: una suite que falla a propósito y luego pasa"
+resumen: "Cierre del módulo: con las piezas anteriores construyes el entregable de n0/m6 —una implementación correcta, una suite que la especifica y una demostración ejecutable de rojo→verde con sus códigos de salida— y aprendes a documentar la nota que acompaña a un entregable de pruebas."
+nivel: "n0"
+modulo: "m6"
+orden: 7
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Componer un entregable verificable: implementación, suite y demostración rojo→verde"
+  - "Introducir un bug de frontera a propósito y comprobar que la suite lo pilla"
+  - "Automatizar la doble ejecución con un script que lea los códigos de salida"
+  - "Documentar un entregable de pruebas con salidas reales y códigos"
+prerrequisitos:
+  - "n0/m6/l06-pruebas-inestables-el-reloj-y-el-azar"
+actualizado: "2026-10-21"
+tags:
+  - "entregable"
+  - "rojo-verde"
+  - "calidad"
+fuentes:
+  - titulo: "test runner | Node.js"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+  - titulo: "assert | Node.js"
+    url: "https://nodejs.org/api/assert.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable de `n0/m6` —**una suite que falla a propósito y luego pasa**— tiene tres piezas: una **implementación correcta**, una **suite que la especifica** (fronteras, aserciones con mensaje, aislamiento, determinismo) y una **demostración ejecutable** que corre la misma suite contra una versión con bug —rojo, código `1`— y contra la correcta —verde, código `0`—. La nota que acompaña el entregable documenta ambos resúmenes con salidas reales: el rojo demuestra que la suite puede fallar; el verde, que el comportamiento correcto está cubierto.
+
+## Conceptos
+
+### Las tres piezas del entregable
+
+Este módulo entrenó cinco capacidades —elegir casos (l01), asercionar con intención (l02), aislar pruebas (l03), ciclar rojo-verde (l04), leer trazas (l05) y eliminar inestabilidad (l06)—. El entregable las compone:
+
+1. **Implementación correcta** — `ejemplos/presupuesto.js`: `totalPresupuesto(base, { iva, envioGratisDesde })` con IVA, envío gratuito desde 50 € y validación de entradas con `RangeError`.
+2. **Suite que la especifica** — `ejemplos/presupuesto.test.js`: ocho pruebas que cubren el camino feliz, las fronteras (`49,99`/`50`), un caso límite (`0`), parámetros alternativos, redondeo y los dos errores de entrada. Salida real medida con Node v24.22.0 el 2026-10-21:
+
+```text
+ℹ tests 8
+ℹ suites 1
+ℹ pass 8
+ℹ fail 0
+```
+
+3. **Demostración rojo→verde** — `ejemplos/entregable-rojo-verde.js`: ejecuta **la misma suite** dos veces en una carpeta temporal, primero contra la versión con el bug de frontera —`base > envioGratisDesde` en lugar de `>=`— y después contra la correcta, y lee los códigos de salida como contrato.
+
+### El rojo a propósito es parte del entregable
+
+Un «todo en verde» no demuestra que la suite valga nada: también estaría verde si las pruebas no probaran. El rojo a propósito es la prueba de que la suite **puede** fallar, y de que lo hace contra el fallo correcto. La salida real de la demostración (Node v24.22.0, 2026-10-21):
+
+```text
+--- rojo a propósito (versión con el bug de frontera) ---
+ℹ tests 8
+ℹ pass 7
+ℹ fail 1
+código de salida: 1
+--- verde (versión corregida, misma suite) ---
+ℹ tests 8
+ℹ pass 8
+ℹ fail 0
+código de salida: 0
+entregable válido: la misma suite cae en rojo (1) con el bug y termina en verde (0) sin él
+```
+
+Tres lecturas que van más allá de las cifras:
+
+- **`pass 7` en el rojo**: el bug de frontera solo derrumba el ensayo de `50 €` — el mismo «solo un caso» que en l01 explicó por qué las fronteras concentran los fallos. Las otras siete pruebas pasan con la implementación equivocada, como `sumar(0, 0)` pasaba con la resta en l04.
+- **El rojo sale por código `1` y el script termina en `0`**: dos niveles de contrato. El `1` es de la suite («hay fallo»); el `0` es del demostrador («el ciclo rojo→verde se completó como se esperaba»). Confundirlos es el error clásico de automatización.
+- **La misma suite, dos implementaciones**: no hay trampa de «otra prueba distinta»; el fichero de pruebas ni se toca entre fases — igual que en el ciclo de l04, ahora como entrega formal.
+
+### Cómo se automatiza la doble ejecución
+
+El demostrador hace lo que haría un pipeline: crea un directorio temporal, escribe la suite, sustituye solo la implementación —extrayéndola del fichero correcto y reemplazando el `>=` por `>` con un `String.replace`—, invoca `node --test` con `spawnSync`, y comprueba `status === 1` en el rojo y `status === 0` en el verde. Termina con `0` si ambos cumplen y `1` si no, y limpia la carpeta temporal en un `finally`. Sin dependencias: `node:child_process`, `node:fs` y `node:os`.
+
+### La nota que acompaña el entregable
+
+Un entregable de pruebas se documenta como todo lo demás en este currículo —el mismo criterio de la nota técnica de `n1/m1`: salidas **reales**, medidas con versión y fecha, y códigos de salida incluidos. Lo que no se hace: pegar un resumen «de memoria», omitir el rojo «para que no parezca que algo falla», ni afirmar verdes que no se han ejecutado.
+
+## Ejercicio
+
+Construye tu propio entregable con una función `descuentoVolumen(unidades)`: `0 %` por debajo de 5, `10 %` desde 5 y `15 %` desde 10 —devuelve el precio final redondeado a dos decimales sobre una base de 100 €—. Entrega tres ficheros en `ejercicios/`: `volumen.js` (implementación correcta), `volumen.test.js` (suite de **al menos 6 pruebas**: fronteras `4`, `5`, `9`, `10`, `11` y un error de entrada con `RangeError` para unidades no enteras o negativas) y una nota `ejercicios/NOTA.md` con ambas salidas reales.
+
+Esto se cumple cuando:
+
+- la suite en verde termina con `fail 0` y código `0`, y su resumen (`tests`, `pass`, `fail`) está pegado en `NOTA.md` con versión de Node y fecha;
+- introduces **a propósito** el bug clásico de frontera —`unidades > 5` en lugar de `>=`—, ejecutas **la misma suite** sin editarla, y el rojo muestra `fail ≥ 1` y código `1`, también documentado;
+- el fallo del rojo es un `AssertionError` **con tu mensaje** de contrato —no un error de importación ni de sintaxis—, cumpliendo lo aprendido en l02 y l04;
+- restauras la implementación y compruebas que la suite vuelve a `fail 0` / código `0` — el ciclo completo, cerrado;
+- la nota explica **qué demuestra cada salida**: el rojo que la suite puede fallar contra el fallo correcto, el verde que el comportamiento está cubierto.
+
+Pista: copia la estructura del ejemplo (`ejemplos/entregable-rojo-verde.js`) y cambia el dominio; si lo automatizas, el `String.replace` del bug debe apuntar a tu frontera exacta.
+
+## Solución explicada
+
+Implementación de referencia —con la validación en la frontera de entrada:
+
+```js
+export function descuentoVolumen(unidades) {
+  if (!Number.isInteger(unidades) || unidades < 0) {
+    throw new RangeError("las unidades deben ser un entero no negativo");
+  }
+  const porcentaje = unidades >= 10 ? 15 : unidades >= 5 ? 10 : 0;
+  return Math.round(100 * (1 - porcentaje / 100) * 100) / 100;
+}
+```
+
+Y su suite con las seis fronteras del enunciado:
+
+```js
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { descuentoVolumen } from "./volumen.js";
+
+describe("descuentoVolumen", () => {
+  it("4 unidades no descuentan (frontera inferior)", () => {
+    assert.strictEqual(descuentoVolumen(4), 100, "por debajo de 5 no hay descuento");
+  });
+  it("5 unidades descuentan el 10 % (frontera exacta)", () => {
+    assert.strictEqual(descuentoVolumen(5), 90, "desde 5 aplica el 10 %");
+  });
+  it("9 unidades siguen con el 10 %", () => {
+    assert.strictEqual(descuentoVolumen(9), 90);
+  });
+  it("10 unidades descuentan el 15 % (frontera exacta)", () => {
+    assert.strictEqual(descuentoVolumen(10), 85, "desde 10 aplica el 15 %");
+  });
+  it("11 unidades siguen con el 15 %", () => {
+    assert.strictEqual(descuentoVolumen(11), 85);
+  });
+  it("rechaza unidades no enteras con RangeError", () => {
+    assert.throws(() => descuentoVolumen(2.5), RangeError, "no se venden medios paquetes");
+  });
+});
+```
+
+Salida real de la fase verde, medida el 2026-10-21 con Node v24.22.0 —el `código de salida` añadido es lo que devuelve `echo $?`—:
+
+```text
+ℹ tests 6
+ℹ suites 1
+ℹ pass 6
+ℹ fail 0
+código de salida: 0
+```
+
+Y tras la mutación de frontera —`unidades >= 5` convertido en `unidades > 5`—, **sin tocar la suite** (`código de salida` = resultado de `echo $?`):
+
+```text
+ℹ tests 6
+ℹ suites 1
+ℹ pass 5
+ℹ fail 1
+  ✖ 5 unidades descuentan el 10 % (frontera exacta)
+AssertionError [ERR_ASSERTION]: desde 5 aplica el 10 %
+  100 !== 90
+código de salida: 1
+```
+
+Exactamente el patrón del ejemplo, un dominio más: el bug de `>=` solo derrumba el ensayo del límite, con un `AssertionError` que lleva tu mensaje. Los errores típicos al resolverlo: (1) declarar el entregable «terminado» con solo el verde — el rojo a propósito es la evidencia de que la suite puede fallar; (2) introducir el bug tocando también la suite «para que el rojo salga bonito» — la prueba de integridad es que el fichero de pruebas **no cambia** entre fases; (3) contar el código de salida del script y el de la suite como si fueran el mismo contrato.
+
+## Cómo verificarlo
+
+1. Fase verde con tu suite:
+
+   ```sh
+   node --test ejercicios/volumen.test.js; echo $?
+   ```
+
+   `pass 6`, `fail 0`, código `0`. Pega el resumen en `NOTA.md` con `node -v` y la fecha.
+
+2. Fase rojo con **la misma suite** y la frontera mutada (`>` en lugar de `>=`):
+
+   ```sh
+   node --test ejercicios/volumen.test.js; echo $?
+   ```
+
+   `fail 1` con tu mensaje de contrato y código `1`. Pega también este resumen.
+
+3. Restaura y confirma el retorno al verde: `fail 0` y código `0`.
+
+4. Ejemplo del módulo, con sus salidas documentadas:
+
+   ```sh
+   node src/content/modulos/n0/m6/ejemplos/presupuesto.test.js
+   node src/content/modulos/n0/m6/ejemplos/entregable-rojo-verde.js
+   ```
+
+   El primero: `pass 8`, `fail 0`, código `0`. El segundo: rojo `pass 7 / fail 1` con código de suite `1`, verde `pass 8 / fail 0` con código de suite `0`, y `entregable válido…` con código `0`.
+
+## Errores comunes
+
+- **Entregar solo el verde.** Un resumen en verde no prueba que la suite sepa fallar; el rojo a propósito sí. Sin él, un test vacío también «aprueba».
+- **Mutar la suite junto al bug.** Si editas las pruebas en la fase roja, ya no demuestras nada: la suite debe ser idéntica en las dos fases.
+- **Mezclar los dos códigos de salida.** El `1` de la suite («hay fallo») y el `0` del demostrador («el ciclo se completó») conviven en la misma ejecución; documenta cuál es cuál.
+- **Resúmenes sin versión ni fecha.** Un `pass 8` aislado no es evidencia: firma cada salida con `node -v` y el día, como en el resto del currículo.
+- **Un rojo que falla por la razón equivocada.** Si el rojo sale con `ReferenceError` o error de sintaxis, no estás demostrando que la suite pille el bug: estás demostrando que el fichero no carga (l04).
+
+## Fuentes
+
+- [test runner | Node.js](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+- [assert | Node.js](https://nodejs.org/api/assert.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Este cierre cierra `n0/m6`. Sigue [n0/m7 «Fundamentos web»](/curriculo/n0/m7/): HTML semántico, CSS y la petición HTTP que sostiene todo lo que has construido hasta aquí.
+- Proyecto longitudinal: el entregable de hoy es el molde de cualquier cambio futuro en tu «aplicación con tests» de `f1` — rama, prueba roja primero, verde, y nota con salidas reales; el flujo de `n0/m5` y el ciclo de `n0/m6` son el mismo protocolo a dos escalas.
