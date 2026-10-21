@@ -1,0 +1,12 @@
+{
+  "name": "informe-gastos",
+  "version": "1.0.0",
+  "description": "Informe de gastos desde un CSV: proyecto del alumno de n0/m4 (fase f1)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "informe": "node src/main.js datos/gastos.csv",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

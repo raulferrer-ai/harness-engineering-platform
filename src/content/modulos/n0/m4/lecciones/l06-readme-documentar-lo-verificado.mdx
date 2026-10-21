@@ -1,0 +1,187 @@
+---
+titulo: "README: documentar solo lo verificado"
+resumen: "El README es el entregable que lee una persona antes de ejecutar nada. Aquí defines las cinco secciones mínimas de un README de proyecto, conviertes ese contrato en un validador ejecutable y aplicas la regla de honestidad: todo comando del README se ejecutó y su salida está transcrita tal cual."
+nivel: "n0"
+modulo: "m4"
+orden: 6
+dificultad: "inicial"
+tiempoEstimado: 40
+objetivos:
+  - "Estructurar un README con las cinco secciones mínimas verificables"
+  - "Validar la presencia de secciones con una función pura y sus pruebas"
+  - "Transcribir salidas reales con fecha y versión en lugar de afirmar «funciona»"
+  - "Detectar un README incompleto con el validador y su código de salida"
+prerrequisitos:
+  - "n0/m4/l05-elegir-una-dependencia-con-criterio"
+actualizado: "2026-10-21"
+tags:
+  - "readme"
+  - "documentacion"
+  - "honestidad"
+fuentes:
+  - titulo: "package.json: scripts | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-json/"
+    fecha: "2026-10-21"
+  - titulo: "Test runner | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un README de proyecto necesita cinco secciones mínimas: **Qué es**, **Requisitos**, **Cómo ejecutar**, **Estructura** y **Cómo verificar**. Con ellas, otra persona (incluida tú en dos meses) puede clonar, ejecutar y comprobar sin preguntar. La regla que las sostiene: **cada comando del README se ejecutó antes de escribirlo** y su salida se transcribe con fecha y versión — un README que promete sin verificar es deuda documental.
+
+## Conceptos
+
+### Las cinco secciones y su contrato
+
+El README de `proyecto/README.md` es el modelo. Resumen de lo que contiene cada sección:
+
+- **Qué es**: una o dos frases de contexto —de dónde sale el proyecto (`n0/m4`, fase `f1`) y qué hace—.
+- **Requisitos**: qué necesitas para ejecutarlo. Aquí: Node v24.22.0 o superior y npm; y la aclaración de que **no hay dependencias externas**.
+- **Cómo ejecutar**: el comando exacto (`npm run informe`) y, debajo, la **salida real** transcrita con fecha.
+- **Estructura**: el árbol de carpetas con una línea por fichero explicando su rol.
+- **Cómo verificar**: los comandos de comprobación (`npm test`) y lo que debes observar (`tests 6 / pass 6 / fail 0`).
+
+La sección «Cómo verificar» es la que convierte el README de folleto en contrato: dice no solo qué ejecutar, sino **qué resultado lo hace verdadero**.
+
+### El validador de secciones
+
+`revisar-readme.js` convierte las cinco secciones en una lista comprobable:
+
+```js
+export const SECCIONES_REQUERIDAS = [
+  "## Qué es",
+  "## Requisitos",
+  "## Cómo ejecutar",
+  "## Estructura",
+  "## Cómo verificar",
+];
+
+export function revisarReadme(texto) {
+  if (typeof texto !== "string") {
+    throw new TypeError("revisarReadme espera el texto del README");
+  }
+  return SECCIONES_REQUERIDAS.filter((seccion) => !texto.includes(seccion)).map(
+    (seccion) => `falta ${seccion}`,
+  );
+}
+```
+
+Un `filter` + `map`: la lista vacía es el verde. El validador solo comprueba **presencia** — no suficiencia; un README con cinco títulos vacíos pasaría. Es un límite honesto del validador y se documenta aquí: la calidad de la prosa la revisa una persona, el checker evita los olvidos mecánicos.
+
+Ejecutado contra el README real del proyecto, el 2026-10-21 con Node v24.22.0:
+
+```text
+README OK: las 5 secciones mínimas presentes
+```
+
+### La regla de honestidad
+
+Tres prácticas, aplicadas en el README del proyecto:
+
+1. **Salidas transcritas, no inventadas**: el bloque de «Cómo ejecutar» del README contiene el informe de diez líneas tal cual lo imprimió `npm run informe` el 2026-10-21, no una paráfrasis.
+2. **Versión y fecha al lado de todo dato que puede cambiar**: «Node v24.22.0 (o superior)» y «ejecutada el 2026-10-21» sitúan el dato en el tiempo — la misma disciplina de las fuentes de las lecciones.
+3. **Los scripts del manifiesto son la verdad ejecutable**: `npm test` y `npm run informe` del README son exactamente los `scripts` del `package.json` (l02). Si el manifiesto cambia, el README miente; por eso el README documenta los scripts, no comandos paralelos que solo existen en tu terminal.
+
+## Ejercicio
+
+Crea `ejercicios/readme.test.js` con dos pruebas sobre el validador:
+
+- el README real del proyecto (`../proyecto/README.md`) produce `[]`;
+- un README con las cinco secciones **en cualquier orden** (por ejemplo, «Cómo verificar» primero) también produce `[]`.
+
+Esto se cumple cuando:
+
+- `node --test ejercicios/readme.test.js` termina con `pass 2 / fail 0`;
+- la segunda prueba construye su README con un array de secciones invertido y `.join("\n")`;
+- ninguna prueba depende de la posición de la sección en el fichero.
+
+Pista: el validador usa `includes`, que no mira posiciones — la segunda prueba simplemente demuéstralo.
+
+## Solución explicada
+
+```js
+// readme.test.js — el ejercicio resuelto (lección l06)
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+import { revisarReadme, SECCIONES_REQUERIDAS } from "../revisar-readme.js";
+
+test("el README real del proyecto tiene las cinco secciones", () => {
+  const texto = readFileSync(new URL("../proyecto/README.md", import.meta.url), "utf8");
+  assert.deepStrictEqual(revisarReadme(texto), []);
+});
+
+test("el orden de las secciones no importa", () => {
+  const invertido = [...SECCIONES_REQUERIDAS].reverse().join("\n");
+  assert.deepStrictEqual(revisarReadme(invertido), []);
+});
+```
+
+El segundo test documenta una propiedad del validador (insensibilidad al orden) como prueba ejecutable: si alguien «mejorara» el checker añadiendo comprobaciones de posición, esta prueba se roja y exige decidir si esa restricción es deseada. `[...SECCIONES_REQUERIDAS].reverse()` revierte **una copia** — `reverse` muta, y el original se exporta como parte del contrato (lección `n0/m3` sobre listas que no se tocan). Ejecutado el 2026-10-21 con Node v24.22.0: `pass 2 / fail 0`.
+
+## Cómo verificarlo
+
+1. Valida el README real:
+
+   ```sh
+   cd src/content/modulos/n0/m4/ejemplos
+   node revisar-readme.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0: `README OK: las 5 secciones mínimas presentes`, código `0`.
+
+2. Ejecuta las pruebas del validador:
+
+   ```sh
+   node --test revisar-readme.test.js
+   ```
+
+   Salida real:
+
+   ```text
+   ✔ revisarReadme acepta un README con las cinco secciones (0.630667ms)
+   ✔ revisarReadme señala la sección que falta (0.150667ms)
+   ✔ revisarReadme lista las cinco secciones cuando el README está vacío (0.077584ms)
+   ℹ tests 3
+   ℹ pass 3
+   ℹ fail 0
+   ```
+
+3. Registra el rojo: crea una carpeta temporal con un `proyecto/README.md` al que has borrado la línea `## Cómo verificar`, y ejecuta el validador desde esa carpeta. Salida real:
+
+   ```text
+   - falta ## Cómo verificar
+   ```
+
+   con código de salida `1`. Restaura el verde con el README intacto.
+
+4. Ejecuta tu ejercicio:
+
+   ```sh
+   node --test ejercicios/readme.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código `0`.
+
+## Errores comunes
+
+- **Escribir el README al final, de memoria**: si lo escribes sin ejecutar nada, los comandos son esperanzas. Ejecuta, transcribe, y solo entonces escribe.
+- **Documentar comandos que no están en el manifiesto**: `npm test` sí; `node --test && eslint && ...` que solo existe en tu cabeza, no. Los comandos del README salen de los `scripts`.
+- **Poner salidas «representativas»**: una salida maquillada miente el día que el programa falle distinto. La salida es la transcripción, con su fecha.
+- **Creer que el validador valida el contenido**: `revisarReadme` solo cuenta títulos. La suficiencia de cada sección la decides tú; el checker garantiza que no se olvida ninguna.
+- **Olvidar la versión en los requisitos**: «Node reciente» no se puede comprobar; «Node v24.22.0 (o superior)» sí.
+
+## Fuentes
+
+- [package.json: scripts | npm Docs](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/) — consultado el 2026-10-21 (los `scripts` son el contrato ejecutable que el README documenta).
+- [Test runner | Node.js v24.22.0 Documentation](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l07 «Entregable: proyecto con 3 módulos y README»](/curriculo/n0/m4/l07-proyecto-con-3-modulos-y-readme/): estructura, módulos, pruebas, criterio de dependencias y README existen por separado; ahora se cierra el módulo con el proyecto completo y su nota de entrega.
+- Proyecto longitudinal: el README validado es parte del entregable de la fase `f1` del [proyecto](/).

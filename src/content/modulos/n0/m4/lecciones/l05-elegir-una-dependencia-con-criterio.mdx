@@ -1,0 +1,227 @@
+---
+titulo: "Elegir una dependencia con criterio (o no elegirla)"
+resumen: "Añadir un paquete es adoptar su código, su ritmo de versiones y su superficie de ataque. Aquí conviertes el criterio de adopción en un evaluador reproducible: licencia permisiva, pruebas declaradas y vigencia, con la fecha base como parámetro para que el veredicto se pueda revisar."
+nivel: "n0"
+modulo: "m4"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Convertir el criterio de adopción en reglas explícitas y comprobables"
+  - "Evaluar un candidato con una función pura y fechas fijadas por parámetro"
+  - "Inspeccionar un paquete del registro con npm view antes de instalarlo"
+  - "Reconocer cuándo la std lib de Node resuelve el problema sin dependencias"
+prerrequisitos:
+  - "n0/m4/l04-dependencias-instalar-poco-fijar-todo"
+actualizado: "2026-10-21"
+tags:
+  - "dependencias"
+  - "criterio"
+  - "licencias"
+fuentes:
+  - titulo: "npm view | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/commands/npm-view/"
+    fecha: "2026-10-21"
+  - titulo: "package.json: dependencies | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#dependencies"
+    fecha: "2026-10-21"
+  - titulo: "About semantic versioning | npm Docs"
+    url: "https://docs.npmjs.com/about-semantic-versioning"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Elegir una dependencia no es buscar el nombre con más estrellas: es **aceptar un contrato**. El criterio mínimo de este curso, convertido en reglas: **licencia permisiva** (MIT, Apache-2.0, BSD, ISC — si no, descartado), **pruebas declaradas** en su manifiesto y **vigencia** (última publicación con menos de dos años). Lo demás —descargas, autor, popularity— es contexto; estas tres reglas se pueden ejecutar. Y la primera pregunta sigue siendo: ¿la std lib de Node ya lo hace?
+
+## Conceptos
+
+### El evaluador, no la opinión
+
+`candidato.js` convierte el criterio en una función pura: recibe el candidato y la **fecha base**; devuelve veredicto y motivos.
+
+```js
+const LICENCIAS_PERMITIDAS = new Set(["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"]);
+const DOS_ANIOS_EN_MS = 2 * 365 * 24 * 60 * 60 * 1000;
+
+export function evaluarCandidato(candidato, hoy) {
+  if (typeof candidato !== "object" || candidato === null) {
+    throw new TypeError("evaluarCandidato espera un candidato con sus campos");
+  }
+  const base = Date.parse(hoy);
+  const publicado = Date.parse(candidato.ultimaPublicacion);
+  if (Number.isNaN(base) || Number.isNaN(publicado)) {
+    throw new TypeError("evaluarCandidato necesita fechas ISO (YYYY-MM-DD)");
+  }
+
+  const motivos = [];
+  let hayDescarte = false;
+  let hayRevision = false;
+
+  if (!LICENCIAS_PERMITIDAS.has(candidato.licencia)) {
+    motivos.push(`licencia no permitida: ${candidato.licencia ?? "sin declarar"}`);
+    hayDescarte = true;
+  }
+  if (!candidato.tienePruebas) {
+    motivos.push("no declara pruebas en su manifiesto");
+    hayRevision = true;
+  }
+  if (base - publicado > DOS_ANIOS_EN_MS) {
+    motivos.push(
+      `sin publicar desde hace más de dos años (última: ${candidato.ultimaPublicacion})`,
+    );
+    hayRevision = true;
+  }
+
+  const veredicto = hayDescarte ? "descartar" : hayRevision ? "revisar" : "aceptar";
+  return { veredicto, motivos };
+}
+```
+
+Tres decisiones de diseño que hacen reproducible el juicio:
+
+- **La fecha es un parámetro, no el reloj**: `evaluarCandidato(candidato, "2026-10-21")` da el mismo resultado hoy y dentro de dos años. Un criterio que depende del `Date.now()` del momento no se puede ni probar ni revisar.
+- **Descartar vs revisar**: licencia restrictiva es un «no» (no se resuelve con paciencia); sin pruebas o abandonado es un «revisa a mano» — puede haber justificación (un proyecto pequeño y estable no necesita publicar).
+- **Los motivos viajan con el veredicto**: el veredicto sin razones no se discute; con razones se debate o se archiva.
+
+Salida real del ejemplo, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+candidato: paquete-de-ejemplo
+veredicto: aceptar
+```
+
+### De dónde salen los datos del candidato
+
+El evaluador juzga lo que el candidato **declara**; los datos se recogen antes de instalar, sin salir de la terminal. `npm view` consulta el registro sin instalar (documentación oficial): `npm view paquete license version time.modified`, o `npm view paquete scripts` para ver si declara pruebas. Ese vistazo —30 segundos— es el filtro barato; el evaluador es lo que queda escrito.
+
+### La pregunta previa: ¿eso ya lo trae Node?
+
+Antes de mirar candidatos, la std lib cubre más de lo que parece, y este módulo entero lo demuestra: leer ficheros (`node:fs`), parsear JSON (`JSON.parse`), fechas (`Date`), texto y plantillas (JS), pruebas (`node:test`). Cada dependencia que no añades es una versión menos que auditar, un diff menos que revisar y una rotura menos que arreglar mañana. El cálculo inverso también vale: una librería madura con años de casos raros cubiertos puede ser más barata que reimplementar mal — pero es una **decisión con nombre**, no un reflejo.
+
+### El coste real de «una dependencia más»
+
+`dependencies` en el manifiesto no es una línea, es un árbol: cada paquete trae los suyos (las transitivas de `package-json/#dependencies`), y el que mantiene el proyecto es responsable de sus actualizaciones y de su superficie de fallo. Por eso el umbral de este curso: **tres líneas de código propias o una dependencia** se comparan con datos (¿tiene pruebas? ¿la licencia sirve? ¿quién lo mantiene?), no con pereza.
+
+## Ejercicio
+
+Crea `ejercicios/veredictos.test.js` con tres pruebas que fijan por escrito tres casos-límite del criterio, usando la fecha base `"2026-10-21"`:
+
+- candidato con licencia `Apache-2.0`, pruebas y publicación `2026-01-15` → `aceptar` sin motivos;
+- candidato con licencia `GPL-3.0` y todo lo demás correcto → `descartar` con un motivo que mencione la licencia;
+- candidato con licencia `MIT`, sin pruebas y publicado `2024-06-01` → `revisar` con **dos** motivos.
+
+Esto se cumple cuando:
+
+- `node --test ejercicios/veredictos.test.js` termina con `pass 3 / fail 0`;
+- los tres tests importan `evaluarCandidato` desde `../candidato.js`;
+- el tercer test comprueba `motivos.length` con `strictEqual`, no solo el veredicto.
+
+Pista: un `assert.deepStrictEqual` con `{ veredicto: "revisar", motivos: [...] }` completo es más documental que tres `assert.match` sueltos.
+
+## Solución explicada
+
+```js
+// veredictos.test.js — el ejercicio resuelto (lección l05)
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { evaluarCandidato } from "../candidato.js";
+
+const HOY = "2026-10-21";
+
+test("Apache-2.0 con pruebas y vigencia se acepta", () => {
+  const candidato = {
+    nombre: "sano",
+    licencia: "Apache-2.0",
+    tienePruebas: true,
+    ultimaPublicacion: "2026-01-15",
+  };
+  assert.deepStrictEqual(evaluarCandidato(candidato, HOY), { veredicto: "aceptar", motivos: [] });
+});
+
+test("GPL-3.0 se descarta aunque esté sano en lo demás", () => {
+  const candidato = {
+    nombre: "copyleft",
+    licencia: "GPL-3.0",
+    tienePruebas: true,
+    ultimaPublicacion: "2026-01-15",
+  };
+  const { veredicto, motivos } = evaluarCandidato(candidato, HOY);
+  assert.strictEqual(veredicto, "descartar");
+  assert.match(motivos[0], /GPL-3\.0/);
+});
+
+test("sin pruebas y viejo: revisar con dos motivos", () => {
+  const candidato = {
+    nombre: "dudoso",
+    licencia: "MIT",
+    tienePruebas: false,
+    ultimaPublicacion: "2024-06-01",
+  };
+  const { veredicto, motivos } = evaluarCandidato(candidato, HOY);
+  assert.strictEqual(veredicto, "revisar");
+  assert.strictEqual(motivos.length, 2);
+});
+```
+
+El primer test congela el caso limpio con estructura completa; el segundo verifica que el descarte manda sobre la salud del resto (el orden de reglas del evaluador no es neutral); el tercero fija que los motivos **se acumulan** (un candidato puede tener dos pegas). Juntos documentan el contrato del evaluador mejor que una prosa. Ejecutado el 2026-10-21 con Node v24.22.0: `pass 3 / fail 0`.
+
+## Cómo verificarlo
+
+1. Ejecuta el ejemplo y sus pruebas:
+
+   ```sh
+   cd src/content/modulos/n0/m4/ejemplos
+   node candidato.js
+   node --test candidato.test.js
+   ```
+
+   Salida real de la suite, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ evaluarCandidato acepta un candidato con licencia, pruebas y vigencia (2.102625ms)
+   ✔ evaluarCandidato descarta las licencias no permisivas (0.164041ms)
+   ✔ evaluarCandidato pide revisión cuando no declara pruebas (0.069458ms)
+   ✔ evaluarCandidato pide revisión si lleva más de dos años sin publicar (0.062125ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+2. Recoge datos reales sin instalar (requiere conexión al registro npm):
+
+   ```sh
+   npm view left-pad license version
+   ```
+
+   Ese es el comando con el que se llena el candidato antes de evaluarlo: license, version y `time.modified` dan los campos que la función juzga.
+
+3. Ejecuta tu ejercicio:
+
+   ```sh
+   node --test ejercicios/veredictos.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 3 / fail 0` y código `0`.
+
+## Errores comunes
+
+- **Evaluar con el reloj de la máquina**: `new Date()` dentro del evaluador haría que el mismo código diera veredictos distintos en diciembre y en enero. La fecha se recibe.
+- **Confundir licencia permisiva con licencia «conocida»**: una licencia rara no es «probablemente MIT»; es «descartar hasta que alguien con legal la revise». El Set del evaluador es deliberadamente corto.
+- **Contar descargas como calidad**: `npm view` las da, pero miden popularidad histórica, no mantenimiento actual; por eso el criterio mira la última publicación, no la fama.
+- **Instalar para mirar**: no hace falta instalar nada para inspeccionar; `npm view` consulta el registro. Instalar es el paso posterior a la decisión, no el exploratorio.
+- **Omitir el motivo por cortesía**: si el veredicto es «revisar», escribe por qué. Un «revisar» sin motivos se queda en la lista para siempre.
+
+## Fuentes
+
+- [npm view | npm Docs](https://docs.npmjs.com/cli/v11/commands/npm-view/) — consultado el 2026-10-21.
+- [package.json: dependencies | npm Docs](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#dependencies) — consultado el 2026-10-21 (las transitivas: cada paquete declara los suyos).
+- [About semantic versioning | npm Docs](https://docs.npmjs.com/about-semantic-versioning) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l06 «README: documentar solo lo verificado»](/curriculo/n0/m4/l06-readme-documentar-lo-verificado/): el proyecto ya está estructurado y su árbol bajo control; le falta el documento que permite a otro (y a ti en dos meses) retomarlo sin adivinaciones.
+- Proyecto longitudinal: el criterio de dependencias acompaña todo el [proyecto](/) — en fases posteriores, cada `npm install` se revisa como cualquier diff.

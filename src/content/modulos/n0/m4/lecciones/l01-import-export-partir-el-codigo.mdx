@@ -1,0 +1,216 @@
+---
+titulo: "import y export: partir el código en módulos"
+resumen: "El informe de n0/m3 cabe en un fichero; un proyecto real no. Aquí aprendes a partir código en módulos con import y export de ES modules en Node: rutas relativas con extensión, exports con nombre, y qué pasa cuando el módulo que importas no existe."
+nivel: "n0"
+modulo: "m4"
+orden: 1
+dificultad: "intermedio"
+tiempoEstimado: 40
+objetivos:
+  - "Exportar funciones y constantes desde un módulo con export"
+  - "Importar exports con nombre desde otro fichero con rutas relativas"
+  - "Distinguir un módulo sin efectos de un script que imprime"
+  - "Reconocer un import roto por su error y su código de salida"
+prerrequisitos:
+  - "n0/m3/l07-informe-de-gastos-entregable"
+actualizado: "2026-10-21"
+tags:
+  - "es-modules"
+  - "import"
+  - "export"
+fuentes:
+  - titulo: "ECMAScript modules | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/esm.html"
+    fecha: "2026-10-21"
+  - titulo: "export | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/export"
+    fecha: "2026-10-21"
+  - titulo: "import | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **módulo** es un fichero `.js` que `export`a funciones o valores y que al importarlo **no hace ruido** (no imprime, no toca el disco): quien lo importa decide cuándo llamar. El que importa usa `import { nombre } from "./otro.js"` con **ruta relativa y extensión incluida**: en ES modules de Node la extensión es obligatoria. Si el fichero no existe, Node no arranca el programa y termina con `Error [ERR_MODULE_NOT_FOUND]` y código de salida `1`.
+
+## Conceptos
+
+### Un módulo que no hace nada más que exportar
+
+`src/content/modulos/n0/m4/ejemplos/convertir.js` es un módulo completo:
+
+```js
+// convertir.js — módulo que solo exporta utilidades de formato (lección l01)
+// Un módulo es un fichero con exports: al importarlo no imprime nada ni hace
+// efectos; quien lo importa decide cuándo llamar a sus funciones.
+
+export const EUR = "EUR";
+
+export function importeEnEuros(valor) {
+  if (typeof valor !== "number" || Number.isNaN(valor)) {
+    throw new TypeError(`importeEnEuros espera un número, recibió ${typeof valor}`);
+  }
+  return `${valor.toFixed(2)} ${EUR}`;
+}
+```
+
+`export` delante de `const` o `function` convierte el nombre en **público**: es todo el mecanismo. `importeEnEuros` reutiliza el `toFixed(2)` de `n0/m2` y defiende su contrato con un `TypeError`, igual que las funciones que ya escribías. Ejecutar `node convertir.js` directamente no imprime nada y termina con código `0`: el módulo está cargado, pero no pasa nada hasta que alguien llame.
+
+### Importar es cargar, no copiar
+
+`usar-convertir.js` importa ese módulo y lo usa:
+
+```js
+// usar-convertir.js — demo que importa el módulo convertir.js (lección l01)
+import { EUR, importeEnEuros } from "./convertir.js";
+
+console.log(`Usando el módulo convertir.js (moneda: ${EUR})`);
+
+const gastos = [
+  { descripcion: "pan", importe: 1.85 },
+  { descripcion: "cine", importe: 9.0 },
+];
+
+for (const gasto of gastos) {
+  console.log(`${gasto.descripcion}: ${importeEnEuros(gasto.importe)}`);
+}
+```
+
+Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+Usando el módulo convertir.js (moneda: EUR)
+pan: 1.85 EUR
+cine: 9.00 EUR
+```
+
+Tres reglas de esta carga, todas verificables en ese fichero:
+
+- **La ruta es relativa al fichero que importa** y lleva extensión: `"./convertir.js"`. `./` significa «junto a mí»; sin la extensión, el resolvedor de Node no encuentra el fichero (lo comprobamos en «Errores comunes»).
+- **Se importan los nombres que el módulo exporta**: `{ EUR, importeEnEuros }` debe coincidir carácter a carácter con los `export`. Importar un nombre inexistente es un error de carga, no un `undefined` en tiempo de ejecución.
+- **Los efectos viven en quien importa**: `console.log` está en el demo, no en el módulo. Si los pusieras en `convertir.js`, cada importación ejecutaría la impresión — incluida la de tus pruebas.
+
+### Los exports con nombre, no el default
+
+Node acepta dos estilos (`export default` y exports con nombre), pero este curso usa **solo exports con nombre**: el lector del `import` ve de qué módulo viene cada cosa, el buscador del editor localiza la definición y los renombrados no rompen nada. `export default` ahorra llaves en el import a costa de esos tres beneficios; en código de equipo, casi siempre se paga caro.
+
+### Cuando el módulo no existe, no hay programa
+
+El rojo del módulo, `errores/import-inesistente.js`, importa un fichero que no está:
+
+```js
+import { nada } from "./no-existe.js";
+console.log(nada);
+```
+
+Salida real (stderr) y código de salida `1`:
+
+```text
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../errores/no-existe.js' imported from .../errores/import-inesistente.js
+    at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+```
+
+Node resuelve **todos** los imports antes de ejecutar la primera línea: el error es de carga, la traza apunta al fichero que importa y al fichero que falta, y el `console.log` nunca se ejecuta.
+
+## Ejercicio
+
+Crea `ejercicios/etiqueta.js` y `ejercicios/etiqueta.test.js`:
+
+- el módulo exporta `etiqueta(texto)`, que devuelve el texto recortado entrecomillado (`"  hola  "` → `"«hola»"`) y lanza `TypeError` si no es texto;
+- las pruebas importan `etiqueta` y comprueban: el recorte con comillas y el `TypeError` ante un número.
+
+Esto se cumple cuando:
+
+- `node --test ejercicios/etiqueta.test.js` termina con `pass 2 / fail 0`;
+- `etiqueta.js` no imprime nada por sí solo (`node ejercicios/etiqueta.js` → código `0`, sin salida);
+- el `import` de las pruebas usa `"./etiqueta.js"` con su extensión.
+
+Pista: el `trim()` y la plantilla de texto los dominas de `n0/m2`; lo nuevo es la palabra `export`.
+
+## Solución explicada
+
+```js
+// etiqueta.js — el ejercicio resuelto (lección l01)
+export function etiqueta(texto) {
+  if (typeof texto !== "string") {
+    throw new TypeError("etiqueta espera un texto");
+  }
+  return `«${texto.trim()}»`;
+}
+```
+
+```js
+// etiqueta.test.js — el ejercicio resuelto (lección l01)
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { etiqueta } from "./etiqueta.js";
+
+test("etiqueta recorta y entrecomilla", () => {
+  assert.strictEqual(etiqueta("  hola  "), "«hola»");
+});
+
+test("etiqueta rechaza lo que no es texto", () => {
+  assert.throws(() => etiqueta(7), TypeError);
+});
+```
+
+Funciona porque `export` convierte `etiqueta` en el contrato público y las pruebas ejercitan ese contrato, no el interior. Errores típicos al resolverlo: escribir `export function etiqueta` pero importar `etiquetar` (ERR_MODULE_NOT_FOUND en la carga), o devolver `«` + texto + `»` sin `trim()` (el primer test falla con `"«  hola  »"`). Ejecutado el 2026-10-21 con Node v24.22.0: `pass 2 / fail 0`.
+
+## Cómo verificarlo
+
+1. Ejecuta la suite del módulo:
+
+   ```sh
+   cd src/content/modulos/n0/m4/ejemplos
+   node --test convertir.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ importeEnEuros fija dos decimales y añade la moneda (0.46325ms)
+   ✔ importeEnEuros redondea los enteros a dos decimales (0.0725ms)
+   ✔ importeEnEuros rechaza lo que no es número (0.181125ms)
+   ℹ tests 3
+   ℹ pass 3
+   ℹ fail 0
+   ```
+
+2. Registra el rojo: ejecuta el import rojo y su código de salida:
+
+   ```sh
+   node errores/import-inesistente.js; echo $?
+   ```
+
+   Debes ver `Error [ERR_MODULE_NOT_FOUND]` y `1`. Restaura el verde con `node --test convertir.test.js`.
+
+3. Ejecuta tu ejercicio:
+
+   ```sh
+   node --test ejercicios/etiqueta.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código de salida `0`.
+
+## Errores comunes
+
+- **Olvidar la extensión en la ruta**: `from "./convertir"` produce `ERR_MODULE_NOT_FOUND` aunque el fichero exista. En ES modules la extensión `.js` es parte de la ruta.
+- **Escribir la ruta relativa a la carpeta de trabajo**: la ruta del `import` es relativa al **fichero**, no a la carpeta desde la que ejecutas `node`. Por eso el mismo import funciona ejecutando desde cualquier sitio.
+- **Importar un nombre que no se exporta**: `import { importe } from "./convertir.js"` falla en la carga; el módulo exporta `importeEnEuros`. El error de carga menciona el nombre exacto.
+- **Poner efectos en el módulo**: si `convertir.js` imprimiera, tus pruebas imprimirían con él. Los efectos van en el script que importa.
+- **Contar con que `default` te salve del renombrado**: `import x from "./convertir.js"` solo funciona con `export default`, que aquí no usamos.
+
+## Fuentes
+
+- [ECMAScript modules | Node.js v24.22.0 Documentation](https://nodejs.org/api/esm.html) — consultado el 2026-10-21.
+- [export | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/export) — consultado el 2026-10-21.
+- [import | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l02 «Estructura del proyecto: carpetas, package.json y scripts»](/curriculo/n0/m4/l02-estructura-carpetas-y-package-json/): los módulos ya existen; ahora necesitan una casa (carpetas por rol) y un manifiesto (`package.json`) que documente cómo se ejecutan y se prueban.
+- Proyecto longitudinal: separar en módulos es el primer paso de la fase `f1` del [proyecto](/) — el entregable de este módulo es esa misma separación a escala de proyecto.

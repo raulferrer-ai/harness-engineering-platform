@@ -1,0 +1,242 @@
+---
+titulo: "Dependencias: instalar poco, fijar todo"
+resumen: "Dependencias son código de otra persona que tu proyecto ejecuta como si fuera suyo. Aquí aprendes a declararlas en el manifiesto, a fijar el árbol exacto con el lockfile, a distinguir producción de desarrollo y —lo más importante— a decidir cuándo no hace falta ninguna."
+nivel: "n0"
+modulo: "m4"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Declarar dependencias en package.json y fijarlas con package-lock.json"
+  - "Distinguir dependencies de devDependencies"
+  - "Leer un rango de versión y explicar qué garantiza y qué no"
+  - "Reconocer el error de un paquete no instalado y su código de salida"
+prerrequisitos:
+  - "n0/m4/l03-pruebas-que-cruzan-modulos"
+actualizado: "2026-10-21"
+tags:
+  - "npm"
+  - "dependencias"
+  - "lockfile"
+fuentes:
+  - titulo: "npm install | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/commands/npm-install/"
+    fecha: "2026-10-21"
+  - titulo: "package.json: dependencies | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#dependencies"
+    fecha: "2026-10-21"
+  - titulo: "package-lock.json | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json/"
+    fecha: "2026-10-21"
+  - titulo: "About semantic versioning | npm Docs"
+    url: "https://docs.npmjs.com/about-semantic-versioning"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una **dependencia** es un paquete de otra persona que tu proyecto importa. Se declara en `package.json` (`dependencies` si la usa tu código en producción; `devDependencies` si solo para herramientas como pruebas) con un **rango semver** (`^1.2.3` acepta cambios compatibles). `npm install` escribe `package-lock.json` con el **árbol exacto** instalado: ese fichero, no el rango, es lo que hace reproducible el proyecto. Y antes de instalar, la pregunta correcta es si la std lib de Node ya lo resuelve.
+
+## Conceptos
+
+### El árbol y su fijado
+
+`npm install` en `proyecto/` (2026-10-21, npm incluido con Node v24.22.0) añadió el lockfile:
+
+```text
+up to date in 654ms
+```
+
+`package-lock.json` generado (real, completo — el proyecto no tiene dependencias):
+
+```json
+{
+  "name": "informe-gastos",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "informe-gastos",
+      "version": "1.0.0",
+      "license": "MIT"
+    }
+  }
+}
+```
+
+Dos hechos de esa salida que conviene no pasar en largo: con **cero** dependencias el árbol se compone solo de la entrada `""` (el propio proyecto), y npm **no creó `node_modules/`** porque no hay nada que instalar. El `package.json` declara _qué_ se permite (`"zod": "^3.0.0"`); el lockfile fija _qué_ se instaló realmente (versión exacta y de quién depende cada paquete). Los dos se versionan: el lockfile es la garantía de que el siguiente que clone el proyecto instala lo mismo.
+
+### Producción y desarrollo
+
+`dependencies` es el código que se ejecuta cuando el producto funciona; `devDependencies`, el que solo usas mientras desarrollas (pruebas, formateo). La diferencia importa en el despliegue: muchas herramientas instalan producción y se saltan desarrollo. Si mezclas, arrastras herramientas al producto. En este proyecto la distinción existe aunque ambas listas estén vacías — el validador del ejemplo la comprueba:
+
+```js
+export function listarDependencias(texto) {
+  let manifiesto;
+  try {
+    manifiesto = JSON.parse(texto);
+  } catch {
+    throw new TypeError("listarDependencias espera un package.json válido (JSON)");
+  }
+
+  const secciones = { produccion: [], desarrollo: [] };
+  const campos = [
+    ["produccion", "dependencies"],
+    ["desarrollo", "devDependencies"],
+  ];
+  for (const [destino, campo] of campos) {
+    const valor = manifiesto[campo];
+    if (valor === undefined) continue;
+    if (typeof valor !== "object" || valor === null || Array.isArray(valor)) {
+      throw new TypeError(`«${campo}» debe ser un objeto {nombre: rangoDeVersion}`);
+    }
+    secciones[destino].push(...Object.keys(valor).sort());
+  }
+  return secciones;
+}
+```
+
+Notas de lectura: `Object.keys` sobre el objeto de la sección da los nombres de los paquetes; `.sort()` hace el resultado determinista (el orden de claves en JSON no es contrato); y un campo mal tipado (un array, un texto) lanza `TypeError` en vez de devolver basura — la misma disciplina de las listas de `n0/m3`.
+
+Salida real del ejemplo contra el manifiesto real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+producción: 0 dependencia(s)
+desarrollo: 0 dependencia(s)
+lockfile: presente
+```
+
+### Rangos semver: qué prometen y qué no
+
+Semver es `MAJOR.MINOR.PATCH`: cambios incompatibles, compatibles y correcciones. npm resume la semántica en «About semantic versioning» y los rangos se escriben en `package.json`: `^3.2.1` acepta desde `3.2.1` hasta `<4.0.0`; `~3.2.1` acepta desde `3.2.1` hasta `<3.3.0`; `3.2.1` exacto no se mueve. **Ningún rango garantiza que mañana `npm install` instale lo mismo**: eso lo garantifica el lockfile. Por eso el flujo es «declara rango, versiona lock, instala con `npm ci` cuando quieras el árbol exacto».
+
+### El rojo: importar lo que no está instalado
+
+`errores/dependencia-ausente.js` importa un paquete que no está en el árbol:
+
+```js
+import { leftTrim } from "left-pad";
+console.log(leftTrim("x"));
+```
+
+Salida real (stderr) y código de salida `1`:
+
+```text
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'left-pad' imported from .../errores/dependencia-ausente.js
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:331:9)
+    at packageResolve (node:internal/modules/esm/resolve:784:25)
+```
+
+Mismo código y mismo tipo de error que un fichero local inexistente (l01): para Node, un paquete y un fichero son «módulos por resolver».
+
+**Descubrimiento verificado al preparar este rojo**: probé primero con `nanoid` (un paquete real) y el script **funcionó**, imprimiendo un identificador, porque Node resuelve los paquetes subiendo por las carpetas madre — `nanoid` no estaba en `proyecto/`, pero sí en el árbol de la academia, como dependencia transitiva de otras herramientas. Lección para tu proyecto: que algo «funcione en mi máquina» no prueba que tu proyecto lo declare; prueba tu manifiesto, no la suerte de tu ruta.
+
+## Ejercicio
+
+Crea `ejercicios/lock.test.js` con dos pruebas sobre los ficheros reales del proyecto:
+
+- `package-lock.json` es JSON válido y su `name` y `version` coinciden con los de `package.json`;
+- `listarDependencias` aplicada al manifiesto real devuelve ambas listas vacías.
+
+Esto se cumple cuando:
+
+- `node --test ejercicios/lock.test.js` termina con `pass 2 / fail 0`;
+- las rutas a los dos ficheros se resuelven con `new URL("../proyecto/...", import.meta.url)`;
+- la segunda prueba importa `listarDependencias` desde `../dependencias.js`.
+
+Pista: `JSON.parse(readFileSync(ruta, "utf8"))` y luego compara campos con `strictEqual`.
+
+## Solución explicada
+
+```js
+// lock.test.js — el ejercicio resuelto (lección l04)
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+import { listarDependencias } from "../dependencias.js";
+
+test("el lockfile coincide en nombre y versión con el manifiesto", () => {
+  const manifiesto = JSON.parse(
+    readFileSync(new URL("../proyecto/package.json", import.meta.url), "utf8"),
+  );
+  const lock = JSON.parse(
+    readFileSync(new URL("../proyecto/package-lock.json", import.meta.url), "utf8"),
+  );
+  assert.strictEqual(lock.name, manifiesto.name);
+  assert.strictEqual(lock.version, manifiesto.version);
+});
+
+test("el proyecto real no tiene dependencias declaradas", () => {
+  const texto = readFileSync(new URL("../proyecto/package.json", import.meta.url), "utf8");
+  assert.deepStrictEqual(listarDependencias(texto), { produccion: [], desarrollo: [] });
+});
+```
+
+El primer test verifica la propiedad que hace útil al lockfile — **que habla del mismo proyecto** (si el manifiesto cambia de versión sin regenerar el lock, avisa). El segundo congela el estado actual del proyecto (cero dependencias) con `deepStrictEqual` sobre la estructura entera: si alguien añadiera una dependencia sin querer, la prueba pide revisión explícita. Ejecutado el 2026-10-21 con Node v24.22.0: `pass 2 / fail 0`.
+
+## Cómo verificarlo
+
+1. Ejecuta el ejemplo contra el manifiesto real (debe imprimir `lockfile: presente`):
+
+   ```sh
+   cd src/content/modulos/n0/m4/ejemplos
+   node dependencias.js
+   ```
+
+2. Ejecuta sus pruebas:
+
+   ```sh
+   node --test dependencias.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ listarDependencias separa producción y desarrollo en orden alfabético (1.314459ms)
+   ✔ listarDependencias devuelve listas vacías sin dependencias (0.10175ms)
+   ✔ listarDependencias rechaza «dependencies» que no es un objeto (0.187833ms)
+   ✔ listarDependencias no mezcla las dos secciones (0.068167ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+3. Registra el rojo:
+
+   ```sh
+   node errores/dependencia-ausente.js; echo $?
+   ```
+
+   Debes ver `Cannot find package 'left-pad'` y código `1`. No instales nada para «arreglarlo»: el rojo se elimina quitando el import, no instalando el paquete.
+
+4. Ejecuta tu ejercicio:
+
+   ```sh
+   node --test ejercicios/lock.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código `0`.
+
+## Errores comunes
+
+- **Versionar `node_modules` o borrar el lockfile**: `node_modules` es un artefacto instalable (el `.gitignore` lo excluye); el lockfile es evidencia del árbol exacto y **se versiona**. Borrarlo para «limpiar» elimina la reproducibilidad.
+- **Declarar en `dependencies` lo que es de desarrollo** (pruebas, linters): infla el producto y su árbol. Herramientas → `devDependencies`.
+- **Confundir rango con fijado**: `^3.2.1` en el manifiesto es permiso; el lockfile es la ejecución. Un `npm install` posterior puede actualizar dentro del rango — el lockfile lo registra, y el diff del lock es donde se revisa.
+- **Instalar sin mirar el diff del lock**: un paquete «pequeño» puede arrastrar decenas de transitivas. El lockfile se lee como se revisa cualquier diff: ¿qué entradas nuevas aparecen?
+- **Probar que «funciona porque otra cosa lo trae»**: el caso `nanoid` de arriba es real: el resolvedor sube por las carpetas madre y puede encontrar paquetes que tu proyecto no declara. Declara en tu manifiesto todo lo que importas.
+
+## Fuentes
+
+- [npm install | npm Docs](https://docs.npmjs.com/cli/v11/commands/npm-install/) — consultado el 2026-10-21.
+- [package.json: dependencies | npm Docs](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#dependencies) — consultado el 2026-10-21.
+- [package-lock.json | npm Docs](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json/) — consultado el 2026-10-21.
+- [About semantic versioning | npm Docs](https://docs.npmjs.com/about-semantic-versioning) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l05 «Elegir una dependencia con criterio (o no elegirla)»](/curriculo/n0/m4/l05-elegir-una-dependencia-con-criterio/): ya sabes instalar y fijar; ahora el criterio para decidir _qué_ merece entrar en tu árbol.
+- Proyecto longitudinal: el manifiesto con su lockfile es la parte «reproducible» de la fase `f1` del [proyecto](/).

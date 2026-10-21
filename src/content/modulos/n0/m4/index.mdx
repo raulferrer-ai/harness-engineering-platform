@@ -5,5 +5,13 @@ modulo: "m4"
 objetivos:
   - "Separar código en módulos y gestionar dependencias con criterio"
 entregable: "Proyecto con 3 módulos y README"
-actualizado: "2026-10-19"
+actualizado: "2026-10-21"
 ---
+
+## Para quién es este módulo
+
+Continuación directa de `n0/m3`: el informe de gastos ya funciona, pero en un fichero. Aquí se convierte en un **proyecto**: tres módulos con `import`/`export`, carpetas por rol, manifiesto `package.json` con sus scripts, lockfile fijado por `npm install`, criterio ejecutable para adoptar dependencias y un README que se valida con pruebas. Público objetivo: quien tiene `m1`, `m2` y `m3` a sus espaldas. Duración estimada: de 5 a 7 horas repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas un **proyecto con 3 módulos y README** (`ejemplos/proyecto/`): lectura y validación del CSV con su número de línea, agregados y formato del informe, punto de entrada defensivo con sus códigos de salida, y las pruebas de composición en verde. La carpeta del módulo cierra con sus 24 pruebas `node --test` en verde, 2 rojos deliberados (`ERR_MODULE_NOT_FOUND` por fichero y por paquete) y 2 rojos registrados en la batería de verificación. Ese entregable es la parte «aplicación con tests» de la fase `f1` del proyecto longitudinal; con `n0/m5` (Git) se completa «Git limpio y CI mínimo» y se cierra la fase.

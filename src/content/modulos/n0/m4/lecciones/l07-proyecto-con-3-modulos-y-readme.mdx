@@ -1,0 +1,170 @@
+---
+titulo: "Entregable: proyecto con 3 módulos y README"
+resumen: "Cierre de n0/m4: el informe de n0/m3 separado en tres módulos (lectura, informe y punto de entrada), con manifiesto, lockfile, README validado y seis pruebas de composición. Aquí ejecutas la verificación completa del proyecto y redactas tu nota de entrega."
+nivel: "n0"
+modulo: "m4"
+orden: 7
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Componer un proyecto de tres módulos con su manifiesto y su README"
+  - "Ejecutar la verificación completa del proyecto en orden"
+  - "Redactar una nota de entrega escrita después de ejecutar, con límites honestos"
+  - "Relacionar el entregable con la fase f1 del proyecto longitudinal"
+prerrequisitos:
+  - "n0/m4/l06-readme-documentar-lo-verificado"
+actualizado: "2026-10-21"
+tags:
+  - "entregable"
+  - "proyecto"
+  - "f1"
+fuentes:
+  - titulo: "node CLI: --test | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/cli.html"
+    fecha: "2026-10-21"
+  - titulo: "package.json configuration | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/packages.html"
+    fecha: "2026-10-21"
+  - titulo: "npm install | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/commands/npm-install/"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable de `n0/m4` es el informe de gastos de `n0/m3` convertido en **proyecto**: `src/gastos.js` (leer y validar), `src/informe.js` (agregados y formato) y `src/main.js` (punto de entrada defensivo), más `package.json` con sus scripts, `package-lock.json`, el CSV real y un README con sus cinco secciones. Se cierra con una **nota de entrega** escrita después de ejecutar todo, que incluye lo que el proyecto _no_ cubre.
+
+## Conceptos
+
+### Los tres módulos y su contrato
+
+```text
+proyecto/
+├── package.json  ·  package-lock.json  ·  README.md
+├── datos/gastos.csv        cabecera + 8 gastos (el mismo de n0/m3)
+├── src/gastos.js           leer y validar: parseGastos + leerGastos
+├── src/informe.js          generarInforme: agregados y texto de 10 líneas
+├── src/main.js             CLI: argumento, try/catch, códigos de salida
+└── test/proyecto.test.js   6 pruebas que cruzan los tres módulos
+```
+
+Cada módulo tiene una responsabilidad y una defensa: `gastos.js` valida filas con su número de línea; `informe.js` rechaza listas vacías con `RangeError` y no toca el disco; `main.js` comprueba el argumento, envuelve la llamada y traduce cualquier error a `error: <mensaje>` con código `1`. Es la regla de l03 aplicada: los módulos lanzan, el borde decide cómo se muestra.
+
+Una evolución respecto a `n0/m3`, deliberada y documentada: `leerGastos` ahora acepta **texto o URL** (`ruta instanceof URL`), porque `new URL(..., import.meta.url)` hace las pruebas independientes de la carpeta desde la que se ejecuten. La guarda creció con el proyecto — mismo contrato, una entrada más.
+
+### El contrato ejecutable
+
+Los scripts del manifiesto son la interfaz del proyecto:
+
+```json
+"scripts": {
+  "informe": "node src/main.js datos/gastos.csv",
+  "test": "node --test"
+}
+```
+
+`npm run informe` imprime el informe completo (diez líneas: `gastos: 8`, `total: 83.69 EUR`, `media: 10.46 EUR`, `máximo: 42.30 EUR` y las cuatro categorías ordenadas) y `npm test` ejecuta las seis pruebas de composición. Nota de Node 24 verificada en este módulo: `node --test` con la forma `node --test test/` (carpeta como argumento) **no** funciona — termina con `MODULE_NOT_FOUND` tratando la carpeta como fichero; el descubrimiento automático (`node --test` sin argumentos) sí encuentra `test/proyecto.test.js`. Por eso el script es `"test": "node --test"`.
+
+### La nota de entrega
+
+Una entrega sin nota es un código sin contexto. La nota se escribe **después** de ejecutar y contiene: los comandos ejecutados, sus resultados y —esto es lo que la hace útil— **al menos un límite honesto**. La del módulo, redactada el 2026-10-21 tras ejecutar todo con Node v24.22.0:
+
+> _Verificado el 2026-10-21 con Node v24.22.0: `npm test` → 6 pruebas en verde; suite completa de `ejemplos/` → 24 en verde; `npm run informe` → informe de 10 líneas con total 83.69 EUR. No puedo afirmar que el parser tolere campos entrecomillados ni fin de línea CRLF, porque el CSV del proyecto no los contiene y no los he probado. El proyecto tiene cero dependencias externas: el criterio de l05 se enseña y se prueba con fixtures, no con instalaciones reales en este repositorio. Los validadores de manifiesto y README comprueban presencia y forma, no suficiencia del contenido._
+
+### Esto es la fase `f1` del proyecto longitudinal
+
+El proyecto longitudinal pide, en su fase `f1`: «aplicación sencilla, con tests y Git limpio», con criterio «tests verdes en local y CI mínimo». Lo que este módulo entrega es la **aplicación con sus tests** (estructura, módulos, manifiesto, README, verificación ejecutada). La parte de Git limpio y CI mínimo —ramas, revisión de diff, pipeline— se cierra con `n0/m5`, donde este mismo proyecto se trabaja con flujo de ramas. El repositorio del alumno es la evidencia: aquí has montado el patrón; en tu proyecto, con tus datos.
+
+## Ejercicio
+
+Ejecuta la **secuencia de entrega completa** sobre tu proyecto y redacta tu nota:
+
+```sh
+cd proyecto
+npm run informe
+npm test
+node src/main.js
+echo $?
+cd ..
+node --test
+```
+
+Esto se cumple cuando:
+
+- `npm run informe` imprime el informe completo con sus agregados;
+- `npm test` termina con `pass 6 / fail 0`;
+- `node src/main.js` sin argumento imprime el mensaje de uso y `echo $?` devuelve `1`;
+- `node --test` (desde `ejemplos/`) termina con `pass 24 / fail 0`;
+- tu nota de entrega cita los cuatro resultados y al menos un límite real del proyecto.
+
+Pista: el límite más honesto suele estar en el dato de prueba: mira tu CSV y pregúntate qué formatos **no** contiene.
+
+## Solución explicada
+
+La nota de entrega del módulo (la de arriba), más la comprobación en orden que la sostiene. Cada paso responde una pregunta distinta: ¿produce el producto? (`informe`), ¿está verificado? (`npm test`), ¿se defiende? (el código `1` sin argumento), ¿la cobertura total del módulo aguanta? (las 24 pruebas). Si un paso falla, la nota no se escribe: se arregla y se vuelve a ejecutar. Errores típicos al resolverlo: escribir la nota de memoria (sale «debería funcionar»), saltar el paso del código `1` (la defensa del CLI queda sin probar) y copiar la lista de límites de este ejemplo en vez de mirar los tuyos.
+
+## Cómo verificarlo
+
+1. El producto, desde la carpeta del proyecto:
+
+   ```sh
+   cd src/content/modulos/n0/m4/ejemplos/proyecto
+   npm run informe
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   Informe de gastos
+   gastos: 8
+   total: 83.69 EUR
+   media: 10.46 EUR
+   máximo: 42.30 EUR
+   por categoría:
+     comida: 4 gasto(s), 8.00 EUR
+     hogar: 1 gasto(s), 42.30 EUR
+     ocio: 2 gasto(s), 27.99 EUR
+     transporte: 1 gasto(s), 5.40 EUR
+   ```
+
+2. Las pruebas del proyecto y su defensa:
+
+   ```sh
+   npm test
+   node src/main.js; echo $?
+   ```
+
+   `npm test` → `tests 6 / pass 6 / fail 0`; el segundo comando → mensaje `falta la ruta del fichero.` + `Uso: node src/main.js <ruta-del-csv>` y código `1`.
+
+3. La cobertura total del módulo:
+
+   ```sh
+   cd ..
+   node --test
+   ```
+
+   Salida real: `tests 24 / pass 24 / fail 0` — las 18 pruebas de los cinco módulos sueltos más las 6 del proyecto.
+
+4. Registra el rojo final del entregable: ejecuta `npm run informe` con el CSV movido de sitio (o una ruta inexistente) — el programa imprime `error: no existe el fichero: …` y termina con `1`, sin traza cruda. Restaura el fichero y vuelve al verde.
+
+## Errores comunes
+
+- **Entregar sin ejecutar la secuencia entera**: cada paso cubre una pregunta distinta; saltar el `node src/main.js` sin argumento deja el manejo de errores del CLI sin evidencia.
+- **Repartir los módulos por capas inventadas**: «tres módulos» no es una meta estética; son tres responsabilidades con contrato (leer, calcular, orquestar). Si un módulo hace dos, se parte; no se añaden módulos vacíos para llegar a tres.
+- **Dejar el README y el manifiesto desincronizados**: si cambias un script, cambia el README el mismo día — el validador de l06 solo ve títulos.
+- **Olvidar regenerar el lockfile tras tocar `package.json`**: el lock viejo contradice al manifiesto nuevo; `npm install` lo reescribe.
+- **Presentar el entregable sin límites**: una nota sin límites no es confianza, es omisión. El revisor confía más en quien sabe qué no probó.
+
+## Fuentes
+
+- [node CLI: --test | Node.js v24.22.0 Documentation](https://nodejs.org/api/cli.html) — consultado el 2026-10-21.
+- [package.json configuration | Node.js v24.22.0 Documentation](https://nodejs.org/api/packages.html) — consultado el 2026-10-21.
+- [npm install | npm Docs](https://docs.npmjs.com/cli/v11/commands/npm-install/) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- **Módulo completo.** Con l07 has recorrido `n0/m4` entero: módulos (l01), estructura y manifiesto (l02), pruebas de composición (l03), dependencias y lockfile (l03–l04), criterio de adopción (l05), README verificable (l06) y el proyecto entregado (l07).
+- **Entrega del módulo**: la carpeta `ejemplos/` con el mini-proyecto `proyecto/` (3 módulos, manifiesto, lockfile, CSV y README), 11 ficheros de módulos y utilidades, 2 rojos deliberados con `ERR_MODULE_NOT_FOUND` y **24 pruebas `node --test` en verde**, con sus 2 rojos registrados en la batería de verificación del repositorio.
+- Siguiente módulo del nivel: [n0-m5 «Control de versiones con Git»](/curriculo/n0/m5/) — este mismo proyecto se trabaja por ramas, con revisión de diff y fusión, cerrando la fase `f1` del proyecto.
+- Proyecto longitudinal: has entregado la «aplicación con tests» de `f1`; con `n0/m5` se completa «Git limpio y CI mínimo» y se cierra la fase.
