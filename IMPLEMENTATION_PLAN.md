@@ -1,6 +1,6 @@
 # Plan de implementación — Harness Engineering Platform
 
-Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 en curso**: commits `9d16d60`, `68d2d4e` y `7acd50b` publicados en `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en las tres ejecuciones**, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34; versión `cef5718d`: 162 assets incluido `pagefind/`, rutas inexistentes con 404 con contenido y build command `npm run build:deploy` con gate completo; incidencias cerradas el 20-10-2026, §8.4 y §10.5). **Gate de rama activo y verificado** (ruleset «Comprobaciones y compilación» sobre `main` + prueba de fallo deliberada: PR con check rojo no fusionable; §8.4 y §8.5, 20-10-2026). **Pendiente de H5**: verificación en navegador (H6). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
+Estado: **hitos H0–H4 completados** (19 de octubre de 2026) y **H5 completado** (cierre el 21-10-2026): repositorio `https://github.com/raulferrer-ai/harness-engineering-platform` con **CI verde en los cinco pushes a `main`** (`9d16d60`, `68d2d4e`, `7acd50b`, `e71d010` y el merge `c3e29ad`) y en el PR #2, y sitio **desplegado y verificado** en `https://harness-engineering-platform.raul-ferrer-caio.workers.dev` (proyecto tipo Workers con assets estáticos, §8.2 y D34; versión `cef5718d`: 162 assets incluido `pagefind/`, rutas inexistentes con 404 con contenido y build command `npm run build:deploy` con gate completo; incidencias cerradas el 20-10-2026, §8.4 y §10.5). **Gate de rama activo y verificado** (ruleset «Comprobaciones y compilación» sobre `main` + prueba de fallo deliberada: PR con check rojo no fusionable; §8.4 y §8.5, 20-10-2026). **Verificación en navegador completada** el 21-10-2026 (§8.4, punto 8). **Siguiente hito**: H6 (documentación de ejecución y mantenimiento + auditoría a11y; tabla de hitos). El proyecto compila y supera el gate `npm run build:deploy` (que incluye `npm run links` y la comprobación del índice de Pagefind).
 Fecha de verificación de versiones: **19 de octubre de 2026** (fuentes: registro de npm, documentación de Astro, documentación de Cloudflare).
 
 Documentos relacionados: `VISION.md` (qué construir), `TECH_STACK.md` (decisiones tecnológicas ya tomadas), `AGENTS.md` (reglas de trabajo), `CURRICULUM.md` (mapa del contenido).
@@ -366,7 +366,7 @@ Estado tras la auditoría del H5 y la publicación inicial (20 de octubre de 202
 5. Prueba de regresión del gate: romper a propósito un tipo o un enlace en una rama y comprobar que el build de despliegue **falla** (y que el check de GitHub queda rojo si procede).
 6. `/robots.txt` accesible (`Allow: /`) y `<title>` correctos en home, mapa, módulo y lección.
 7. Recursos estáticos (CSS, JS, favicon) cargan sin 404 y sin errores de consola relevantes.
-8. Progreso local: en un navegador con `localStorage` disponible, marcar una lección, recargar y verificar que persiste **solo en ese navegador** (pendiente mientras no haya navegador de escritorio conectado; H6).
+8. Progreso local: en un navegador con `localStorage` disponible, marcar una lección, recargar y verificar que persiste **solo en ese navegador**. ✔ **Verificado el 21-10-2026** (navegador adjunto vía app de escritorio): marcar `l01` → `localStorage["hep.progreso.v1"] = {"n0/m1/l01-que-es-programar":true}` → recarga → **sigue marcada** → resumen «1 de 7 lecciones · 14 %» en la lección y en el módulo; el dato de prueba se borró al terminar.
 9. Contenido no publicable: los esquemas de colección no tienen campo de estado/privacidad, así que **todo lo de `src/content` es público por diseño**; comprobar que no se han añadido ficheros marcados como privados/borrador en rutas publicadas.
 10. Confirmar en el log del build el comando de instalación de dependencias y la versión de Node usada (§8.2).
 
@@ -381,7 +381,7 @@ Estado tras la auditoría del H5 y la publicación inicial (20 de octubre de 202
 | 5 | Fallo deliberado del gate | ✔ **Verificado (20-10-2026)**: rama `prueba/fallo-deliberado` con test rojo (`npm run verify` → exit 1) → **PR #1** → check «Comprobaciones y compilación (pull_request)» en **failure** con etiqueta **`Required`** y **botón «Merge pull request» deshabilitado** («All checks have failed»); API: `state: closed`, `merged: False` (el commit `56fc6a9` nunca llegó a `main`). `mergeable_state: unstable` = «mergeable with non-passing commit status» (enum `MergeStateStatus`): ese campo REST no refleja la ruleset; el bloqueo se ejerce al fusionar. Rama borrada en local y remoto |
 | 6 | `robots.txt` + títulos | ✔ `User-agent: * / Allow: /` (`text/plain`); títulos correctos en home, mapa, nivel, módulo, lección y buscar |
 | 7 | Recursos estáticos | ✔ CSS (`text/css`), JS (`text/javascript`) y favicon (`image/svg+xml`) → 200 desde `/_astro/` |
-| 8 | Progreso local en navegador | pendiente (H6; navegador de escritorio no conectado) |
+| 8 | Progreso local en navegador | ✔ **Verificado en navegador (21-10-2026)**: home 200 con **0 errores de consola**; buscador con **resultados en vivo** («5 resultados para «Git»», `/pagefind/pagefind.js` y `pagefind-worker.js` → 200); `checkbox#progreso-leccion` marcado con teclado (el árbol de accesibilidad se trunca en páginas largas, sin ref para clic) → `checked: true`, `localStorage["hep.progreso.v1"]` con la lección, **«1 de 7 lecciones · 14 %»** en lección y módulo (l01 «✓ completada») y **persistencia tras recarga**; 404 con «Esta página no existe» y enlace a inicio; atrás/adelante correctos; **0 errores de consola** en toda la ruta |
 | 9 | Contenido no publicable | ✔ esquemas sin campo de estado; los commits posteriores a la auditoría solo tocan documentación |
 | 10 | Log del build (instalación + Node) | ✔ Log aportado por el usuario: instalación `npm clean-install --progress=false` (= `npm ci`; 402 paquetes en 9 s con caché), **Node 24.22.0 detectado del entorno (`.nvmrc`)**, gate completo en verde antes del despliegue y `wrangler@4.151.2` subiendo **162 assets** (155 nuevos + 7); versión desplegada `cef5718d` |
 
@@ -439,7 +439,7 @@ Cada hito es pequeño, verificable y deja el proyecto en un estado compilable.
 | H2 | Colecciones, esquemas y rutas de currículo (mapa completo, nivel, módulo, lección, 404) + breadcrumb y prev/next | Tests de reglas de currículo + `build:deploy` (incluye `npm run links`) | ✔ Completado (2026-10-19) |
 | H3 | Plantilla de lección + primer módulo completo (`n0/m1`) con ejemplos y ejercicios | Revisión editorial + verificación de cada ejercicio | ✔ Completado (2026-10-19) |
 | H4 | Navegación fina (sidebar por módulo, prefetch) + búsqueda Pagefind + progreso local | Búsqueda funcional, enlaces internos sin errores, índice verificado | ✔ Completado (2026-10-19) |
-| H5 | CI en GitHub + conexión Cloudflare Pages + gate de despliegue | Despliegue verde y prueba de fallo deliberado | 🟡 En curso (20-10-2026): repo y CI en verde (4/4), sitio desplegado y verificado en Workers (§8.2–§8.4), incidencias de despliegue cerradas y **gate de rama activo + fallo deliberado verificado** (§8.5, D33); **pendiente solo la verificación en navegador (H6)** |
+| H5 | CI en GitHub + conexión Cloudflare Pages + gate de despliegue | Despliegue verde y prueba de fallo deliberado | ✅ **Completado (21-10-2026)**: CI verde en los 5 pushes a `main`, sitio desplegado y verificado en Workers con Pagefind y 404 correctos (§8.2–§8.4), **gate de rama activo** (fallo deliberado bloqueado + GH013, §8.5/D33) y **verificación en navegador** (§8.4, puntos 1–10) |
 | H6 | Documentación de ejecución y mantenimiento, auditoría manual a11y | Checklist firmada en el PR correspondiente | ⏳ Pendiente |
 
 ### 10.1 Registro de ejecución de H1 (2026-10-19)
@@ -552,7 +552,7 @@ Límites de H4 (no hecho a propósito o pendiente):
 
 ### 10.5 Registro de H5 — preparación y ejecución (19–20 de octubre de 2026)
 
-Hito **en curso**: todas las fases de preparación completadas en local el **19-10-2026**; el **20-10-2026** se creó y publicó el commit inicial y el CI de GitHub se ejecutó en verde. **Pendientes**: solo la verificación en navegador (H6); Cloudflare, gate de rama y fallo deliberado quedaron cerrados y verificados el 20-10-2026 — ver «Actualización (20-10-2026, cierre de las incidencias de despliegue)» más abajo.
+Hito **en curso**: todas las fases de preparación completadas en local el **19-10-2026**; el **20-10-2026** se creó y publicó el commit inicial y el CI de GitHub se ejecutó en verde. Hito **cerrado el 21-10-2026**: Cloudflare y gate de rama se cerraron el 20-10-2026 y la **verificación en navegador** completó el último punto del §8.4 (punto 8) — ver las «Actualizaciones» más abajo.
 
 **Fase 1 — Auditoría previa (hallazgos reales)**
 
@@ -576,7 +576,7 @@ Fuente: «Build image» de Cloudflare Pages (actualizada 16-10-2026). Imagen **v
 
 **Fase 5 — Gate**: cinco capas y configuración exacta en §8.5 (D33). La capa de CI ya está verificada en un servicio real (CI #1 verde, 20-10-2026); las capas de Cloudflare Pages **todavía no se han ejecutado**.
 
-**Completados (requerían al usuario; 20-10-2026)**: 1) Cloudflare conectado, desplegado y verificado (§8.2 y §8.4); 2) protección de `main` configurada y verificada (§8.5); 3) verificación posterior al despliegue y prueba de fallo deliberada (§8.4). **Pendiente**: H6 (navegador).
+**Completados (requerían al usuario; 20-10-2026)**: 1) Cloudflare conectado, desplegado y verificado (§8.2 y §8.4); 2) protección de `main` configurada y verificada (§8.5); 3) verificación posterior al despliegue y prueba de fallo deliberada (§8.4). **Pendiente**: ninguno — el último punto (verificación en navegador, §8.4.8) se completó el 21-10-2026 y H5 quedó **cerrado**.
 
 **Actualización (20-10-2026) — ejecución real:**
 
@@ -596,7 +596,7 @@ Fuente: «Build image» de Cloudflare Pages (actualizada 16-10-2026). Imagen **v
 - El usuario **corrigió el build command** del panel a `npm run build:deploy`, **commiteó y empujó** el conjunto preparado (`7acd50b`: `wrangler.jsonc` + documentación; **CI #3 verde**, 3/3 ejecuciones en verde) y Cloudflare **redesplegó** con la configuración del repo.
 - **Log del build (§8.4, punto 10)**: instalación `npm clean-install --progress=false` (= `npm ci`; 402 paquetes en 9 s con caché de dependencias), **Node 24.22.0 detectado del entorno (`.nvmrc`)** —mecanismo de la §8.2 confirmado en producción—, gate completo en verde (87/87 tests, 76 páginas, Pagefind 63, enlaces 1727 y 404 excluida) y `wrangler@4.151.2` subiendo **162 assets** (155 nuevos + 7 ya subidos): recuento idéntico al `dist/` local. Versión desplegada `cef5718d`.
 - **Verificación posterior en la URL pública**: `/pagefind/pagefind.js` → 200 (`text/javascript`), `pagefind-entry.json` → JSON válido (idioma `es`), fragmentos del índice → 200 y rutas inexistentes → **404 con la página del sitio**. Cerradas las incidencias de `pagefind/` y de la 404 (puntos 3 y 4 del §8.4 en verde).
-- **Queda de H5**: la verificación en navegador (H6). El gate de rama y la prueba de fallo deliberada se cerraron el 20-10-2026 — ver «Actualización (20-10-2026, gate de rama y prueba de fallo deliberada)» más abajo.
+- **H5 cerrado (21-10-2026)**: la verificación en navegador completó el último punto del §8.4 — ver «Actualización (21-10-2026, verificación en navegador y cierre de H5)» más abajo.
 
 **Actualización (20-10-2026, gate de rama y prueba de fallo deliberada):**
 
@@ -605,7 +605,17 @@ Fuente: «Build image» de Cloudflare Pages (actualizada 16-10-2026). Imagen **v
 - Matiz técnico: `mergeable_state: unstable` (REST) = «mergeable with non-passing commit status» (enum `MergeStateStatus` del esquema GraphQL): ese campo no refleja la ruleset — el bloqueo se ejerce al fusionar (UI/API), no en ese campo.
 - Cloudflare intentó además un **preview de rama** en el PR («Deploying Preview to Cloudflare») y su build falló con el mismo gate → sin preview publicado; producción intacta (solo despliega `main`).
 - **Consecuencia verificada el mismo día**: el ruleset **también rechaza pushes directos a `main`**: el intento de publicar este commit falló con `remote: error: GH013: Repository rule violations found for refs/heads/main — Required status check "Comprobaciones y compilación" is expected` y no existe forma de que el check reporte antes de que el commit aterrice. Flujo resultante: **PR obligatorio con CI verde** para cualquier cambio en `main` (este mismo documento viajó así).
-- **Queda de H5**: H6 (verificación en navegador).
+- **H5 cerrado (21-10-2026)**: la verificación en navegador (§8.4, punto 8) completó el hito.
+
+**Actualización (21-10-2026, verificación en navegador y cierre de H5):**
+
+- El navegador se adjuntó a la sesión mediante la **app de escritorio de OpenCode** (la herramienta `browser` no está disponible desde la CLI): pestaña única sobre la URL pública.
+- **Home**: título correcto, documento/CSS/JS → 200 y **0 errores de consola**.
+- **Buscador en vivo** (`/buscar/`): al escribir «Git» se cargan `/pagefind/pagefind.js` y `pagefind-worker.js` (200) y aparecen **5 resultados reales** («5 resultados para «Git»», encabezados por l07 «Primeros pasos con Git» y n0/m5).
+- **Progreso**: `checkbox#progreso-leccion` marcado con teclado (el árbol de accesibilidad se trunca en páginas largas: sin ref para clic) → `checked: true` y `localStorage["hep.progreso.v1"] = {"n0/m1/l01-que-es-programar":true}`; resumen **«1 de 7 lecciones · 14 %»** en la lección y en `/curriculo/n0/m1/` (l01 «✓ completada»); **persiste tras recarga**; el dato de prueba se borró al terminar.
+- **404 y navegación**: ruta inexistente → «Página no encontrada…» con `h1` «Esta página no existe» y enlace a inicio; atrás/adelante navegan bien (módulo ↔ lección); **0 errores de consola** en toda la ruta.
+- Observación: el CSS del despliegue actual tiene hash `ByQnelms`, **idéntico al build local**; la diferencia `CPseglJG` del 20-10 correspondía al rebuild anterior.
+- **H5 queda COMPLETO** (puntos 1–10 del §8.4 en verde). **Siguiente hito: H6** (documentación de ejecución y mantenimiento + auditoría manual a11y).
 
 #### Decisiones de diseño de H5 (D32–D34)
 
