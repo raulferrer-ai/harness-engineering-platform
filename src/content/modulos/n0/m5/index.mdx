@@ -5,5 +5,25 @@ modulo: "m5"
 objetivos:
   - "Trabajar por ramas, revisar diffs y recuperar versiones"
 entregable: "Flujo completo rama → revisión → fusión"
-actualizado: "2026-10-19"
+actualizado: "2026-10-21"
 ---
+
+## Para quién es este módulo
+
+Continuación directa de `n0/m4`: ya tienes el proyecto de tres módulos con sus pruebas en verde. Aquí aprendes a **versionarlo con criterio y a trabajarlo como se trabaja en un equipo real**: el historial como contrato (l01), la revisión del diff antes de publicar (l02), la recuperación de versiones con `restore`, `stash` y `reflog` (l03), el remoto `origin` con `push`, `fetch` y `pull` sobre un repositorio local sin red (l04), la rama por cambio (l05), el diff como conversación de revisión (l06) y el flujo completo rama → revisión → fusión (l07). Público objetivo: quien tiene `m1` (con su l07 de primeros pasos con Git), `m2`, `m3` y `m4` a sus espaldas. Duración estimada: de 6 a 8 horas repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas el **flujo completo rama → revisión → fusión** (`ejemplos/`): la demostración del historial del proyecto de m4 en cuatro commits, la revisión del diff, la recuperación de versiones, el remoto `origin` sin red, la rama por cambio con su fusión `--no-ff` y la revisión como conversación. La carpeta cierra con su suite `flujo-completo.test.js` — **7 pruebas `node --test` en verde** que ejercitan el flujo completo contra Git real (`child_process`), más **2 rojos deliberados** con su clase y código reales: el conflicto de fusión (`CONFLICT (content)` + marcadores `<<<<<<<`, código `1`) y el push rechazado por historia divergente (`! [rejected] ... non-fast-forward`, código `1`). Ese entregable completa la parte «Git limpio y CI mínimo» de la fase `f1` del proyecto longitudinal.
+
+## Lecciones
+
+| #   | Lección                                                                                                          | Tiempo |
+| --- | ---------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [El historial como contrato](/curriculo/n0/m5/l01-el-historial-como-contrato/)                                   | 45 min |
+| 2   | [Revisar el diff antes de publicar](/curriculo/n0/m5/l02-revisar-el-diff-antes-de-publicar/)                     | 45 min |
+| 3   | [Recuperar versiones: restore, stash y reflog](/curriculo/n0/m5/l03-recuperar-versiones-restore-stash-y-reflog/) | 50 min |
+| 4   | [El remoto: origin, push, fetch y pull](/curriculo/n0/m5/l04-el-remoto-origin-push-fetch-y-pull/)                | 50 min |
+| 5   | [Ramas por cambio: feature branch](/curriculo/n0/m5/l05-ramas-por-cambio-feature-branch/)                        | 45 min |
+| 6   | [La revisión: el diff como conversación](/curriculo/n0/m5/l06-la-revision-el-diff-como-conversacion/)            | 45 min |
+| 7   | [Entregable: flujo completo rama → revisión → fusión](/curriculo/n0/m5/l07-flujo-completo-rama-revision-fusion/) | 60 min |

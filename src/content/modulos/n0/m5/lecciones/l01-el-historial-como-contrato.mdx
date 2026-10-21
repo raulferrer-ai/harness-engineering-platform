@@ -1,0 +1,199 @@
+---
+titulo: "El historial como contrato"
+resumen: "El historial de Git no es un diario: es un contrato que explica cómo llegó el proyecto a hoy. Aquí conviertes el mini-proyecto de n0/m4 en un repositorio y aprendes a escribir commits que expliquen cada cambio por sí solos."
+nivel: "n0"
+modulo: "m5"
+orden: 1
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Inicializar un repositorio e identificar qué archivos quedan bajo control"
+  - "Escribir commits con mensajes que expliquen el cambio, no solo lo nombran"
+  - "Leer el historial con git log --oneline --stat y entender qué aporta cada commit"
+  - "Entender por qué un historial limpio es la base de ramas, revisión y recuperación"
+prerrequisitos:
+  - "n0/m4/l07-proyecto-con-3-modulos-y-readme"
+actualizado: "2026-10-21"
+tags:
+  - "git"
+  - "historial"
+  - "commits"
+  - "versiones"
+fuentes:
+  - titulo: "git-scm.com: Getting Started — Git Basics"
+    url: "https://git-scm.com/book/en/v2/Getting-Started-Basics"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: Git Commit — How to Write Good Commit Messages"
+    url: "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-log Documentation"
+    url: "https://git-scm.com/docs/git-log"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-init Documentation"
+    url: "https://git-scm.com/docs/git-init"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-status Documentation"
+    url: "https://git-scm.com/docs/git-status"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un commit es una instantánea con un mensaje; el historial es la secuencia de esas instantáneas. Un buen historial permite a otra persona — o a ti en tres meses — entender **qué cambió y por qué** sin leer el código completo. Por eso cada commit debe hacer **una cosa** y su mensaje debe explicar esa cosa. En `n0/m5` versionas el proyecto de `n0/m4` con este criterio y construyes la base sobre la que después trabajan ramas, revisión y recuperación.
+
+## Conceptos
+
+### Inicializar y mirar el estado
+
+`git init` convierte un directorio en un repositorio. Después, `git status` te dice en qué estado estás: qué hay sin registrar, qué hay staged y en qué rama estás. La demostración de esta lección — `ejemplos/repositorio-proyecto.sh` — toma el proyecto de `n0/m4`, lo inicializa y muestra su estado inicial:
+
+```sh
+git init
+git status --short
+```
+
+Salida real (Git 2.50.1, 2026-10-21):
+
+```text
+?? README.md
+?? datos/
+?? package-lock.json
+?? package.json
+?? src/
+?? test/
+```
+
+El prefijo `??` significa «sin registrar»: Git ve los archivos pero aún no los sigue. Cada carpeta aparece comprimida en una línea. Nada está perdido; simplemente todavía no le has pedido que lo recuerde.
+
+### Un commit, una idea
+
+El error clásico del versionado es el **commit atómico de 40 archivos**: «arreglar todo». Cuando ese commit rompe algo, no puedes revertir solo la parte mala. Un commit debe ser revertible por sí solo. La demostración crea cuatro commits sobre el proyecto, cada uno con una responsabilidad:
+
+```sh
+git add src/
+git commit -m "Separa el informe en tres módulos: gastos, informe y main"
+```
+
+Al final, el historial completo con `--stat` muestra qué tocó cada uno:
+
+```text
+fdf33a9 Incluye el CSV real de gastos como dato de prueba
+ datos/gastos.csv | 9 +++++++++
+ff577e9 Añade las pruebas de composición del proyecto
+ test/proyecto.test.js | 50 ++++++++++++++++++++++++++++++++++++++++++++++++++
+948df9b Separa el informe en tres módulos: gastos, informe y main
+ src/gastos.js  | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ src/informe.js | 41 +++++++++++++++++++++++++++++++++++++++++
+ src/main.js    | 18 ++++++++++++++++++
+c3140ec Añade el manifiesto, el lockfile y el README del proyecto
+ README.md         | 60 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ package-lock.json | 13 ++++++++++++
+ package.json      | 12 +++++++++++
+```
+
+Cada commit responde a una pregunta distinta: ¿de dónde vienen los datos? ¿qué pruebas lo sostienen? ¿cómo está organizado el código? ¿cuál es su manifiesto? Si lees solo los mensajes, ya entiendes la estructura del proyecto sin abrir un fichero.
+
+### El mensaje del commit
+
+El mensaje tiene dos partes: un **resumen** (la primera línea, máximo ~50 caracteres) que dice **qué** hace, y opcionalmente un **cuerpo** (separado por una línea en blanco) que explica **por qué**. Un buen resumen empieza por un verbo en infinitivo y describe el cambio, no la acción de commitar:
+
+- ✅ `Añade el CSV real de gastos como dato de prueba`
+- ❌ `commit de datos`
+- ❌ `cambios`
+
+La diferencia es que el primero se entiende solo; los otros requieren contexto externo. Cuando busques en el historial con `git log --grep`, la diferencia entre un mensaje útil y uno inútil es la diferencia entre encontrar algo y no encontrarlo.
+
+### `git log --oneline --stat`
+
+`git log` es tu cámara lenta sobre el historial. `--oneline` comprime cada commit a una línea (hash corto + resumen); `--stat` añade qué ficheros tocó y cuántas líneas cambiaron. Esta combinación es la vista de revisión más útil para empezar: ves la narrativa completa del proyecto y su peso en una sola pantalla.
+
+Después de los cuatro commits, el estado final de la demostración es un árbol limpio:
+
+```text
+$ git status --short   # tras los 4 commits
+(árbol limpio: no hay cambios sin registrar)
+```
+
+«Árbol limpio» significa que el contenido de tu carpeta es idéntico al último commit. No hay nada sin registrar ni nada staged. Es el estado desde el que se empieza cualquier cambio nuevo.
+
+### Por qué esto importa para las ramas y la revisión
+
+Un historial de commits atómicos es lo que hace posible `git diff` entre ramas (l06), la recuperación con `git reflog` (l03) y el flujo completo rama → revisión → fusión (l07). Si tus commits mezclan cinco responsabilidades, ninguna de esas herramientas puede ayudarte: no puedes revertir, revisar ni fusionar una idea si esa idea está enterrada en un commit de 40 ficheros. El historial limpio no es estética; es la condición de posibilidad del resto del módulo.
+
+## Ejercicio
+
+Inicializa un repositorio sobre tu propio proyecto de `n0/m4` y construye un historial de cuatro commits con un mensaje por concepto (datos, código, pruebas, manifiesto). Después, lee el historial completo.
+
+```sh
+cd mi-proyecto
+git init
+git add datos/ && git commit -m "Añade el CSV real de gastos como dato de prueba"
+git add src/ && git commit -m "Separa el informe en tres módulos: gastos, informe y main"
+git add test/ && git commit -m "Añade las pruebas de composición del proyecto"
+git add . && git commit -m "Añade el manifiesto, el lockfile y el README del proyecto"
+git log --oneline --stat
+git status --short
+```
+
+Esto se cumple cuando:
+
+- `git log --oneline --stat` muestra cuatro commits, cada uno con su `--stat`;
+- cada mensaje de commit nombra un concepto distinto del proyecto;
+- `git status --short` imprime `(árbol limpio: no hay cambios sin registrar)`;
+- puedes explicar, sin mirar el código, qué tocó cada commit a partir de su mensaje y su `--stat`.
+
+Pista: si al ejecutar `git commit` te pide la identidad, configúrala localmente con `git config user.name "Tu Nombre"` y `git config user.email "tu@ejemplo.com"`.
+
+## Solución explicada
+
+La secuencia de arriba, ejecutada sobre tu proyecto. Cada `git add` selecciona solo la carpeta de un concepto, de modo que cada commit recibe exactamente ese subconjunto. El `git add .` final recoge lo que queda (manifiesto, lockfile, README) sin dejar nada sin registrar.
+
+Errores típicos al resolverlo:
+
+- **Un solo commit para todo**. `git add . && git commit` de una vez funciona, pero destruye el historial en commits revertibles. Si luego quieres separar, tendrás que reescribir historia (`git rebase -i`), que es trabajo extra y fuente de errores.
+- **Mensajes que describen la acción, no el cambio**. «commit de datos» no sobrevive al paso del tiempo. Escribe el mensaje como si le explicaras a un compañero qué cambió en el proyecto.
+- **Confundir `git add` con `git commit`**. `git add` mueve cambios al área de preparación (staging); `git commit` congel lo preparado en el historial. Puedes hacer varios `add` antes de un `commit`; no al revés.
+
+## Cómo verificarlo
+
+1. Inicializa y construye el historial sobre tu proyecto (los comandos del ejercicio).
+
+2. Lee el historial completo:
+
+   ```sh
+   git log --oneline --stat
+   ```
+
+   Salida esperada: cuatro líneas de commit (una por concepto), cada una seguida de su `--stat` con los ficheros y las líneas tocadas.
+
+3. Comprueba que no queda nada sin registrar:
+
+   ```sh
+   git status --short
+   ```
+
+   Salida: vacía, o con el mensaje «árbol limpio». Si imprime `??` o `M`, aún hay cambios sin commitear.
+
+4. Registra la salida real de tu `git log --oneline --stat` y compárala con la de la demostración (`ejemplos/repositorio-proyecto.sh`): el número de ficheros y líneas debe coincidir con tu proyecto, aunque los hashes y los mensajes puedan variar.
+
+## Errores comunes
+
+- **Ejecutar `git commit` con el árbol vacío**: Git termina con `nothing to commit, working tree clean` y código `1`. No es un fallo; es Git diciendo que no hay nada que registrar.
+- **Commits demasiado grandes**: si un commit toca diez responsabilidades, no puedes revertir una sin las otras. Divide antes de commitar.
+- **Mensaje vago**: «cambios», «fix», «wip» no explican nada. Un historial se lee desde `git log`; si el mensaje no se entiende ahí, no sirve.
+- **Olvidar `git add` antes de `git commit`**: `git commit` solo registra lo que está en staging. Si añadiste un fichero pero no hiciste `add`, ese fichero queda fuera del commit sin que te des cuenta.
+- **No configurar la identidad**: si `git config user.name` y `user.email` no están puestos, Git puede fallar al commitear. Configúralos localmente en el repositorio, no globalmente.
+
+## Fuentes
+
+- [git-scm.com: Getting Started — Git Basics](https://git-scm.com/book/en/v2/Getting-Started-Basics) — consultado el 2026-10-21.
+- [git-scm.com: Recording Changes to the Repository](https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository) — consultado el 2026-10-21.
+- [git-scm.com: git-log Documentation](https://git-scm.com/docs/git-log) — consultado el 2026-10-21.
+- [git-scm.com: git-init Documentation](https://git-scm.com/docs/git-init) — consultado el 2026-10-21.
+- [git-scm.com: git-status Documentation](https://git-scm.com/docs/git-status) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l02 «Revisar el diff antes de publicar»](/curriculo/n0/m5/l02-revisar-el-diff-antes-de-publicar/) — el ritual de mirar lo que vas a commitear, con `git diff` y `git diff --staged`.
+- Proyecto longitudinal: estás construyendo la parte «Git limpio» de la fase `f1`; el módulo `n0/m5` lo cierra con el flujo completo en l07.

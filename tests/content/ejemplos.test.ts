@@ -41,6 +41,10 @@ const dirEjemplosM4 = fileURLToPath(
   new URL("../../src/content/modulos/n0/m4/ejemplos/", import.meta.url),
 );
 
+const dirEjemplosM5 = fileURLToPath(
+  new URL("../../src/content/modulos/n0/m5/ejemplos/", import.meta.url),
+);
+
 interface Resultado {
   status: number | null;
   stdout: string;
@@ -565,6 +569,148 @@ describe("ejemplos del módulo n0/m4: ejecución real", () => {
   });
 });
 
+describe("ejemplos del módulo n0/m5: ejecución real (requiere git)", () => {
+  const gitDisponible = spawnSync("git", ["--version"], { encoding: "utf8" }).status === 0;
+
+  interface Demo {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  // Las demos crean un repositorio temporal, ejecutan el flujo con Git real
+  // (2.50.1 en el entorno de la lección) y terminan con código 0.
+  const demos: Demo[] = [
+    {
+      fichero: "repositorio-proyecto.sh",
+      marcas: ["$ git log --oneline --stat", "(árbol limpio: no hay cambios sin registrar)"],
+      descripcion: "l01: el proyecto de m4 bajo control de versiones (4 commits)",
+    },
+    {
+      fichero: "revisar-diff.sh",
+      marcas: ["$ git diff   # sin preparar", "$ git diff --staged   # preparado"],
+      descripcion: "l02: los tres diffs (sin preparar, preparado, entre commits)",
+    },
+    {
+      fichero: "recuperar-versiones.sh",
+      marcas: ["$ git restore --staged", "$ git stash push", "$ git reset --hard"],
+      descripcion: "l03: restore --staged, stash/pop y recuperación por reflog",
+    },
+    {
+      fichero: "remoto-local.sh",
+      marcas: ["$ git remote add origin", "$ git push -u origin", "$ git pull --ff-only"],
+      descripcion: "l04: origin como repo bare, push -u, fetch y pull --ff-only",
+    },
+    {
+      fichero: "ramas-feature.sh",
+      marcas: ["$ git switch -c anade-cine", "Fusiona anade-cine", "$ git branch -d anade-cine"],
+      descripcion: "l05: rama por cambio, fusión --no-ff y borrado de la rama",
+    },
+    {
+      fichero: "revision.sh",
+      marcas: ["$ git log main..formatea-importes --stat", "$ git diff main...formatea-importes"],
+      descripcion: "l06: la rama revisada con log y diff de tres puntos",
+    },
+  ];
+
+  it.skipIf(!gitDisponible).each(demos)(
+    "$fichero termina con código 0 y muestra sus pasos ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync("sh", [demo.fichero], {
+        cwd: dirEjemplosM5,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    60_000,
+  );
+
+  it.skipIf(!gitDisponible)(
+    "flujo-completo.test.js: la suite del entregable pasa con 7 pruebas",
+    () => {
+      const resultado = spawnSync(process.execPath, ["--test", "flujo-completo.test.js"], {
+        cwd: dirEjemplosM5,
+        encoding: "utf8",
+        timeout: 120_000,
+      });
+      expect(resultado.status, resultado.stdout).toBe(0);
+      expect(resultado.stdout).toContain("pass 7");
+      expect(resultado.stdout).toContain("fail 0");
+    },
+    120_000,
+  );
+
+  it.skipIf(!gitDisponible)(
+    "errores/conflicto-merge.sh termina en 1 con CONFLICT y marcadores (rojo)",
+    () => {
+      const resultado = spawnSync("sh", ["errores/conflicto-merge.sh"], {
+        cwd: dirEjemplosM5,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(resultado.status).toBe(1);
+      expect(resultado.stdout).toContain("CONFLICT (content)");
+      expect(resultado.stdout).toContain("<<<<<<<");
+      expect(resultado.stdout).toContain(">>>>>>> propuesta-b");
+    },
+    60_000,
+  );
+
+  it.skipIf(!gitDisponible)(
+    "errores/push-rechazado.sh termina en 1 con el rechazo del remoto (rojo)",
+    () => {
+      const resultado = spawnSync("sh", ["errores/push-rechazado.sh"], {
+        cwd: dirEjemplosM5,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(resultado.status).toBe(1);
+      expect(resultado.stderr).toContain("rejected");
+      expect(resultado.stderr).toContain("fetch first");
+      expect(resultado.stderr).toContain("error: failed to push some refs");
+    },
+    60_000,
+  );
+
+  it.skipIf(!gitDisponible)(
+    "l01: un commit sin cambios termina en 1 con «nothing to commit» (rojo registrado)",
+    () => {
+      const carpeta = carpetaTemporal();
+      spawnSync("git", ["init", "-q"], { cwd: carpeta, encoding: "utf8" });
+      spawnSync("git", ["config", "user.name", "Demo"], { cwd: carpeta });
+      spawnSync("git", ["config", "user.email", "demo@example.invalid"], { cwd: carpeta });
+      const rojo = spawnSync("git", ["commit", "-m", "sin cambios"], {
+        cwd: carpeta,
+        encoding: "utf8",
+      });
+      expect(rojo.status).toBe(1);
+      expect(rojo.stdout).toContain("nothing to commit");
+    },
+    30_000,
+  );
+
+  it.skipIf(!gitDisponible)(
+    "l05: cambiar a una rama inexistente termina en 128 (rojo registrado)",
+    () => {
+      const carpeta = carpetaTemporal();
+      spawnSync("git", ["init", "-q"], { cwd: carpeta, encoding: "utf8" });
+      spawnSync("git", ["config", "user.name", "Demo"], { cwd: carpeta });
+      spawnSync("git", ["config", "user.email", "demo@example.invalid"], { cwd: carpeta });
+      const rojo = spawnSync("git", ["switch", "rama-que-no-existe"], {
+        cwd: carpeta,
+        encoding: "utf8",
+      });
+      expect(rojo.status).toBe(128);
+      expect(rojo.stderr).toContain("fatal: invalid reference: rama-que-no-existe");
+    },
+    30_000,
+  );
+});
+
 describe("l07: la demo de Git (requiere git instalado)", () => {
   const gitDisponible = spawnSync("git", ["--version"], { encoding: "utf8" }).status === 0;
 
@@ -588,7 +734,7 @@ describe("l07: la demo de Git (requiere git instalado)", () => {
 
 describe("cobertura de ejemplos", () => {
   /**
-   * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js),
+   * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
    * más subcarpetas indicadas (.js) y ficheros de datos adicionales
    * (manifiestos, CSV, README) que se verifican indirectamente.
    */
@@ -604,7 +750,7 @@ describe("cobertura de ejemplos", () => {
       }
     }
     for (const entrada of readdirSync(join(dir, "errores"), { withFileTypes: true })) {
-      if (entrada.isFile() && entrada.name.endsWith(".js")) {
+      if (entrada.isFile() && (entrada.name.endsWith(".js") || entrada.name.endsWith(".sh"))) {
         enDisco.push(`errores/${entrada.name}`);
       }
     }
@@ -700,5 +846,21 @@ describe("cobertura de ejemplos", () => {
         ],
       ),
     ).toEqual([...enManifiesto].sort());
+  });
+
+  it("m5: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    const enManifiesto = [
+      "repositorio-proyecto.sh",
+      "revisar-diff.sh",
+      "recuperar-versiones.sh",
+      "remoto-local.sh",
+      "ramas-feature.sh",
+      "revision.sh",
+      "flujo-completo.test.js",
+      "errores/conflicto-merge.sh",
+      "errores/push-rechazado.sh",
+    ];
+
+    expect(archivosVerificables(dirEjemplosM5)).toEqual([...enManifiesto].sort());
   });
 });

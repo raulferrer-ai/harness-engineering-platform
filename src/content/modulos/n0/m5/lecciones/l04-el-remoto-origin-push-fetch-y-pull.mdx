@@ -1,0 +1,185 @@
+---
+titulo: "El remoto: origin, push, fetch y pull"
+resumen: "Un repositorio remoto es una copia de tu historial en otro sitio —servidor o carpeta local— que permite publicar y compartir. Aquí aprendes a añadir un origin, a publicar con push, a consultar con fetch y a integrar con pull, usando un repositorio bare local para practicar sin red."
+nivel: "n0"
+modulo: "m5"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Entender qué es un repositorio remoto y por qué se llama origin"
+  - "Publicar una rama con git push -u y entender el enlace upstream"
+  - "Consultar lo nuevo con git fetch e integrarlo con git pull --ff-only"
+  - "Practicar el flujo completo con un remoto local (sin red) usando git init --bare"
+prerrequisitos:
+  - "n0/m5/l03-recuperar-versiones-restore-stash-y-reflog"
+actualizado: "2026-10-21"
+tags:
+  - "git"
+  - "remoto"
+  - "origin"
+  - "push"
+  - "pull"
+fuentes:
+  - titulo: "git-scm.com: Working with Remotes"
+    url: "https://git-scm.com/book/en/v2/Git-Basics-Working-with-Remotes"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-remote Documentation"
+    url: "https://git-scm.com/docs/git-remote"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-push Documentation"
+    url: "https://git-scm.com/docs/git-push"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-fetch Documentation"
+    url: "https://git-scm.com/docs/git-fetch"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-pull Documentation"
+    url: "https://git-scm.com/docs/git-pull"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-init Documentation (--bare)"
+    url: "https://git-scm.com/docs/git-init"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un repositorio remoto es una copia de tu historial a la que publicas con `git push` y de la que bajas cambios con `git fetch` o `git pull`. Por convención, el remoto principal se llama `origin`. Puedes practicar todo el flujo sin red creando un remoto local con `git init --bare`: un repositorio sin working tree, usado solo como destino de push. Aquí aprendes a publicar, a consultar lo nuevo y a integrarlo.
+
+## Conceptos
+
+### Qué es un remoto y por qué `origin`
+
+Hasta ahora has trabajado solo en tu copia local. Un **repositorio remoto** es otra copia del historial, normalmente en un servidor (GitHub, GitLab, un servidor propio), que sirve para compartir y respaldar. Git le da nombre con `git remote add`. Por convención, el remoto principal recibe el nombre `origin`:
+
+```sh
+git remote add origin <url>
+```
+
+La demostración de esta lección — `ejemplos/remoto-local.sh` — usa un remoto **local** para practicar sin red. Un remoto local es simplemente otra carpeta; la técnica estándar es crearla con `git init --bare`, que genera un repositorio sin working tree, usado solo para recibir historial.
+
+```sh
+git init --bare mi-origen.git
+git remote add origin mi-origen.git
+```
+
+`git remote -v` confirma la configuración con las URLs de fetch y push.
+
+### `git push -u`: publicar y enlazar la rama
+
+`git push` envía tus commits locales al remoto. Con `-u` (o `--set-upstream`) enlazas tu rama local con su contraparte remota, de modo que en adelante `git push` y `git pull` bastan sin especificar rama ni remoto:
+
+```sh
+git push -u origin <rama>
+```
+
+La primera vez que publicas una rama, `-u` establece el **upstream** (la rama remota con la que se comunica la tuya). Sin él, tendrías que escribir `git push origin <rama>` cada vez. Con él, el flujo diario se reduce a `git push` y `git pull`.
+
+### `git fetch` vs `git pull`
+
+`git fetch` baja al remoto los commits que no tienes y los deja en las ramas `origin/<rama>`, **sin** fusionarlos en tu trabajo. Es la operación segura: miras qué hay nuevo antes de integrar nada.
+
+`git pull` es `fetch` + fusión en una sola instrucción. Si tu rama puede avanzar en línea recta (fast-forward), el resultado es idéntico a un `fetch` seguido de un `merge`. La demostración usa `--ff-only`, que solo integra cuando la fusión es un fast-forward y se niega si hay divergencia:
+
+```sh
+git fetch origin
+git log main..origin/main --oneline
+git pull --ff-only
+```
+
+```text
+79d43d3 Generaliza el saludo en la copia del compañero
+```
+
+`git log main..origin/main` muestra exactamente lo que hay en el remoto y no en tu `main`: en este caso, el commit del «compañero». Tras `git pull --ff-only`, tu rama avanza a ese commit.
+
+### El flujo de trabajo con remoto
+
+El ciclo típico es: trabajar en local, `git push` para publicar, y `git pull` para integrar lo que otros han publicado. En un flujo con ramas (l05), publicas la rama, abres una revisión (l06) y fusionas cuando está aprobada. En este módulo practicas el mismo ciclo contra un remoto local, que se comporta igual que uno remoto de verdad: la única diferencia es la distancia.
+
+El remoto también actúa de **red de seguridad**: si pierdes tu copia local, puedes clonar desde el remoto y recuperar todo el historial. Por eso el `push` es el paso que respalda tu trabajo.
+
+## Ejercicio
+
+Crea un remoto local, publica tu proyecto y practica el ciclo completo con una segunda copia.
+
+```sh
+# 1. crear el remoto local
+git init --bare mi-origen.git
+git remote add origin mi-origen.git
+# 2. publicar la rama principal
+git push -u origin main
+# 3. simular a un compañero: clonar, commitear y push
+git clone mi-origen.git colega
+cd colega && git commit --allow-empty -m "Añade marca del colega" && git push
+# 4. volver y actualizar
+cd .. && git fetch origin && git log main..origin/main --oneline && git pull --ff-only
+```
+
+Esto se cumple cuando:
+
+- `git remote -v` muestra el `origin` apuntando a tu carpeta `mi-origen.git`;
+- `git push -u origin main` publica y enlaza la rama (no da error la primera vez);
+- `git log main..origin/main --oneline` muestra el commit del «colega»;
+- `git pull --ff-only` integra ese commit en tu `main` sin conflicto.
+
+Pista: `git init --bare` crea un repositorio sin working tree, pensado solo para recibir historial. No commiteas directamente en él; lo recibes por `push`.
+
+## Solución explicada
+
+La secuencia de arriba. El remoto local (`mi-origen.git`) recibe tu historial por `push`; la segunda copia (`colega`) simula a otro desarrollador que publica sobre el mismo remoto; al hacer `fetch` y `pull --ff-only`, tu rama se actualiza con lo publicado.
+
+Errores típicos al resolverlo:
+
+- **Crear el remoto sin `--bare`**. Si haces `git init` normal en la carpeta destino, obtienes un repositorio con working tree, que no es el patrón para un remoto compartido. Usa `--bare` para un remoto de solo historial.
+- **Hacer `git push` sin `-u` la primera vez**. Sin `-u`, Git publica pero no enlaza la rama; la próxima vez tendrás que escribir `git push origin <rama>`. Con `-u`, el flujo se simplifica.
+- **Usar `git pull` sin entender su doble acción**. `pull` es `fetch` + fusión. Si tu rama y la remota divergen, la fusión puede crear un commit de merge o, si usas `--ff-only`, rechazarse. `fetch` primero te deja mirar antes de integrar.
+- **Esperar que `fetch` modifique tu trabajo**. `fetch` solo actualiza las ramas `origin/*`; tu `main` no se mueve hasta que haces `merge` o `pull`. Es la operación segura para inspeccionar.
+- **Olvidar que el remoto local es solo práctica**. En producción el remoto vive en un servidor y necesita credenciales. Aquí practicas el flujo; la autenticación y los permisos son territorio de la plataforma que elijas.
+
+## Cómo verificarlo
+
+1. Sigue la secuencia del ejercicio sobre tu proyecto.
+
+2. Comprueba la configuración del remoto:
+
+   ```sh
+   git remote -v
+   ```
+
+   Salida esperada: `origin` con la ruta a tu `mi-origen.git` (fetch y push).
+
+3. Publica y verifica la integración:
+
+   ```sh
+   git push -u origin main
+   git fetch origin
+   git log main..origin/main --oneline
+   git pull --ff-only
+   ```
+
+   Salida esperada: el push publica la rama; tras el fetch, `git log main..origin/main` muestra los commits nuevos; `pull --ff-only` los integra y tu `main` avanza.
+
+4. Registra la salida de `git remote -v` y de `git log main..origin/main --oneline`: muestran que el remoto está configurado y que la integración trajo los commits esperados.
+
+## Errores comunes
+
+- **Crear el remoto sin `--bare`**: un remoto local debe ser `git init --bare`; sin eso, tienes un repositorio con working tree que no sigue el patrón de remoto compartido.
+- **Hacer `push` sin `-u` la primera vez**: publicas pero no enlazas la rama; los siguientes `push` exigen `origin <rama>` explícito.
+- **Confiar `pull` a ciegas**: `pull` es `fetch` + fusión. Si las historias divergen, puede haber conflicto. Conviene `fetch` y revisar antes, o usar `--ff-only` para que se niegue a fusionar en línea recta.
+- **Esperar que `fetch` cambie tu `main`**: `fetch` solo actualiza `origin/*`; tu rama local no se mueve hasta `merge` o `pull`.
+- **Confundir remoto con copia de seguridad instantánea**: el remoto respalda lo que has commiteado y publicado. Los cambios sin commit o sin push no están en él.
+
+## Fuentes
+
+- [git-scm.com: Working with Remotes](https://git-scm.com/book/en/v2/Git-Basics-Working-with-Remotes) — consultado el 2026-10-21.
+- [git-scm.com: git-remote Documentation](https://git-scm.com/docs/git-remote) — consultado el 2026-10-21.
+- [git-scm.com: git-push Documentation](https://git-scm.com/docs/git-push) — consultado el 2026-10-21.
+- [git-scm.com: git-fetch Documentation](https://git-scm.com/docs/git-fetch) — consultado el 2026-10-21.
+- [git-scm.com: git-pull Documentation](https://git-scm.com/docs/git-pull) — consultado el 2026-10-21.
+- [git-scm.com: git-init Documentation](https://git-scm.com/docs/git-init) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l05 «Ramas por cambio: feature branch»](/curriculo/n0/m5/l05-ramas-por-cambio-feature-branch/) — cómo aislar cada cambio en su propia rama y fusionarla con `--no-ff`.
+- Proyecto longitudinal: el remoto local es el banco de pruebas del flujo «rama → revisión → fusión» que cierra `f1` en l07.

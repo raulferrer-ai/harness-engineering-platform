@@ -1,0 +1,181 @@
+---
+titulo: "Entregable: flujo completo rama → revisión → fusión"
+resumen: "Cierre de n0/m5: el proyecto de n0/m4 trabajado con el flujo completo de Git —rama por cambio, revisión del diff y fusión con --no-ff— y respaldado en un remoto. Aquí ejecutas la suite del módulo, cierras la parte «Git limpio» de la fase f1 y redactas tu nota de entrega."
+nivel: "n0"
+modulo: "m5"
+orden: 7
+dificultad: "intermedio"
+tiempoEstimado: 60
+objetivos:
+  - "Componer el flujo rama → revisión → fusión sobre un proyecto real"
+  - "Respaldar el historial en un remoto y recuperarlo desde él"
+  - "Ejecutar la verificación completa del módulo (suite de 7 pruebas en verde)"
+  - "Redactar una nota de entrega escrita después de ejecutar, con límites honestos"
+  - "Relacionar el entregable con el cierre de la fase f1 del proyecto longitudinal"
+prerrequisitos:
+  - "n0/m5/l06-la-revision-el-diff-como-conversacion"
+actualizado: "2026-10-21"
+tags:
+  - "entregable"
+  - "git"
+  - "flujo"
+  - "f1"
+fuentes:
+  - titulo: "git-scm.com: git-flow (referencia del flujo por ramas)"
+    url: "https://github.com/nvie/gitflow"
+    fecha: "2026-10-21"
+  - titulo: "GitHub Docs: About pull requests"
+    url: "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-reflog Documentation"
+    url: "https://git-scm.com/docs/git-reflog"
+    fecha: "2026-10-21"
+  - titulo: "Node.js Docs: node:test module"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable de `n0/m5` es el proyecto de `n0/m4` trabajado con el flujo completo de Git: **rama por cambio → revisión del diff → fusión con `--no-ff` → respaldo en remoto**. Cada paso del módulo (historial, diff, recuperación, remoto, ramas, revisión) se compone aquí en una única práctica. La carpeta cierra con una suite `node --test` de **7 pruebas en verde** que ejercitan el flujo contra Git real, dos rojos deliberados (conflicto de fusión y push rechazado) y una nota de entrega con límites honestos.
+
+## Conceptos
+
+### El flujo, compuesto
+
+Las seis lecciones anteriores son piezas sueltas; aquí se ensamblan. El flujo completo sobre tu proyecto es:
+
+1. **Rama por cambio** (l05): `git switch -c <rama>` desde `main`.
+2. **Commitear** (l01): commits atómicos con mensajes que explican.
+3. **Revisar** (l06): `git log main..<rama> --stat` y `git diff main...<rama>` antes de fusionar.
+4. **Fusionar** (l05): `git merge --no-ff <rama>` para conservar la constancia.
+5. **Respaldar** (l04): `git push -u origin <rama>` a un remoto.
+6. **Recuperarse** (l03): si algo sale mal, `git reflog` y `git stash` son la red de seguridad.
+
+Este flujo no es una teoría: la suite del módulo lo ejecuta contra Git real y lo verifica en siete pruebas.
+
+### La suite del entregable
+
+`ejemplos/flujo-completo.test.js` crea repositorios temporales reales y ejercita cada paso del flujo con `node:test` y `child_process`. Salida real (Node v24.22.0, 2026-10-21):
+
+```text
+✔ el historial inicial registra cada concepto en su commit
+✔ la rama del cambio aporta solo sus commits
+✔ el diff de revisión con tres puntos muestra solo lo de la rama
+✔ la fusión --no-ff deja constancia en el historial
+✔ el push sube la historia completa al remoto
+✔ el push divergente se rechaza y se recupera con pull
+✔ el reflog recupera el commit «perdido» tras un reset --hard
+ℹ tests 7
+ℹ pass 7
+ℹ fail 0
+```
+
+Cada prueba cubre una pieza del flujo. La quinta verifica que el `push` sube la historia completa al remoto; la sexta, que un `push` divergente se rechaza y se recupera con `pull`; la séptima, que el `reflog` rescata un commit que un `reset --hard` parecía haber borrado. Juntas prueban que el flujo completo funciona, no solo sus partes.
+
+### Los dos rojos del módulo
+
+El módulo documenta dos fallos reales de Git como **rojos deliberados**, para que los reconozcas cuando aparezcan:
+
+- **Conflicto de fusión** (`errores/conflicto-merge.sh`): cuando dos ramas tocan la misma línea, `git merge` se niega, imprime `CONFLICT (content)` y marca el fichero con `<<<<<<<` y `>>>>>>>`. Termina con código `1`. Es Git pidiéndote que decidas, no un fallo tuyo.
+- **Push rechazado** (`errores/push-rechazado.sh`): si tu historia divergió del remoto, `git push` se rechaza con `! [rejected] ... (fetch first)` y código `1`, aconsejando `git pull` antes de volver a intentarlo. Es la protección del remoto haciendo su trabajo.
+
+Reconocer estos mensajes te ahorra pánico: ambos son situaciones normales y tienen una recuperación clara (resolver el conflicto a mano; hacer `pull` y volver a push).
+
+### La nota de entrega
+
+Igual que en `n0/m4` (l07), una entrega sin nota es un código sin contexto. La nota se escribe **después** de ejecutar todo y contiene los comandos, sus resultados y **al menos un límite honesto**. La del módulo, redactada el 2026-10-21 con Git 2.50.1 y Node v24.22.0:
+
+> _Verificado el 2026-10-21 con Git 2.50.1 y Node v24.22.0: la suite `flujo-completo.test.js` → 7 pruebas en verde; los dos rojos terminan con su código real (conflicto de fusión en `1` con `CONFLICT` y marcadores; push rechazado en `1` con `fetch first`). No puedo afirmar que el flujo escale a ramas con conflictos múltiples ni a remotos con autenticación, porque la demostración usa un remoto local `--bare` y un solo conflicto simple. El CI mínimo de f1 se practica con el remoto local, no con un servidor de integración continua real: no he configurado ni probado ningún pipeline._
+
+### Esto cierra la fase `f1`
+
+La fase `f1` del proyecto longitudinal pide «aplicación sencilla, con tests y Git limpio», con criterio «tests verdes en local y CI mínimo». `n0/m4` entregó la aplicación con sus tests; `n0/m5` entrega la parte de **Git limpio**: historial por conceptos, revisión del diff, recuperación y flujo por ramas con respaldo en remoto. Con esto, la fase `f1` queda completa. El «CI mínimo» se practica aquí con el remoto local; un pipeline de integración continua real es objeto de niveles posteriores.
+
+## Ejercicio
+
+Aplica el flujo completo a un cambio real en tu proyecto y redacta tu nota de entrega.
+
+```sh
+# 1. rama por cambio
+git switch main && git switch -c <cambio-real>
+# 2. commitear el cambio con mensaje descriptivo
+git add <ficheros> && git commit -m "<mensaje>"
+# 3. revisar ANTES de fusionar
+git log main..<cambio-real> --stat
+git diff main...<cambio-real>
+# 4. fusionar con --no-ff
+git switch main && git merge --no-ff <cambio-real> -m "Fusiona <cambio-real>"
+# 5. respaldar en remoto (local, sin red)
+git init --bare mi-origen.git && git remote add origin mi-origen.git && git push -u origin main
+# 6. verificar
+node --test   # desde la carpeta ejemplos del módulo
+```
+
+Esto se cumple cuando:
+
+- la rama aísla el cambio y `git diff main...<rama>` muestra solo ese trabajo;
+- el `git log --graph` muestra el commit de fusión;
+- el `push` publica la historia en el remoto sin error;
+- la suite del módulo termina con `pass 7 / fail 0`;
+- tu nota de entrega cita los resultados y al menos un límite real del flujo que practicaste.
+
+Pista: el límite más honesto suele estar en lo que tu remoto local **no** representa: la autenticación, los permisos y la integración continua reales.
+
+## Solución explicada
+
+La secuencia de arriba, ejecutada sobre tu proyecto. Cada paso corresponde a una lección: rama (l05), commit (l01), revisión (l06), fusión (l05), remoto (l04) y verificación (la suite). La nota de entrega se redacta al final, con lo que realmente ejecutaste.
+
+Errores típicos al resolverlo:
+
+- **Fusionar sin revisar**. El paso 3 es el que distingue el flujo de un simple merge. Saltarlo traslada el riesgo al historial consolidado.
+- **Respaldar solo al final**. Si haces un `push` únicamente al cerrar, pierdes la red de seguridad incremental. Publica a lo largo del flujo.
+- **Escribir la nota de memoria**. Si no ejecutaste la suite, no sabes si pasó. La nota se escribe después de ejecutar, como en `n0/m4`.
+- **Confundir el remoto local con un CI real**. `git init --bare` practica el flujo de push/pull, pero no ejecuta comprobaciones automáticas. Un pipeline de integración continua es otra cosa; no lo afirmes en tu nota si no lo montaste.
+
+## Cómo verificarlo
+
+1. Aplica el flujo completo a un cambio real (los comandos del ejercicio).
+
+2. Ejecuta la suite del módulo:
+
+   ```sh
+   cd src/content/modulos/n0/m5/ejemplos
+   node --test
+   ```
+
+   Salida real: `tests 7 / pass 7 / fail 0` — las siete pruebas del flujo completo contra Git real.
+
+3. Comprueba los dos rojos y su recuperación:
+
+   ```sh
+   sh errores/conflicto-merge.sh; echo "código: $?"
+   sh errores/push-rechazado.sh; echo "código: $?"
+   ```
+
+   Salida: el conflicto imprime `CONFLICT (content)` con marcadores `<<<<<<<` y termina en `1`; el push rechazado imprime `! [rejected] ... (fetch first)` y termina en `1`.
+
+4. Redacta tu nota de entrega citando los resultados de la suite, los dos rojos con sus códigos y al menos un límite honesto del flujo que practicaste (por ejemplo, la autenticación del remoto o la integración continua real, que tu remoto local no cubre).
+
+## Errores comunes
+
+- **Confundir conflicto con fallo**: `CONFLICT (content)` no es un error tuyo; es Git pidiendo que decidas entre dos versiones. Se resuelve editando el fichero, `git add` y `git commit`.
+- **Ignorar el rechazo de push**: `! [rejected] (fetch first)` significa que el remoto tiene trabajo que tú no tienes. Haz `git pull` (o `fetch` + fusión) antes de volver a intentarlo.
+- **Fusionar sin revisar el diff**: el paso de revisión es el que previene cometer errores en el historial consolidado. No lo saltes.
+- **Practicar el flujo solo localmente y afirmar que tienes CI**: el remoto `--bare` local practica push/pull, pero no ejecuta comprobaciones automáticas. Distingue entre respaldar historia y un pipeline de integración continua.
+- **Escribir la nota sin ejecutar**: la nota de entrega refleja resultados reales. Si no corriste la suite, no puedes afirmar `pass 7 / fail 0`.
+
+## Fuentes
+
+- [GitHub Docs: About pull requests](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests) — consultado el 2026-10-21.
+- [git-scm.com: git-flow (referencia del flujo por ramas)](https://github.com/nvie/gitflow) — consultado el 2026-10-21.
+- [git-scm.com: git-reflog Documentation](https://git-scm.com/docs/git-reflog) — consultado el 2026-10-21.
+- [Node.js Docs: node:test module](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- **Módulo completo.** Con l07 has recorrido `n0/m5` entero: historial como contrato (l01), revisión del diff (l02), recuperación de versiones (l03), remoto y flujo push/pull (l04), ramas por cambio (l05), revisión como conversación (l06) y el flujo completo (l07).
+- **Entrega del módulo**: la carpeta `ejemplos/` con 6 demos de Git (`.sh`), la suite `flujo-completo.test.js` con **7 pruebas `node --test` en verde**, 2 rojos deliberados (conflicto de fusión y push rechazado) y sus 2 rojos registrados en la batería de verificación del repositorio.
+- **Cierre de la fase `f1`**: con `n0/m4` entregaste la «aplicación con tests» y con `n0/m5` la parte «Git limpio»; la fase `f1` del proyecto longitudinal queda completa.
+- Proyecto longitudinal: el flujo que practicaste aquí —rama, revisión, fusión y respaldo— es el mismo que sostiene el desarrollo asistido por IA en los niveles siguientes: los cambios del agente también pasan por rama, revisión del diff y fusión.
