@@ -14,12 +14,12 @@ import { spawnSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
 
 /**
- * H3+H7+H8: los ejemplos de los módulos se comprueban **ejecutándolos** (frente a
+ * H3+H7+H8+H9: los ejemplos de los módulos se comprueban **ejecutándolos** (frente a
  * H2, donde solo se lintiaban). Convención del repositorio:
  *
  * - `ejemplos/*.js` deben terminar con código 0 (verde);
  * - `ejemplos/errores/*.js` fallan a propósito y deben terminar en rojo con su
- *   clase de error (SyntaxError, ReferenceError, TypeError);
+ *   clase de error (SyntaxError, ReferenceError, TypeError, ERR_MODULE_NOT_FOUND);
  * - los ficheros `.test.js` se ejecutan con el ejecutor de pruebas de Node
  *   (`node --test`), que es exactamente lo que enseñan las lecciones;
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
@@ -35,6 +35,10 @@ const dirEjemplosM2 = fileURLToPath(
 
 const dirEjemplosM3 = fileURLToPath(
   new URL("../../src/content/modulos/n0/m3/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosM4 = fileURLToPath(
+  new URL("../../src/content/modulos/n0/m4/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -71,6 +75,7 @@ interface CasoDirecto {
   ruta: string;
   codigo: number;
   descripcion: string;
+  argumentos?: string[];
   stdoutContiene?: string;
   stderrContiene?: string;
 }
@@ -432,6 +437,134 @@ describe("ejemplos del módulo n0/m3: ejecución real", () => {
   });
 });
 
+/** Casos directos de m4: el mini-proyecto, sus utilitarios y sus rojos. */
+const casosDirectosM4: CasoDirecto[] = [
+  {
+    ruta: "convertir.js",
+    codigo: 0,
+    descripcion: "l01: el módulo se carga sin errores ni efectos",
+  },
+  {
+    ruta: "usar-convertir.js",
+    codigo: 0,
+    stdoutContiene: "pan: 1.85 EUR",
+    descripcion: "l01: la demo importa el módulo y formatea",
+  },
+  {
+    ruta: "revisar-manifiesto.js",
+    codigo: 0,
+    stdoutContiene: "manifiesto OK",
+    descripcion: "l02: el manifiesto real del proyecto cumple su contrato",
+  },
+  {
+    ruta: "dependencias.js",
+    codigo: 0,
+    stdoutContiene: "lockfile: presente",
+    descripcion: "l04: el proyecto no tiene dependencias y su lockfile existe",
+  },
+  {
+    ruta: "candidato.js",
+    codigo: 0,
+    stdoutContiene: "veredicto: aceptar",
+    descripcion: "l05: el candidato de ejemplo se acepta con la fecha base fijada",
+  },
+  {
+    ruta: "revisar-readme.js",
+    codigo: 0,
+    stdoutContiene: "README OK",
+    descripcion: "l06: el README real del proyecto tiene las cinco secciones",
+  },
+  {
+    ruta: "proyecto/src/main.js",
+    codigo: 0,
+    argumentos: ["proyecto/datos/gastos.csv"],
+    stdoutContiene: "total: 83.69 EUR",
+    descripcion: "l07: el entregable imprime el informe del CSV real",
+  },
+  {
+    ruta: "proyecto/src/main.js",
+    codigo: 1,
+    stderrContiene: "Uso: node src/main.js",
+    descripcion: "l07: sin argumento el CLI muestra el uso y termina en 1",
+  },
+  {
+    ruta: "errores/import-inesistente.js",
+    codigo: 1,
+    stderrContiene: "ERR_MODULE_NOT_FOUND",
+    descripcion: "l01: import de un módulo que no existe (rojo)",
+  },
+  {
+    ruta: "errores/dependencia-ausente.js",
+    codigo: 1,
+    stderrContiene: "Cannot find package",
+    descripcion: "l04: import de un paquete no instalado (rojo)",
+  },
+];
+
+describe("ejemplos del módulo n0/m4: ejecución real", () => {
+  it.each(casosDirectosM4)("$ruta → código $codigo ($descripcion)", (caso) => {
+    const resultado = ejecutarNode([caso.ruta, ...(caso.argumentos ?? [])], dirEjemplosM4);
+    expect(resultado.status, `${caso.ruta} → stderr: ${resultado.stderr}`).toBe(caso.codigo);
+    if (caso.stdoutContiene) expect(resultado.stdout).toContain(caso.stdoutContiene);
+    if (caso.stderrContiene) expect(resultado.stderr).toContain(caso.stderrContiene);
+  });
+
+  const suites: Array<{ fichero: string; pruebas: number }> = [
+    { fichero: "convertir.test.js", pruebas: 3 },
+    { fichero: "revisar-manifiesto.test.js", pruebas: 4 },
+    { fichero: "dependencias.test.js", pruebas: 4 },
+    { fichero: "candidato.test.js", pruebas: 4 },
+    { fichero: "revisar-readme.test.js", pruebas: 3 },
+    { fichero: "proyecto/test/proyecto.test.js", pruebas: 6 },
+  ];
+
+  it.each(suites)("l01–l07: las pruebas de $fichero pasan con node --test", (suite) => {
+    const resultado = ejecutarNode(["--test", suite.fichero], dirEjemplosM4);
+    expect(resultado.status, resultado.stdout).toBe(0);
+    expect(resultado.stdout).toContain(`pass ${suite.pruebas}`);
+    expect(resultado.stdout).toContain("fail 0");
+  });
+
+  it("l07: node --test sobre toda la carpeta ejecuta las 24 pruebas del módulo", () => {
+    const resultado = ejecutarNode(["--test"], dirEjemplosM4);
+    expect(resultado.status, resultado.stdout).toBe(0);
+    expect(resultado.stdout).toContain("tests 24");
+    expect(resultado.stdout).toContain("pass 24");
+    expect(resultado.stdout).toContain("fail 0");
+  });
+
+  it("l02: un package.json con JSON roto termina en rojo con TypeError (caso registrado)", () => {
+    const carpeta = carpetaTemporal();
+    mkdirSync(join(carpeta, "proyecto"), { recursive: true });
+    writeFileSync(join(carpeta, "proyecto", "package.json"), '{ "name": "informe-gastos", }\n');
+
+    const rojo = ejecutarNode([join(dirEjemplosM4, "revisar-manifiesto.js")], carpeta);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("TypeError");
+    expect(rojo.stderr).toContain("revisarManifiesto espera un package.json válido (JSON)");
+  });
+
+  it("l06: sin la sección «## Cómo verificar» el validador del README sale en rojo (caso registrado)", () => {
+    const carpeta = carpetaTemporal();
+    mkdirSync(join(carpeta, "proyecto"), { recursive: true });
+    const readme = readFileSync(join(dirEjemplosM4, "proyecto", "README.md"), "utf8");
+    writeFileSync(join(carpeta, "proyecto", "README.md"), readme.replace("## Cómo verificar", ""));
+
+    const rojo = ejecutarNode([join(dirEjemplosM4, "revisar-readme.js")], carpeta);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("- falta ## Cómo verificar");
+  });
+
+  it("l07: con el CSV ausente el entregable informa el error y sale en 1 (caso registrado)", () => {
+    const rojo = ejecutarNode(
+      ["proyecto/src/main.js", "proyecto/datos/no-existe.csv"],
+      dirEjemplosM4,
+    );
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("error: no existe el fichero");
+  });
+});
+
 describe("l07: la demo de Git (requiere git instalado)", () => {
   const gitDisponible = spawnSync("git", ["--version"], { encoding: "utf8" }).status === 0;
 
@@ -454,8 +587,16 @@ describe("l07: la demo de Git (requiere git instalado)", () => {
 });
 
 describe("cobertura de ejemplos", () => {
-  /** Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js). */
-  function archivosVerificables(dir: string): string[] {
+  /**
+   * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js),
+   * más subcarpetas indicadas (.js) y ficheros de datos adicionales
+   * (manifiestos, CSV, README) que se verifican indirectamente.
+   */
+  function archivosVerificables(
+    dir: string,
+    subcarpetas: string[] = [],
+    adicionales: string[] = [],
+  ): string[] {
     const enDisco: string[] = [];
     for (const entrada of readdirSync(dir, { withFileTypes: true })) {
       if (entrada.isFile() && (entrada.name.endsWith(".js") || entrada.name.endsWith(".sh"))) {
@@ -467,6 +608,14 @@ describe("cobertura de ejemplos", () => {
         enDisco.push(`errores/${entrada.name}`);
       }
     }
+    for (const subcarpeta of subcarpetas) {
+      for (const entrada of readdirSync(join(dir, subcarpeta), { withFileTypes: true })) {
+        if (entrada.isFile() && entrada.name.endsWith(".js")) {
+          enDisco.push(`${subcarpeta}/${entrada.name}`);
+        }
+      }
+    }
+    enDisco.push(...adicionales);
     return enDisco.sort();
   }
 
@@ -520,5 +669,36 @@ describe("cobertura de ejemplos", () => {
     ];
 
     expect(archivosVerificables(dirEjemplosM3)).toEqual([...enManifiesto].sort());
+  });
+
+  it("m4: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    const enManifiesto = [
+      ...new Set(casosDirectosM4.map((caso) => caso.ruta)),
+      "convertir.test.js",
+      "revisar-manifiesto.test.js",
+      "dependencias.test.js",
+      "candidato.test.js",
+      "revisar-readme.test.js",
+      "proyecto/src/gastos.js",
+      "proyecto/src/informe.js",
+      "proyecto/test/proyecto.test.js",
+      "proyecto/package.json",
+      "proyecto/package-lock.json",
+      "proyecto/README.md",
+      "proyecto/datos/gastos.csv",
+    ];
+
+    expect(
+      archivosVerificables(
+        dirEjemplosM4,
+        ["proyecto/src", "proyecto/test"],
+        [
+          "proyecto/package.json",
+          "proyecto/package-lock.json",
+          "proyecto/README.md",
+          "proyecto/datos/gastos.csv",
+        ],
+      ),
+    ).toEqual([...enManifiesto].sort());
   });
 });

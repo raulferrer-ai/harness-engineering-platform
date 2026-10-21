@@ -1,0 +1,206 @@
+---
+titulo: "Pruebas que cruzan módulos: probar la composición"
+resumen: "Cada módulo con sus pruebas es necesario, no suficiente: los bugs aparecen en las juntas. Aquí las pruebas importan de varios módulos a la vez, usan el CSV real anclado a import.meta.url y comprueban que la composición completa produce el informe de diez líneas."
+nivel: "n0"
+modulo: "m4"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Importar desde varias rutas relativas en una misma prueba"
+  - "Anclar las rutas de datos a import.meta.url para que no dependan del pwd"
+  - "Escribir pruebas de composición sobre el camino completo (CSV → informe)"
+  - "Comprobar que los errores se propagan entre módulos con su mensaje"
+prerrequisitos:
+  - "n0/m4/l02-estructura-carpetas-y-package-json"
+actualizado: "2026-10-21"
+tags:
+  - "node-test"
+  - "integracion"
+  - "modulos"
+fuentes:
+  - titulo: "Test runner | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+  - titulo: "node:fs | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/fs.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Las pruebas de un proyecto viven en dos niveles: **unitarias** (un módulo, sus entradas y salidas) y **de composición** (varios módulos juntos sobre el caso real). Las de composición importan la API pública de cada módulo (`../src/gastos.js`, `../src/informe.js`), anclan los datos a `new URL(..., import.meta.url)` para que la prueba pase desde cualquier carpeta y verifican el resultado visible — el informe completo—, no los pasos internos.
+
+## Conceptos
+
+### Qué prueba cada nivel
+
+En `proyecto/` conviven los dos niveles. Las unitarias de cada módulo ya las tienes (l01, l02); lo que falta es la suite `proyecto/test/proyecto.test.js`, que responde una pregunta distinta: **¿componen bien el caso real?** Sus seis pruebas comprueban: el lector devuelve 8 gastos del CSV real, el informe calcula total y media, señala el máximo, lista las cuatro categorías ordenadas, propaga el error del fichero inexistente y entrega exactamente diez líneas.
+
+### La suite completa
+
+```js
+// test/proyecto.test.js — pruebas que cruzan los tres módulos (lección l03/l07)
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { leerGastos } from "../src/gastos.js";
+import { generarInforme } from "../src/informe.js";
+
+// La ruta no depende de la carpeta desde la que se ejecute: se ancla al módulo.
+const CSV = new URL("../datos/gastos.csv", import.meta.url);
+
+test("leerGastos lee el CSV real del proyecto: 8 gastos", () => {
+  const gastos = leerGastos(CSV);
+  assert.strictEqual(gastos.length, 8);
+  assert.strictEqual(gastos[0].categoria, "comida");
+});
+
+test("generarInforme calcula el total y la media del CSV real", () => {
+  const informe = generarInforme(leerGastos(CSV));
+  assert.match(informe, /total: 83\.69 EUR/);
+  assert.match(informe, /media: 10\.46 EUR/);
+});
+
+test("generarInforme señala el gasto máximo", () => {
+  const informe = generarInforme(leerGastos(CSV));
+  assert.match(informe, /máximo: 42\.30 EUR/);
+});
+
+test("generarInforme lista las cuatro categorías en orden alfabético", () => {
+  const lineas = generarInforme(leerGastos(CSV)).split("\n");
+  const categorias = lineas.slice(6); // las cuatro líneas tras «por categoría:»
+  assert.deepStrictEqual(categorias, [
+    "  comida: 4 gasto(s), 8.00 EUR",
+    "  hogar: 1 gasto(s), 42.30 EUR",
+    "  ocio: 2 gasto(s), 27.99 EUR",
+    "  transporte: 1 gasto(s), 5.40 EUR",
+  ]);
+});
+
+test("leerGastos propaga el error del fichero inexistente", () => {
+  assert.throws(
+    () => leerGastos(new URL("../datos/no-existe.csv", import.meta.url)),
+    /no existe el fichero/,
+  );
+});
+
+test("el informe completo tiene diez líneas y empieza por su título", () => {
+  const lineas = generarInforme(leerGastos(CSV)).split("\n");
+  assert.strictEqual(lineas.length, 10);
+  assert.strictEqual(lineas[0], "Informe de gastos");
+});
+```
+
+Cuatro decisiones que se explican por separado:
+
+- **`new URL("../datos/gastos.csv", import.meta.url)`**: la URL relativa al propio módulo de prueba. `existsSync` y `readFileSync` de `node:fs` aceptan URLs, así que `leerGastos` las recibe sin conversión. La prueba pasa con `pwd` en cualquier sitio — probado ejecutando `npm test` desde dentro de `proyecto/`.
+- **`assert.match` con el texto formateado**: se comprueba `total: 83.69 EUR`, el número **ya redondeado y con moneda**, que es lo que ve una persona. Comparar el crudo (`83.689999…`) te ata a los decimales internos de la suma.
+- **El corte `slice(6)`**: el informe tiene diez líneas (0 a 9); «por categoría:» es la línea 5, y las categorías van de la 6 a la 9. Este índice no se inventa: se cuenta una vez contra la salida real y se documenta en el comentario.
+- **La prueba del error**: `assert.throws` con expresión regular sobre el mensaje verifica que el error de `gastos.js` **atraviesa** la composición con su texto. Si mañana `leerGastos` cambiara el mensaje, la suite avisa.
+
+### Errores entre módulos: quién los transforma
+
+La suite comprueba que el mensaje `no existe el fichero: …` llega intacto. Esa es una decisión de diseño de `main.js`, que **sí** envuelve la llamada en `try/catch` y convierte cualquier error en `error: <mensaje>` más código `1`: los módulos lanzan errores concretos y solo el punto de entrada decide cómo se muestran. Regla para tu proyecto: **no hagas `catch` donde no puedas hacer nada con el error**; el `catch` vive en el borde (línea de comandos, servidor, CLI).
+
+## Ejercicio
+
+Crea `ejercicios/integracion.test.js` con dos pruebas de composición **en memoria** (sin tocar el CSV):
+
+- `parseGastos` sobre un texto de fixture con cabecera y dos gastos devuelve exactamente 2 registros con sus categorías;
+- `generarInforme` de esos 2 registros incluye `gastos: 2` y empieza por `Informe de gastos`.
+
+Esto se cumple cuando:
+
+- `node --test ejercicios/integracion.test.js` termina con `pass 2 / fail 0`;
+- las pruebas importan desde `../proyecto/src/gastos.js` y `../proyecto/src/informe.js`;
+- el fixture se construye en el test con `["fecha,…", "fila", "fila"].join("\n")`, sin ficheros nuevos.
+
+Pista: `parseGastos` espera el **contenido** como texto (l06 de m3); pásale el string directamente.
+
+## Solución explicada
+
+```js
+// integracion.test.js — el ejercicio resuelto (lección l03)
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { parseGastos } from "../proyecto/src/gastos.js";
+import { generarInforme } from "../proyecto/src/informe.js";
+
+const FIXTURE = [
+  "fecha,descripcion,categoria,importe",
+  "2026-10-05,pan,comida,1.85",
+  "2026-10-06,cine,ocio,9.00",
+].join("\n");
+
+test("parseGastos convierte el fixture en dos registros", () => {
+  const gastos = parseGastos(FIXTURE);
+  assert.strictEqual(gastos.length, 2);
+  assert.deepStrictEqual(
+    gastos.map((gasto) => gasto.categoria),
+    ["comida", "ocio"],
+  );
+});
+
+test("generarInforme compone el fixture completo", () => {
+  const informe = generarInforme(parseGastos(FIXTURE));
+  assert.match(informe, /^Informe de gastos/);
+  assert.match(informe, /gastos: 2/);
+});
+```
+
+El primer test fija cantidad **y** categorías en orden: si el parser empezara a invertir filas o a partir por el carácter equivocado, el `deepStrictEqual` lo delata con la diferencia exacta. El segundo comprueba el informe como texto compuesto: título y recuento. Juntas cubren el puente `texto → registros → informe` sin depender del fichero del proyecto. Ejecutado el 2026-10-21 con Node v24.22.0: `pass 2 / fail 0`.
+
+## Cómo verificarlo
+
+1. Ejecuta la suite de composición desde la carpeta del proyecto:
+
+   ```sh
+   cd src/content/modulos/n0/m4/ejemplos/proyecto
+   npm test
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ leerGastos lee el CSV real del proyecto: 8 gastos (1.209084ms)
+   ✔ generarInforme calcula el total y la media del CSV real (0.266917ms)
+   ✔ generarInforme señala el gasto máximo (0.123125ms)
+   ✔ generarInforme lista las cuatro categorías en orden alfabético (0.461ms)
+   ✔ leerGastos propaga el error del fichero inexistente (0.220917ms)
+   ✔ el informe completo tiene diez líneas y empieza por su título (0.108375ms)
+   ℹ tests 6
+   ℹ pass 6
+   ℹ fail 0
+   ```
+
+2. Comprueba la anclaje de rutas: mueve el terminal a la carpeta madre y ejecuta `node --test proyecto/test/proyecto.test.js`; debe pasar igual, porque las rutas se resuelven contra el módulo, no contra el `pwd`.
+
+3. Ejecuta tu ejercicio:
+
+   ```sh
+   node --test ejercicios/integracion.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código de salida `0`.
+
+## Errores comunes
+
+- **Rutas relativas al `pwd`**: `readFileSync("datos/gastos.csv")` funciona solo con el terminal dentro de `proyecto/`. Con `new URL(..., import.meta.url)` la prueba es portable; esta diferencia se comprobó ejecutando la suite desde dos carpetas.
+- **Probar el camino interno en vez del resultado**: asertar «primero se parsea, luego se reduce» te ata a la implementación. Comprueba el resultado visible (el informe) y deja los internos a las unitarias.
+- **Importar `main.js` en las pruebas**: `main.js` lee `process.argv` y puede llamar a `process.exit`; importarlo en una prueba termina la suite. En las pruebas se importan los módulos con contrato (`gastos`, `informe`), nunca el punto de entrada.
+- **Números crudos con ruido decimal**: `83.68999999999999` no es `83.69`; el informe redondea al formatear y la prueba compara el formateado.
+- **Copiar el número mágico sin mirar la salida**: el `slice(6)` de las categorías se cuenta contra el informe real (diez líneas, categorías en 6–9). Si el formato cambia, la prueba de «diez líneas» y esta fallan juntas — avisan antes que un usuario.
+
+## Fuentes
+
+- [Test runner | Node.js v24.22.0 Documentation](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+- [node:fs | Node.js v24.22.0 Documentation](https://nodejs.org/api/fs.html) — consultado el 2026-10-21 (las funciones `existsSync` y `readFileSync` aceptan URLs).
+
+## Siguientes pasos
+
+- Continúa con [l04 «Dependencias: instalar poco, fijar todo»](/curriculo/n0/m4/l04-dependencias-instalar-poco-fijar-todo/): el proyecto aún no depende de nadie de fuera; aquí aprendes a hacerlo sin perder el control (lockfile, rangos y qué no instalas nunca).
+- Proyecto longitudinal: la suite de composición es la mitad verificable de la fase `f1` del [proyecto](/).

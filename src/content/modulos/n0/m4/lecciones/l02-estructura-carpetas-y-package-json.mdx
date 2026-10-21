@@ -1,0 +1,238 @@
+---
+titulo: "Estructura del proyecto: carpetas, package.json y scripts"
+resumen: "Un puñado de módulos no es un proyecto: hace falta una estructura de carpetas por rol y un manifiesto package.json que declare el nombre, la versión, el tipo de módulo y cómo se ejecuta y se prueba. Aquí construyes ese contrato y un validador que lo comprueba."
+nivel: "n0"
+modulo: "m4"
+orden: 2
+dificultad: "intermedio"
+tiempoEstimado: 40
+objetivos:
+  - "Organizar el código por carpetas según su rol (src, datos, test)"
+  - "Declarar el contrato del proyecto en package.json"
+  - "Hacer que un módulo sea ejecutable y testeable a la vez"
+  - "Comprobar el manifiesto con una prueba automatizada"
+prerrequisitos:
+  - "n0/m4/l01-import-export-partir-el-codigo"
+actualizado: "2026-10-21"
+tags:
+  - "package-json"
+  - "estructura"
+  - "scripts"
+fuentes:
+  - titulo: "package.json configuration | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/packages.html"
+    fecha: "2026-10-21"
+  - titulo: "package.json | npm Docs"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-json/"
+    fecha: "2026-10-21"
+  - titulo: "node CLI: --test | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/api/cli.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un proyecto se organiza **por rol**: `src/` para el código que se ejecuta, `datos/` para lo que consume y `test/` para las pruebas — así cada persona sabe dónde mirar sin abrir nada. Esa estructura se documenta en `package.json`, el **manifiesto** que declara nombre, versión, `type: module` y los `scripts` (`npm test`, `npm run informe`). Un módulo puede ser a la vez importable y ejecutable, y la diferencia se decide con `process.argv[1]`: la ruta del fichero que se lanzó.
+
+## Conceptos
+
+### Carpetas por rol
+
+El proyecto de este módulo (`ejemplos/proyecto/`) tiene esta forma:
+
+```text
+proyecto/
+├── package.json         manifiesto del proyecto
+├── package-lock.json    árbol de dependencias fijo (l04)
+├── datos/
+│   └── gastos.csv       el CSV real que consume el programa
+├── src/
+│   ├── gastos.js        leer y validar el CSV (l07)
+│   ├── informe.js       agregados y formato (l07)
+│   └── main.js          punto de entrada (l07)
+└── test/
+    └── proyecto.test.js pruebas que cruzan los módulos (l03)
+```
+
+La regla es simple y no necesita más teoría: **una carpeta por rol, no por tipo de archivo personal**. Quien busca el comportamiento va a `src/`; quien busca cómo se verifica, a `test/`; el dato de prueba vive con el proyecto, no en tu carpeta de descargas. `test/` en singular o en plural es elección del proyecto — aquí se usa `test/`, que es lo que descubre `node --test` por defecto junto a los ficheros `*.test.js`.
+
+### El manifiesto: package.json
+
+`proyecto/package.json` es el contrato del proyecto en JSON:
+
+```json
+{
+  "name": "informe-gastos",
+  "version": "1.0.0",
+  "description": "Informe de gastos desde un CSV: proyecto del alumno de n0/m4 (fase f1)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "informe": "node src/main.js datos/gastos.csv",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
+```
+
+Campo a campo, porque cada uno se usa: `name` (identidad del paquete), `version` en tres partes `x.y.z` (la historia de cambios del proyecto), `type: module` (los `.js` se tratan como ES modules — el contrato explícito de l01), `private: true` (evita que un `npm publish` lo suba al registro por accidente), `scripts` (comandos con nombre: `npm test` ejecuta `node --test`, `npm run informe` lanza el programa con su CSV) y `license` (qué puede hacer otra persona con tu código).
+
+### Ejecutable y testeable a la vez
+
+Un módulo de `src/` puede importarse desde las pruebas **y** lanzarse desde la terminal. El patrón que lo permite, en `revisar-manifiesto.js`:
+
+```js
+function ejecutadoDirectamente() {
+  const script = process.argv[1];
+  return (
+    script !== undefined && realpathSync(script) === realpathSync(fileURLToPath(import.meta.url))
+  );
+}
+
+if (ejecutadoDirectamente()) {
+  // código de la línea de comandos: leer el manifiesto real y responder
+}
+```
+
+`import.meta.url` es la URL del propio módulo; `process.argv[1]` es el fichero que se lanzó. Compararlos con `realpathSync` a los dos lados (resuelve enlaces y rutas relativas) decide si alguien ejecutó este fichero o solo lo importó. Así las pruebas pueden importar `revisarManifiesto` sin que el bloque de consola se ejecute con ellas.
+
+### Un validador con contrato
+
+La función central del ejemplo devuelve **la lista de problemas** — vacía si el manifiesto cumple:
+
+```js
+export function revisarManifiesto(texto) {
+  let manifiesto;
+  try {
+    manifiesto = JSON.parse(texto);
+  } catch {
+    throw new TypeError("revisarManifiesto espera un package.json válido (JSON)");
+  }
+
+  const problemas = [];
+  if (typeof manifiesto.name !== "string" || manifiesto.name.trim() === "") {
+    problemas.push("falta «name» con el nombre del paquete");
+  }
+  if (typeof manifiesto.version !== "string" || !/^\d+\.\d+\.\d+$/.test(manifiesto.version)) {
+    problemas.push("«version» no sigue el patrón x.y.z");
+  }
+  if (manifiesto.type !== "module") {
+    problemas.push("falta «type: module» para usar import/export");
+  }
+  if (!manifiesto.scripts || typeof manifiesto.scripts.test !== "string") {
+    problemas.push("falta «scripts.test»");
+  }
+  return problemas;
+}
+```
+
+Un `JSON.parse` con red de seguridad (`try/catch` → `TypeError`), comprobaciones campo a campo con mensajes que una persona puede actuar, y una lista en vez de una excepción por campo: quien recibe cuatro problemas puede corregirlos de una vez.
+
+## Ejercicio
+
+Crea `ejercicios/manifiesto.test.js` que compruebe el **manifiesto real** del proyecto y un manifiesto roto:
+
+- lee `../proyecto/package.json` con `readFileSync` y comprueba que `revisarManifiesto` devuelve `[]`;
+- comprueba que un manifiesto con `name` vacío devuelve exactamente un problema que menciona `«name»`.
+
+Esto se cumple cuando:
+
+- `node --test ejercicios/manifiesto.test.js` termina con `pass 2 / fail 0`;
+- el test usa la función importada, no reimplementa la validación;
+- la ruta al manifiesto real se resuelve desde el fichero de prueba (`new URL(..., import.meta.url)`), no desde la carpeta de trabajo.
+
+Pista: `readFileSync(new URL("../proyecto/package.json", import.meta.url), "utf8")`.
+
+## Solución explicada
+
+```js
+// manifiesto.test.js — el ejercicio resuelto (lección l02)
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+import { revisarManifiesto } from "../revisar-manifiesto.js";
+
+test("el manifiesto real del proyecto cumple su contrato", () => {
+  const texto = readFileSync(new URL("../proyecto/package.json", import.meta.url), "utf8");
+  assert.deepStrictEqual(revisarManifiesto(texto), []);
+});
+
+test("un name vacío produce exactamente un problema", () => {
+  const roto = JSON.stringify({
+    name: " ",
+    version: "1.0.0",
+    type: "module",
+    scripts: { test: "x" },
+  });
+  const problemas = revisarManifiesto(roto);
+  assert.strictEqual(problemas.length, 1);
+  assert.match(problemas[0], /name/);
+});
+```
+
+`new URL(..., import.meta.url)` ancla la ruta al fichero de prueba: el test pasa ejecutado desde `ejemplos/`, desde `ejercicios/` o desde cualquier carpeta, porque la ruta no depende del `pwd`. El segundo test fija **la longitud exacta** de la lista además del mensaje: si mañana la validación empezara a devolver dos problemas para un name vacío, la prueba avisa. Ejecutado el 2026-10-21 con Node v24.22.0: `pass 2 / fail 0`.
+
+## Cómo verificarlo
+
+1. Ejecuta el validador contra el manifiesto real:
+
+   ```sh
+   cd src/content/modulos/n0/m4/ejemplos
+   node revisar-manifiesto.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   manifiesto OK: name, version, type: module y scripts.test presentes en proyecto/package.json
+   ```
+
+2. Ejecuta las pruebas del validador:
+
+   ```sh
+   node --test revisar-manifiesto.test.js
+   ```
+
+   Salida real:
+
+   ```text
+   ✔ revisarManifiesto acepta un manifiesto completo (1.932375ms)
+   ✔ revisarManifiesto exige «type: module» (0.155667ms)
+   ✔ revisarManifiesto exige una versión x.y.z (0.069208ms)
+   ✔ revisarManifiesto rechaza un JSON roto con TypeError (0.182542ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+3. Registra el rojo: copia `proyecto/package.json` a una carpeta temporal, deja el JSON con una coma final (`{ "name": "x", }`), y ejecuta el validador con esa carpeta como ubicación de trabajo. Salida real: `TypeError: revisarManifiesto espera un package.json válido (JSON)` y código de salida `1`. Con el manifiesto intacto vuelve el verde.
+
+4. Ejecuta tu ejercicio:
+
+   ```sh
+   node --test ejercicios/manifiesto.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 2 / fail 0` y código de salida `0`.
+
+## Errores comunes
+
+- **Confundir `package.json` con `package-lock.json`**: el primero es el contrato editable (nombre, versiones _permitidas_); el segundo lo escribe npm con el árbol exacto instalado (l04). Se versionan los dos.
+- **Poner las rutas de los scripts relativas a nada**: `"informe": "node src/main.js datos/gastos.csv"` se ejecuta desde la carpeta del manifiesto (npm cambia a ella); si mueves el proyecto entero, los scripts siguen funcionando.
+- **Olvidar `type: module` y concluir que «import no funciona»**: Node v24 detecta la sintaxis de módulos y en este mismo módulo se verificó que `node --test` pasa **incluso sin** `type: module` (6/6 en la copia temporal). Aun así decláralo: la detección es una comodidad; el contrato explícito es lo que se lee.
+- **Comparar `process.argv[1]` con texto literal**: en rutas con espacios o enlaces simbólicos la comparación falla; usa `realpathSync` a los dos lados, como el ejemplo.
+- **Escribir scripts que solo funcionan en tu máquina**: rutas absolutas (`/Users/tu/...`) en los scripts rompen el proyecto para el siguiente. Rutas relativas siempre.
+
+## Fuentes
+
+- [package.json configuration | Node.js v24.22.0 Documentation](https://nodejs.org/api/packages.html) — consultado el 2026-10-21.
+- [package.json | npm Docs](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/) — consultado el 2026-10-21.
+- [node CLI: --test | Node.js v24.22.0 Documentation](https://nodejs.org/api/cli.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l03 «Pruebas que cruzan módulos: probar la composición»](/curriculo/n0/m4/l03-pruebas-que-cruzan-modulos/): la estructura ya existe; ahora las pruebas importan de varios módulos a la vez y comprueban que juntos producen el informe completo.
+- Proyecto longitudinal: el manifiesto con sus scripts es parte del entregable de la fase `f1` del [proyecto](/).
