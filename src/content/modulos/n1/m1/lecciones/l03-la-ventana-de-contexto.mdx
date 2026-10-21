@@ -1,0 +1,243 @@
+---
+titulo: "La ventana de contexto"
+resumen: "Toda ventana de contexto es finita, mide en tokens y, por encima del límite, lo que no cabe simplemente no se ve. Mides un archivo real, provocas un desbordamiento con código 1 y calculas el coste de reenviar historial turno a turno."
+nivel: "n1"
+modulo: "m1"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Medir en tokens el contexto de un archivo real y situarlo frente a una ventana"
+  - "Explicar qué ocurre cuando el contexto supera la ventana (truncado o rechazo)"
+  - "Calcular el coste de una llamada y su crecimiento al reenviar historial"
+  - "Decidir qué contexto mandar en lugar de mandarlo todo"
+prerrequisitos:
+  - "n1/m1/l02-los-limites-del-entrenamiento"
+actualizado: "2026-10-21"
+tags:
+  - "ventana-de-contexto"
+  - "tokens"
+  - "coste"
+  - "truncado"
+  - "contexto"
+fuentes:
+  - titulo: "OpenAI Docs: Models (ventanas de contexto y límites)"
+    url: "https://platform.openai.com/docs/models"
+    fecha: "2026-10-21"
+  - titulo: "OpenAI Docs: Pricing (precios por millón de tokens)"
+    url: "https://platform.openai.com/docs/pricing"
+    fecha: "2026-10-21"
+  - titulo: "Anthropic Docs: Models overview (context windows)"
+    url: "https://docs.anthropic.com/en/docs/about-claude/models/overview"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La ventana de contexto es el número **máximo de tokens** que el modelo procesa por llamada: entrada más salida juntas. Es finita por diseño, varía entre modelos (los proveedores la publican en su documentación) y su unidad siempre es el token, no el carácter. Si el contexto la supera, el proveedor **trunca** (el excedente queda fuera de la vista) o **rechaza** la petición; en ninguno de los dos casos el modelo «recuerda» lo que no vio. Añade el coste: los tokens se facturan, y reenviar el historial completo en cada turno multiplica la factura. Aquí mides, desbordes y calculas con `ventana-contexto.js` y `coste-contexto.js`.
+
+## Conceptos
+
+### Finita, en tokens, y publicada
+
+Los proveedores publican la ventana de cada modelo — por ejemplo, la documentación de modelos de OpenAI y la de Anthropic listan el `context window` por modelo (fuentes consultadas el 2026-10-21). Tres propiedades siempre se cumplen: (1) está **en tokens**, así que la capacidad efectiva en caracteres depende del texto (l01); (2) cuenta **entrada y salida**, no solo tu mensaje; (3) es un **límite duro de arquitectura** — no es una preferencia que puedas negociar pidiendo «que lo lea entero».
+
+`ejemplos/ventana-contexto.js` mide un contexto de tamaño real y lo sitúa frente a tres ventanas de referencia, y después **provoca el desbordamiento** en una ventana pequeña para que se vea la aritmética:
+
+```sh
+node ventana-contexto.js
+```
+
+Salida real (Node v24.22.0, 2026-10-21):
+
+```text
+tamaño del contexto medido: 364 tokens
+
+¿cuántas veces cabe en cada ventana?
+- ventana pequeña (8000): cabe ×0.05 → cabe entero
+- ventana media (32.000): cabe ×0.01 → cabe entero
+- ventana grande (128.000): cabe ×0.00 → cabe entero
+
+--- desbordamiento en una ventana de 400 tokens ---
+contexto: 3 veces el módulo → 1092 tokens
+cabe en la ventana: 400 tokens
+QUEDA FUERA (se pierde): 692 tokens
+→ el modelo solo ve el 36.6% del contexto.
+
+--- qué significa el truncado ---
+Si el contexto excede la ventana, el excedente queda fuera del campo de
+visión del modelo. Por eso a veces 'olvida' instrucciones que estaban
+al principio: no las recuerda, no las está viendo.
+
+Lección práctica: el contexto es un recurso FINITO y con coste; se administra.
+```
+
+Los números que importan: `1092` tokens sobre una ventana de `400` → `692` **quedan fuera** y el modelo ve el `36.6%`. El «olvido» de instrucciones que menciona la gente a menudo no es memoria fallida: es la cola del contexto cayendo por la ventana.
+
+### Truncar o rechazar: dos comportamientos, un mismo resultado
+
+Dependiendo del proveedor y del tamaño, la petición termina de dos formas:
+
+- **Truncado silencioso**: se procesa el tope y el resto se descarta. Para ti se parece a «olvidar» lo que estaba al principio o al final, según dónde corte.
+- **Rechazo explícito**: el proveedor devuelve un error de límite y **no procesa nada**. `ejemplos/errores/ventana-excedida.js` reproduce este segundo caso con una ventana de juguete:
+
+```sh
+node errores/ventana-excedida.js
+echo $?
+```
+
+Salida real (2026-10-21), en rojo a propósito:
+
+```text
+tokens del contexto: 720
+ventana admitida: 400
+Error: el contexto excede la ventana (720 > 400).
+La petición se rechaza: no se procesa parcialmente ni se 'recuerda'.
+codigo=1
+```
+
+La propiedad que une ambos casos es la misma: **lo que no entra, no se ve**. Nunca hay una tercera vía en la que el modelo consulta aparte lo que sobró.
+
+### El coste: los tokens también se facturan
+
+Los proveedores facturan por millón de tokens, con precio de entrada y precio de salida (OpenAI publica su tabla de precios por modelo; consultado el 2026-10-21). `ejemplos/coste-contexto.js` calcula una llamada y después una conversación de 8 turnos que reenvía el historial:
+
+```sh
+node coste-contexto.js
+```
+
+Salida real (2026-10-21):
+
+```text
+precios de referencia (USD por 1M tokens): {"entrada":1.25,"salida":10}
+mensaje: 800 tokens de entrada
+respuesta: 340 tokens de salida
+coste de esta llamada: $ 0.004400 (entrada $0.001000 + salida $0.003400)
+
+--- conversación de 8 turnos con historial reenviado ---
+turno 1: 800 tokens → $0.001000 (acumulado $0.001000)
+turno 2: 1940 tokens → $0.002425 (acumulado $0.003425)
+turno 3: 3080 tokens → $0.003850 (acumulado $0.007275)
+turno 4: 4220 tokens → $0.005275 (acumulado $0.012550)
+turno 5: 5360 tokens → $0.006700 (acumulado $0.019250)
+turno 6: 6500 tokens → $0.008125 (acumulado $0.027375)
+turno 7: 7640 tokens → $0.009550 (acumulado $0.036925)
+turno 8: 8780 tokens → $0.010975 (acumulado $0.047900)
+
+Lección práctica: el contexto es un recurso con precio.
+Manda el mínimo necesario: el archivo relevante, no todo el repositorio.
+```
+
+Dos lecturas: el coste por llamada es pequeño, pero **cada turno crece** porque reenvía lo anterior (800 → 8780 tokens); y el precio de salida es mucho mayor que el de entrada, así que pedir respuestas largas también factura. Los precios son de referencia y cambian: anota los que uses, con su fecha.
+
+### Administrar contexto es la primera decisión de diseño
+
+De lo anterior sale la regla de trabajo: **manda el contexto mínimo que resuelve la tarea** — el archivo relevante, no el repositorio entero; el tramo del error, no el log completo. No es avaricia: es que la alternativa es truncar (perder lo que no cabía) o pagar por procesar ruido que empuja la respuesta buena fuera de la ventana. En la próxima lección verás que el contexto no solo consume: **condiciona**.
+
+## Ejercicio
+
+Mide un archivo real de este proyecto y sitúalo frente a una ventana de 8000 tokens; después comprueba el rojo de desbordamiento.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos ejemplos
+cp ../../../../../lib/schemas.ts muestra.ts   # (o copia cualquier .ts de tu proyecto)
+cat > medir-archivo.js <<'EOF'
+import { readFileSync } from "node:fs";
+import { tokenizar } from "./ejemplos/tokenizar.js";
+
+const texto = readFileSync("muestra.ts", "utf8");
+const n = tokenizar(texto).length;
+const VENTANA = 8000;
+console.log(`archivo: muestra.ts → ${texto.split("\n").length} líneas`);
+console.log(`tokens medidos: ${n}`);
+console.log(`ocuparía el ${((n / VENTANA) * 100).toFixed(1)}% de una ventana de 8000 tokens`);
+console.log(`una ventana de 8000 admite ${Math.floor(VENTANA / n)} copia(s) de este archivo`);
+EOF
+node medir-archivo.js
+node ejemplos/errores/ventana-excedida.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- `medir-archivo.js` imprime líneas, tokens, el porcentaje de la ventana y cuántas copias caben;
+- el porcentaje está entre 0 y 100 y es coherente con los tokens impresos (`tokens ÷ 8000 × 100`);
+- `ventana-excedida.js` termina con `codigo=1` y el mensaje `el contexto excede la ventana (720 > 400)`;
+- puedes explicar qué diferencia hay entre que tu archivo _cabe_ (23,3 %) y que el contexto del ejemplo _no cabe_ (1092 > 400).
+
+Pista: para que la ruta del `cp` funcione, ejecuta el ejercicio desde `src/content/modulos/n1/m1/`; si trabajas en una copia del repositorio, copia el `.ts` con la ruta que corresponda a tu estructura.
+
+## Solución explicada
+
+La secuencia de arriba, en el directorio `taller/` que crea el propio ejercicio (borrado tras la ejecución). Salida real (2026-10-21):
+
+```text
+archivo: muestra.ts → 154 líneas
+tokens medidos: 1867
+ocuparía el 23.3% de una ventana de 8000 tokens
+una ventana de 8000 admite 4 copia(s) de este archivo
+---
+tokens del contexto: 720
+ventana admitida: 400
+Error: el contexto excede la ventana (720 > 400).
+codigo=1
+```
+
+Por qué funciona: el mismo tokenizador mide los dos casos, así que la diferencia no es de herramienta sino de magnitud — `1867` frente a `8000` cabe con holgura; `720` frente a `400` no. El `Math.floor(VENTANA / n)` traduce el tope a unidades útiles («cuántas copias caben»), que es como se piensa al decidir si pegas un archivo entero o solo un tramo.
+
+Errores típicos al resolverlo:
+
+- **Copiar un fichero que no es del proyecto**: cualquier `.ts` sirve; lo que no puede pasar es medir un texto que escribiste tú «para que salga bonito». La verificación pierde sentido si eliges la muestra a posteriori.
+- **Comparar líneas con tokens**: `154 líneas` no son 154 entradas (aquí, 1867). Las líneas son para orientarse; el tope se cumple o se incumple en tokens.
+- **Dar por buena la ventana sin mirar el modelo**: 8000/32000/128000 son ventanas de referencia del ejemplo. Para una decisión real, mira la ventana del modelo concreto que usas y anota la fecha (l06 te obliga a hacerlo).
+
+## Cómo verificarlo
+
+1. Prepara el taller con el ejemplo, el archivo y tu script (comandos del ejercicio).
+
+2. Mide tu archivo:
+
+   ```sh
+   node medir-archivo.js
+   ```
+
+   Esperado: cuatro líneas con recuento de líneas, tokens, porcentaje y copias. Con `schemas.ts` reales: `154` líneas, `1867` tokens, `23.3%`, `4` copias.
+
+3. Reproduce el desbordamiento y su código:
+
+   ```sh
+   node ejemplos/errores/ventana-excedida.js
+   echo $?
+   ```
+
+   Esperado: mensaje `el contexto excede la ventana (720 > 400)` y `1`.
+
+4. Ejecuta las demos del módulo y archiva sus salidas:
+
+   ```sh
+   node ejemplos/ventana-contexto.js
+   node ejemplos/coste-contexto.js
+   ```
+
+   Esperado: ambos con código `0`; en la primera debe aparecer `QUEDA FUERA (se pierde): 692 tokens`, en la segunda el desglose de coste por turno.
+
+## Errores comunes
+
+- **Medir caracteres para un límite de tokens**: con la relación de l01 (0,188 en un caso), estimar por caracteres puede subestimar el consumo más del doble. Mide con el tokenizador del proveedor.
+- **Olvidar que la ventana incluye la salida**: si tu contexto ocupa casi todo el tope, la respuesta se queda sin sitio o se recorta. Deja margen.
+- **Pegar «por si acaso» el repo entero**: además de coste, empuja las instrucciones relevantes hacia el borde de la ventana (l04). El contexto mínimo es más rápido y más barato.
+- **Tomar precios y ventanas de memoria**: cambian entre modelos y versiones. Cita los que uses con su fecha — es exactamente lo que practica el ejercicio de l06.
+- **Interpretar el rechazo como fallo de red**: `codigo=1` con mensaje de límite es el proveedor aplicando su contrato; la solución es reducir contexto, no reintentar igual.
+
+## Fuentes
+
+- [OpenAI Docs: Models](https://platform.openai.com/docs/models) — consultado el 2026-10-21.
+- [OpenAI Docs: Pricing](https://platform.openai.com/docs/pricing) — consultado el 2026-10-21.
+- [Anthropic Docs: Models overview](https://docs.anthropic.com/en/docs/about-claude/models/overview) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l04 «Contexto y sensibilidad»](/curriculo/n1/m1/l04-contexto-y-sensibilidad/) — con la ventana administrada, queda la pregunta incómoda: ¿qué cambia en la respuesta si cambia el contexto?
+- Proyecto longitudinal: aplica la lección de coste a tu flujo — en `n0/m5` ya sabías revisar antes de fusionar; ahora mide antes de mandar.

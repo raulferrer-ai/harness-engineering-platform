@@ -1,0 +1,181 @@
+---
+titulo: "Modelos de lenguaje: predicción de tokens"
+resumen: "Un modelo de código no consulta una base de hechos ni lee caracteres: predice el siguiente token. Con un tokenizador mínimo ejecutable mides cuántos tokens consume tu texto y por qué eso cambia cómo escribes instrucciones y código."
+nivel: "n1"
+modulo: "m1"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Explicar el ciclo de predicción de siguiente token y su carácter autoregresivo"
+  - "Distinguir caracteres, palabras y tokens usando un tokenizador ejecutable"
+  - "Medir la relación entre tokens y caracteres en un texto propio"
+  - "Reconocer qué palabras consumen más tokens y anteceder identificadores raros con contexto"
+prerrequisitos:
+  - "n0/m5/l07-flujo-completo-rama-revision-fusion"
+actualizado: "2026-10-21"
+tags:
+  - "llm"
+  - "tokens"
+  - "tokenizacion"
+  - "prediccion"
+  - "contexto"
+fuentes:
+  - titulo: "The Illustrated GPT-2 (Jay Alammar)"
+    url: "https://jalammar.github.io/illustrated-gpt2/"
+    fecha: "2026-10-21"
+  - titulo: "Hugging Face Docs: Language Modeling tutorial"
+    url: "https://huggingface.co/docs/transformers/tasks/language_modeling"
+    fecha: "2026-10-21"
+  - titulo: "OpenAI Docs: Guides — GPT"
+    url: "https://platform.openai.com/docs/guides/gpt"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un modelo de lenguaje hace **una sola cosa**, repetida miles de veces: dada una secuencia de tokens, estima la distribución de probabilidad del **siguiente** token y elige uno. De ahí sale el texto: es predicción encadenada (autoregresiva), no consulta a un diccionario de hechos. Además, el modelo no ve caracteres ni palabras: ve **tokens**, unidades subpalabra aprendidas del corpus. Contar tokens es contar lo que el modelo procesa y, en la práctica, lo que se factura y lo que cabe en su ventana. En esta lección mides eso con `ejemplos/tokenizar.js`.
+
+## Conceptos
+
+### El modelo predice, no consulta
+
+Un modelo de lenguaje se entrena para la tarea de **modelado de lenguaje causal**: predecir el siguiente token a partir de los anteriores (Hugging Face la describe como `causal language modeling`). En inferencia, el ciclo se repite: tokens de entrada → probabilidad sobre el siguiente → elección → tokens de entrada otra vez. Ese bucle es la generación:
+
+```text
+entrada: "la ventana de contexto tiene"  →  P(siguiente | contexto)
+elección: " 8"   →  entrada: "la ventana de contexto tiene 8"  →  P(siguiente | contexto)
+elección: "000"  →  … y así sucesivamente
+```
+
+Conviene fijar la imagen porque explica casi todos los límites de `n1/m1`: si el modelo solo predice el siguiente trozo de texto, entonces _todo_ lo que depende de un dato externo (una versión, un precio, una fecha) depende de lo que ese dato representa en el patrón estadístico — no de una consulta. Verás esa consecuencia en l02.
+
+### Tokens: unidades aprendidas, no caracteres
+
+Los modelos no procesan letras ni palabras enteras: procesan **tokens**, fragmentos de longitud variable que el _tokenizador_ produce a partir de un vocabulario aprendido durante el entrenamiento. La consecuencia práctica es contraintuitiva: **una palabra frecuente suele ser un token; una palabra rara se parte en trozos**. `ejemplos/tokenizar.js` implementa un tokenizador mínimo (palabras completas + signos sueltos) para mostrarlo:
+
+```sh
+node tokenizar.js
+```
+
+Salida real (Node v24.22.0, 2026-10-21):
+
+```text
+frase: El modelo de lenguaje predice el siguiente token. La plataforma es una academia.
+caracteres: 80
+tokens: 15
+tokens reales: ["el","modelo","de","lenguaje","predice","el","siguiente","token",".","la","plataforma","es","una","academia","."]
+relación tokens/caracteres: 0.188
+
+--- por qué importa la frecuencia ---
+«modelo» → 1 token(s)
+«harness-engineering-plataforma» → 5 token(s)
+(una palabra rara o con guiones consume muchas más entradas)
+```
+
+Tres datos a leer con calma: **15 tokens** para 80 caracteres; los signos de puntuación cuentan como tokens sueltos; y el identificador `harness-engineering-plataforma` ocupa **5 entradas** aunque sea mucho más corto que la frase. Nota de honestidad: este tokenizador es una ilustración ejecutable, no el de ningún proveedor (que se aprende del corpus y es propietario) — la propiedad relevante que reproduces es la _variable_ longitud de los tokens.
+
+### La relación tokens/caracteres no es constante
+
+La salida imprime `relación tokens/caracteres: 0.188`, pero ese número cambia con el texto: español con acentos, identificadores, URLs y nombres propios se parten de formas distintas. Por eso **no existe «caracteres ÷ 4»** como regla fiable para estimar el consumo de contexto. Cuando necesites un número real, tokeniza con una herramienta del ecosistema (el tokenizador `tiktoken` de OpenAI, los tokenizadores de Hugging Face) o con la API que documenta tu proveedor. La lección de fondo es la misma en cualquier caso: lo que se mide y se factura son tokens.
+
+### Por qué esto llega hasta el código que escribes
+
+El token no es una abstrucción lejana: conecta directamente con las tres lecciones siguientes. (1) Si un token raro consume cinco entradas, un identificador exótico **cuesta más contexto** que un nombre frecuente (l03). (2) Si el texto se parte en trozos, instrucciones con palabras raras son más largas de lo que parecen (l03). (3) Si el modelo predice en lugar de consultar, cada afirmación sobre el mundo real es una predicción y no una comprobación (l02, l05). Medir tokens es el hábito que hace el resto del módulo tangible.
+
+## Ejercicio
+
+Mide tres palabras con el tokenizador del módulo y comprueba que un identificador con guiones consume más entradas que una palabra común.
+
+```sh
+mkdir taller && cd taller
+cp ../ejemplos/tokenizar.js .
+cat > mis-tokens.js <<'EOF'
+import { tokenizar } from "./tokenizar.js";
+
+const frase = "El despliegue de la plataforma termina en verde.";
+const palabras = ["plataforma", "despliegue", "harness-engineering-plataforma"];
+
+const tokensFrase = tokenizar(frase);
+console.log(`frase: ${frase}`);
+console.log(`${frase.length} caracteres → ${tokensFrase.length} tokens (relación ${(tokensFrase.length / frase.length).toFixed(3)})`);
+
+for (const palabra of palabras) {
+  const t = tokenizar(palabra);
+  console.log(`«${palabra}» → ${t.length} token(s): ${JSON.stringify(t)}`);
+}
+EOF
+node mis-tokens.js
+```
+
+Esto se cumple cuando:
+
+- la salida muestra la frase con su relación de tokens/caracteres calculada;
+- `«plataforma»` y `«despliegue»` consumen **1 token** cada una;
+- `«harness-engineering-plataforma»` consume **5 tokens** (`["harness","-","engineering","-","plataforma"]`);
+- puedes explicar por qué el identificador, siendo más corto en caracteres, ocupa más entradas que `«despliegue»`.
+
+Pista: si `node` no lo encuentra, añade tu binario de Node al `PATH` (en este entorno: `export PATH="$HOME/.nvm/versions/node/v24.22.0/bin:$PATH"`).
+
+## Solución explicada
+
+La secuencia de arriba, ejecutada en el directorio `taller/` que crea el propio ejercicio (borrado tras la ejecución), con `tokenizar.js` copiado junto a `mis-tokens.js`. Salida real (2026-10-21):
+
+```text
+frase: El despliegue de la plataforma termina en verde.
+48 caracteres → 9 tokens (relación 0.188)
+«plataforma» → 1 token(s): ["plataforma"]
+«despliegue» → 1 token(s): ["despliegue"]
+«harness-engineering-plataforma» → 5 token(s): ["harness","-","engineering","-","plataforma"]
+codigo=0
+```
+
+Por qué funciona: `tokenizar()` devuelve el vocabulario exacto que produce el regex, así que `tokens.length` es un recuento verificable, no una estimación. El identificador se parte en cinco porque las reglas tratan los guiones como separadores y cada pieza pasa a ser su propia entrada: la segmentación, no la longitud, decide el coste.
+
+Errores típicos al resolverlo:
+
+- **Medir la frase y no las palabras**: si solo imprimes la relación total, no ves la diferencia 1 vs 5 que es el punto del ejercicio. El bucle sobre `palabras` es lo que hace visible la propiedad.
+- **Esperar la salida del tokenizador «oficial»**: el nuestro pone en minúsculas y trata `.` como token suelto; el tokenizador de un proveedor puede agrupar `token.` en una sola entrada. Los números concretos cambian; la regla «raro = más trozos» no.
+- **Olvidar el `cp`**: si `mis-tokens.js` está en otro directorio que `tokenizar.js`, el `import` falla con `ERR_MODULE_NOT_FOUND`. Ambos ficheros deben compartir carpeta.
+
+## Cómo verificarlo
+
+1. Crea el taller y copia el tokenizador (los comandos del ejercicio).
+
+2. Ejecuta tu medición:
+
+   ```sh
+   node mis-tokens.js
+   ```
+
+   Salida esperada: cuatro líneas — la frase con su relación, y las tres palabras con su número de tokens. Las dos primeras palabras deben mostrar `1 token(s)` y la tercera `5 token(s)`.
+
+3. Comprueba el código de salida:
+
+   ```sh
+   echo $?
+   ```
+
+   Esperado: `0`. Si es `1`, lee el stderr: casi siempre es un `import` mal resuelto (ver «Errores comunes»).
+
+4. Registra la salida real de tu `node mis-tokens.js` junto a la de esta lección: los tokens de la frase pueden variar si cambias el texto, pero la relación 5-vs-1 del identificador debe reproducirse.
+
+## Errores comunes
+
+- **Estimar tokens dividiendo caracteres entre cuatro**: la relación real del ejercicio es 0,188 y varía con el texto. Dividir por cuatro falla justo en los casos que más te importan (identificadores, URLs, nombres propios).
+- **Asumir «una palabra = un token»**: `harness-engineering-plataforma` es _una_ palabra para ti y _cinco_ entradas para el tokenizador. Es la confusión que más infla tus estimaciones de contexto.
+- **Creer que el tokenizador del ejercicio es el de un proveedor**: no lo es; es una ilustración. Para cifras que vayas a citar, usa el tokenizador oficial del proveedor al que te refieras y anota su versión y fecha.
+- **Ignorar la normalización a minúsculas**: el nuestro baja todo a minúsculas, así que `Modelo` y `modelo` consumen lo mismo aquí; en tokenizadores reales puede diferir. No generalices este detalle.
+- **`ERR_MODULE_NOT_FOUND` al importar**: significa que `tokenizar.js` no está junto a tu script. Vuelve a hacer el `cp`.
+
+## Fuentes
+
+- [The Illustrated GPT-2 (Jay Alammar)](https://jalammar.github.io/illustrated-gpt2/) — consultado el 2026-10-21.
+- [Hugging Face Docs: Language Modeling tutorial](https://huggingface.co/docs/transformers/tasks/language_modeling) — consultado el 2026-10-21.
+- [OpenAI Docs: Guides — GPT](https://platform.openai.com/docs/guides/gpt) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l02 «Los límites del entrenamiento»](/curriculo/n1/m1/l02-los-limites-del-entrenamiento/) — qué queda fuera del modelo y por qué la plausibilidad no es verdad.
+- Proyecto longitudinal: en `n0/m5` aprendiste a verificar ejecutando; aquí aplicas el mismo criterio a las afirmaciones de un modelo. El entregable del módulo es una nota técnica con fuentes y fecha (l06).
