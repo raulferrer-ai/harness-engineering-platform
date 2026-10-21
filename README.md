@@ -2,7 +2,7 @@
 
 Academia online, gratuita y abierta, para aprender a desarrollar software asistido por inteligencia artificial: desde los fundamentos de programación hasta Harness Engineering y sistemas multiagente.
 
-**Estado actual: hitos H0, H1, H2, H3 y H4** — scaffolding, sistema de diseño, sistema de contenidos, el **primer módulo completo** del currículo (las 7 lecciones de `n0/m1` con ejemplos ejecutados y ejercicios verificados) y, desde el H4, la **navegación lateral por módulo, la búsqueda estática con Pagefind (`/buscar/`) y el progreso local**. El mapa navegable en `/curriculo/` (9 niveles y 56 módulos) suma **76 páginas** (incluida `/buscar/`), el gate `npm run verify` supera **87 tests** y `npm run build:deploy` valida además enlaces internos e índice de búsqueda. El **H5** está **completado y cerrado el 21-10-2026**: repositorio **publicado** (`github.com/raulferrer-ai/harness-engineering-platform`) con **CI en verde en los 5 pushes a `main`**, sitio **desplegado y verificado** en producción (Pagefind y 404 incluidos), **gate de rama activo** (ruleset «Comprobaciones y compilación»: PR con check rojo no fusionable y pushes directos rechazados) y **verificación en navegador** (buscador en vivo, progreso en `localStorage`, 404 y navegación). El siguiente hito es **H6** (documentación de ejecución y mantenimiento + auditoría manual a11y).
+**Estado actual: hitos H0–H6 completados** — scaffolding, sistema de diseño, sistema de contenidos, el **primer módulo completo** del currículo (las 7 lecciones de `n0/m1` con ejemplos ejecutados y ejercicios verificados), **navegación lateral por módulo, búsqueda estática con Pagefind (`/buscar/`) y progreso local** (H4), **CI + despliegue en Cloudflare Workers con gate de rama activo** (H5, cerrado el 21-10-2026: CI verde en los 5 pushes a `main`, producción verificada con Pagefind y 404, ruleset que exige PR con CI verde, y verificación en navegador del buscador, progreso y navegación) y **documentación de mantenimiento + auditoría de accesibilidad** (H6, cerrado el 21-10-2026: `docs/MANTENIMIENTO.md`, `docs/AUDITORIA_A11Y.md` con checklist firmada, Lighthouse accessibility **1.0 en 11 rutas** y 4 hallazgos corregidos). El mapa navegable en `/curriculo/` (9 niveles y 56 módulos) suma **76 páginas** (incluida `/buscar/`), el gate `npm run verify` supera **87 tests** y `npm run build:deploy` valida además enlaces internos e índice de búsqueda.
 
 ## Requisitos
 
@@ -65,7 +65,7 @@ La arquitectura completa (rutas, colecciones de contenido, sistema de diseño) e
 
 - `npm run verify` es el gate obligatorio: tipos, lint, formato y tests. El despliegue usa `npm run build:deploy`, que lo ejecuta antes de compilar y añade la comprobación de enlaces internos y del índice de Pagefind: si algo falla, **no se publica nada**.
 - GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada push a `main`, en cada pull request y bajo demanda (`workflow_dispatch`): `npm ci` (con caché de npm), un paso visible de `npm run verify` y un paso `npm run build:deploy` (la compilación de producción corre **una sola vez**, dentro de ese paso). Permisos mínimos (`contents: read`), cancelación de ejecuciones obsoletas del mismo push/PR (`concurrency`) y versión de Node leída de `.nvmrc`.
-- **Estado (20-10-2026)**: el workflow **ya se ha ejecutado en GitHub**: CI #1 sobre `9d16d60` → **verde** (47 s). La exigencia de «CI verde antes de publicar» (protección de rama de `main`) sigue **sin estar activa**: se configura según `IMPLEMENTATION_PLAN.md` §8.5.
+- **Estado (21-10-2026)**: el workflow **ya se ha ejecutado en GitHub 7 veces** (6 verdes en pushes a `main` y PRs, 1 rojo **a propósito** como prueba del gate). La exigencia de «CI verde antes de publicar» está **activa y verificada**: una ruleset sobre `main` rechaza los pushes directos (GH013) y bloquea la fusión de PRs con el check rojo (verificado con el PR #1). Cualquier cambio pasa por **rama → PR → CI verde → merge**. El flujo completo está documentado en `docs/MANTENIMIENTO.md` §4.
 
 ## Búsqueda, progreso local y prefetch
 
@@ -112,3 +112,5 @@ Pasos completados por el usuario (20-10-2026): protección de `main` activa (rul
 | `TECH_STACK.md`          | Decisiones tecnológicas.                                 |
 | `IMPLEMENTATION_PLAN.md` | Plan de implementación y verificación de versiones.      |
 | `CURRICULUM.md`          | Mapa completo del currículum y formato de las lecciones. |
+| `docs/MANTENIMIENTO.md`  | Ejecución, despliegue y mantenimiento del proyecto.      |
+| `docs/AUDITORIA_A11Y.md` | Auditoría de accesibilidad y checklist firmada (H6).     |

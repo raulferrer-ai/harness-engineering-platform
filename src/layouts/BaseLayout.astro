@@ -46,7 +46,10 @@ const tituloCompleto = esInicio
       Saltar al contenido principal
     </a>
     <SiteHeader rutaActual={rutaActual} />
-    <main id="contenido" class="flex-1">
+    <!-- tabindex="-1" permite que el skip link («Saltar al contenido») mueva el
+         foco de teclado al contenido; sin él, el navegador solo hace scroll.
+         Auditoría a11y del hito H6. -->
+    <main id="contenido" tabindex="-1" class="flex-1 focus:outline-none">
       <slot />
     </main>
     <SiteFooter />

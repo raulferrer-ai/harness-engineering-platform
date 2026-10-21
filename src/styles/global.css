@@ -27,7 +27,12 @@
   --color-surface: oklch(1 0 0); /* tarjetas y bloques elevados */
   --color-ink: oklch(0.212 0.014 265); /* texto principal */
   --color-ink-soft: oklch(0.44 0.015 265); /* texto secundario (≥4.5:1 sobre paper) */
-  --color-ink-faint: oklch(0.6 0.015 265); /* texto decorativo / reglas */
+  /* Texto auxiliar (códigos, recuentos) y reglas: L=0.53 garantiza WCAG AA
+     (≥4.5:1) sobre los tres fondos reales del sitio — paper 4.93:1,
+     surface 5.28:1 y accent-soft 4.59:1 (fondo del ítem activo del sidebar) —
+     verificado en la auditoría a11y del hito H6 (antes L=0.6 daba 3.69:1 y
+     axe lo marcaba en 15 nodos). */
+  --color-ink-faint: oklch(0.53 0.015 265);
   --color-line: oklch(0.895 0.006 90); /* bordes finos */
   --color-line-strong: oklch(0.815 0.008 90); /* bordes con más peso */
   --color-accent: oklch(0.508 0.165 259); /* acento primario (≈ Tailwind blue-700) */
@@ -210,6 +215,16 @@
     padding: 0;
     font-size: inherit;
     border-radius: 0;
+  }
+
+  /* Tokens de Shiki (github-dark) con contraste insuficiente sobre #24292e:
+     el token de comentarios por defecto (#6A737D = 3.05:1) no alcanza WCAG
+     AA (4.5:1). Se aclara a #8B949E (4.77:1). Auditoría a11y: hito H6.
+     Shiki emite el color en un atributo `style` inline, de ahí `!important`.
+     (colorReplacements de Shiki no surtió efecto con @astrojs/mdx 8.1.0 +
+     shiki 4.5.0; se probó con claves en ambas mayúsculas/minúsculas.) */
+  .astro-code [style*="#6A737D"] {
+    color: #8b949e !important;
   }
 
   .prose :where(table) {
