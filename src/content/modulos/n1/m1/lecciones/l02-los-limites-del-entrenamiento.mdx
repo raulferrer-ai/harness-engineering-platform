@@ -1,0 +1,183 @@
+---
+titulo: "Los límites del entrenamiento"
+resumen: "El conocimiento del modelo queda congelado al entrenarse y su respuesta es plausibilidad, no verificación. Reproduces una alucinación sin red ni claves, la ejecutas hasta el TypeError y aprendes el gesto que la detecta antes de confiar."
+nivel: "n1"
+modulo: "m1"
+orden: 2
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Explicar por qué el conocimiento de un modelo queda congelado en su entrenamiento"
+  - "Distinguir una respuesta plausible de una respuesta verificada"
+  - "Reproducir una alucinación de API como error ejecutable y corregirlo"
+  - "Aplicar el gesto de verificación: documentación oficial y ejecución mínima"
+prerrequisitos:
+  - "n1/m1/l01-modelos-de-lenguaje-como-prediccion"
+actualizado: "2026-10-21"
+tags:
+  - "alucinacion"
+  - "entrenamiento"
+  - "limites"
+  - "verificacion"
+  - "api"
+fuentes:
+  - titulo: "arXiv:2202.03629 — A Survey of Hallucination in Natural Language Generation"
+    url: "https://arxiv.org/abs/2202.03629"
+    fecha: "2026-10-21"
+  - titulo: "OpenAI Docs: Models"
+    url: "https://platform.openai.com/docs/models"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El modelo solo sabe lo que el entrenamiento empaquetó: **no consulta el mundo en tiempo real**, así que su conocimiento queda congelado en la fecha de corte del entrenamiento y en el corpus que lo formó. Y aunque suena seguro, lo que produce es la secuencia **más plausible**, no la más cierta — de ahí que un símbolo inventado salga con la misma confianza que uno real. La consecuencia operativa es simple: toda afirmación sobre versiones, precios, APIs o hechos recientes es una **hipótesis** hasta que la compruebas en documentación o en ejecución. Aquí reproduces esa alucinación y la conviertes en un `TypeError` verificable.
+
+## Conceptos
+
+### Conocimiento congelado
+
+El entrenamiento termina en una fecha; a partir de ahí, el modelo no se entera de nada nuevo salvo que la información entre por el contexto (l03). Dos límites se derivan, y ambos son de datos, no de inteligencia:
+
+- **Límite temporal**: no conoce cambios posteriores a su corte. Por eso «¿qué versión de X está actualmente?» es una pregunta que responde con patrones, no con la verdad de hoy. Los proveedores documentan la fecha de corte de cada modelo en su página de modelos (fuente consultada el 2026-10-21).
+- **Límite de cobertura**: no vio (o ponderó poco) tu librería interna, tu API privada o el paquete recién publicado. Lo que no está en el corpus solo puede _inferirse_.
+
+### Plausibilidad no es verdad
+
+El ciclo de l01 (predecir el siguiente token) no tiene un paso «comprobar». El resultado es la secuencia más probable según el corpus. Un survey del campo (`arXiv:2202.03629`) clasifica la alucinación como generación de contenido **falso o infundado** y señala su causa estructural: el modelo genera texto coherente sin un mecanismo que ancle cada afirmación a una fuente. En la práctica, eso produce el patrón más peligroso de todos: **una respuesta falsa con la misma fluidez y seguridad que una cierta**.
+
+`ejemplos/alucinacion-api-inexistente.js` reproduce el mecanismo sin red ni claves — un «generador» que produce la forma más plausible de una API según los patrones comunes de las librerías:
+
+```sh
+node alucinacion-api-inexistente.js
+```
+
+Salida real (Node v24.22.0, 2026-10-21):
+
+```text
+Sugerencia del 'modelo':
+  await usuarioClient.getUsuarioAsync(id, { timeout: 1000 })
+
+Suena plausible: nombre coherente, opciones razonables, estilo común.
+Pero ese método NO existe en ninguna librería real: está inventado.
+
+--- cómo se detecta antes de confiar ---
+1. Buscar el símbolo en la documentación oficial de la librería.
+2. Ejecutar un ejemplo mínimo y ver si lanza TypeError/ReferenceError.
+3. Comprobar el nombre en el package publicado (no en el resumen del modelo).
+
+Regla: si no lo has ejecutado ni lo has visto en la doc, no está verificado.
+```
+
+### La alucinación como error ejecutable
+
+La prosa «eso no existe» no convence a nadie; el intérprete sí. `ejemplos/errores/api-inexistente.js` ejecuta la sugerencia inventada:
+
+```sh
+node errores/api-inexistente.js
+echo $?
+```
+
+Salida real (2026-10-21), en rojo a propósito:
+
+```text
+TypeError: usuarioClient.getUsuarioAsync is not a function
+    at file:///…/errores/api-inexistente.js:12:37
+codigo=1
+```
+
+El mismo día en que la idea suena bien, **dos comandos** la separan en «existe» (devuelve `{ id: 1, nombre: 'Ada' }`) y «está inventada» (`TypeError`, código 1). Ese es el gesto completo de la lección: no discutir con el modelo, ejecutar.
+
+### Dónde empiezan los límites (y cuáles son de diseño)
+
+Conviene no confundir los límites: la fecha de corte y la ausencia de verificación son **del modelo**; la ventana de contexto y el coste son **del suministro** (l03); la sensibilidad al contexto es **del formato** (l04). Ninguno se arregla pidiendo «que no alucine»: se arregla poniendo verificación alrededor — que es exactamente lo que ya hacías con Git y CI en `n0`.
+
+## Ejercicio
+
+Convierte la sugerencia inventada en un resultado ejecutable: primero en rojo, después corregido contra la API real (aquí, la del ejemplo).
+
+```sh
+mkdir taller && cd taller
+mkdir errores
+cp ../ejemplos/errores/api-inexistente.js errores/
+node errores/api-inexistente.js
+echo "codigo=$?"
+cat > arreglado.js <<'EOF'
+const usuarioClient = {
+  getUsuario: (id) => ({ id, nombre: "Ada" }),
+};
+console.log(await usuarioClient.getUsuario(1));
+EOF
+node arreglado.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución termina con `TypeError: usuarioClient.getUsuarioAsync is not a function` y `codigo=1`;
+- la versión corregida imprime `{ id: 1, nombre: 'Ada' }` y `codigo=0`;
+- puedes señalar **dónde** se rompió la confianza: en el nombre del método, no en el estilo de la llamada.
+
+Pista: el rojo usa `await` a nivel de módulo; si tu Node es anterior a 14.8 o el fichero no es ESM, envuelve la llamada en `async function main()`.
+
+## Solución explicada
+
+La secuencia de arriba, en el directorio `taller/` que crea el propio ejercicio (borrado tras la ejecución). Salida real (2026-10-21):
+
+```text
+TypeError: usuarioClient.getUsuarioAsync is not a function
+codigo=1
+---
+{ id: 1, nombre: 'Ada' }
+codigo=0
+```
+
+Por qué funciona: el `TypeError` no es un fallo de tus herramientas, es la comprobación _siendo la comprobación_. En JavaScript, invocar un método inexistente en un objeto lanza exactamente ese error, y el proceso sale con código 1 — el mismo lenguaje de códigos que usabas con Git en `n0/m5`. La versión corregida cambia solo el símbolo (`getUsuario`), lo que confirma que el error era del nombre inventado, no de la lógica.
+
+Errores típicos al resolverlo:
+
+- **«Arreglar» cambiando toda la llamada**: si modificas a la vez nombre, argumentos y estilo, no sabes cuál era el culpable. Cambia una cosa: el símbolo.
+- **Creer que el rojo es un problema del ejemplo**: los ficheros de `errores/` terminan en rojo **a propósito** (como `errores/conflicto-merge.sh` en `n0/m5`); el éxito del ejercicio es reproducir ese rojo con su código 1.
+- **Buscar primero en un buscador, no en la doc oficial**: el resumen de un paquete y su documentación publicada son la fuente; un artículo de terceros puede describir otra versión.
+
+## Cómo verificarlo
+
+1. Prepara el taller y lanza la llamada inventada (comandos del ejercicio).
+
+2. Observa el rojo:
+
+   ```sh
+   node errores/api-inexistente.js
+   echo $?
+   ```
+
+   Esperado: stderr con `TypeError` y `getUsuarioAsync is not a function`, y `1` como código de salida.
+
+3. Ejecuta la versión corregida:
+
+   ```sh
+   node arreglado.js
+   echo $?
+   ```
+
+   Esperado: `{ id: 1, nombre: 'Ada' }` y `0`.
+
+4. Registra ambas salidas en tu trabajo del módulo: la pareja `1 → TypeError` / `0 → objeto` es la evidencia de que el símbolo era inventado.
+
+## Errores comunes
+
+- **Tomar la sugerencia por documentada**: un nombre coherente no es una referencia. La referencia es la página oficial del paquete (o el `.d.ts`, o el propio código fuente) con su versión.
+- **Confundir «no existe aquí» con «no existe»**: el `TypeError` prueba que el símbolo no existe en _ese_ objeto, con _esa_ librería y versión. Escala la comprobación: mira el `package.json` para saber qué versión usas.
+- **Que el error ahogue la salida**: el `TypeError` aparece en stderr y tapa lo demás. Por eso el ejercicio imprime `codigo=$?` por separado: el código es el veredicto, el stderr es la causa.
+- **Esperar que el modelo se corrija solo**: sin ejecución ni doc, la siguiente respuesta plausible puede ser otra igual de inventada. Repite el gesto, no la conversación.
+
+## Fuentes
+
+- [arXiv:2202.03629 — A Survey of Hallucination in Natural Language Generation](https://arxiv.org/abs/2202.03629) — consultado el 2026-10-21.
+- [OpenAI Docs: Models](https://platform.openai.com/docs/models) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l03 «La ventana de contexto»](/curriculo/n1/m1/l03-la-ventana-de-contexto/) — el otro límite duro: cuánto cabe, qué pasa cuando no cabe y cuánto cuesta.
+- Proyecto longitudinal: aplica el criterio de `n0/m5` (el diff manda) a las afirmaciones de un modelo: quién las verifica manda.

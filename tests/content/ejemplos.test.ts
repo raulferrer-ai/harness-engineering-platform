@@ -22,6 +22,9 @@ import { afterAll, describe, expect, it } from "vitest";
  *   clase de error (SyntaxError, ReferenceError, TypeError, ERR_MODULE_NOT_FOUND);
  * - los ficheros `.test.js` se ejecutan con el ejecutor de pruebas de Node
  *   (`node --test`), que es exactamente lo que enseñan las lecciones;
+ * - H11 añade `n1/m1` (primer módulo conceptual): demos con **solo librería
+ *   estándar** que miden límites reales (tokenización, ventana, coste,
+ *   sensibilidad) sin red ni claves de API, más el comprobador del entregable;
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -43,6 +46,10 @@ const dirEjemplosM4 = fileURLToPath(
 
 const dirEjemplosM5 = fileURLToPath(
   new URL("../../src/content/modulos/n0/m5/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosN1M1 = fileURLToPath(
+  new URL("../../src/content/modulos/n1/m1/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -732,6 +739,140 @@ describe("l07: la demo de Git (requiere git instalado)", () => {
   );
 });
 
+describe("ejemplos del módulo n1/m1: demos ejecutables (solo librería estándar)", () => {
+  interface DemoN1M1 {
+    fichero: string;
+    marcas: string[];
+    argumentos?: string[];
+    descripcion: string;
+  }
+
+  // H11: scripts con solo librería estándar que miden y demuestran límites
+  // reales (tokenización, ventana, coste, sensibilidad) sin red ni claves.
+  const demos: DemoN1M1[] = [
+    {
+      fichero: "tokenizar.js",
+      marcas: ["tokens: 15", "«harness-engineering-plataforma» → 5 token(s)"],
+      descripcion: "l01: la frase medida en tokens y el identificador partido en cinco",
+    },
+    {
+      fichero: "alucinacion-api-inexistente.js",
+      marcas: ["Sugerencia del 'modelo':", "getUsuarioAsync", "no está verificado"],
+      descripcion: "l02: la API inventada suena plausible antes de ejecutarla",
+    },
+    {
+      fichero: "ventana-contexto.js",
+      marcas: ["QUEDA FUERA (se pierde): 692 tokens", "el modelo solo ve el 36.6% del contexto."],
+      descripcion: "l03: el desbordamiento de ventana con su porcentaje visible",
+    },
+    {
+      fichero: "coste-contexto.js",
+      marcas: ["coste de esta llamada: $ 0.004400", "turno 8: 8780 tokens"],
+      descripcion: "l03: el coste por llamada y su crecimiento turno a turno",
+    },
+    {
+      fichero: "sensibilidad-contexto.js",
+      marcas: ["respuesta: fs/promises", "respuesta: HTTP", "respuesta: JSON"],
+      descripcion: "l04: la misma pregunta, tres contextos, tres respuestas",
+    },
+    {
+      fichero: "comprobar-claim.js",
+      marcas: [
+        "VERIFICADO — «parsearFilas devuelve siempre un array»",
+        "REFUTADO — «parsearFilas valida el número de columnas»",
+      ],
+      descripcion: "l05: dos claims verificados y uno refutado por ejecución",
+    },
+    {
+      fichero: "comprobar-nota.js",
+      argumentos: ["nota-ejemplo.md"],
+      marcas: ["NOTA VÁLIDA", "afirmaciones: 3", "fuentes con URL y fecha de consulta: 2"],
+      descripcion: "l06: la nota de ejemplo supera su comprobador",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero, ...(demo.argumentos ?? [])], {
+        cwd: dirEjemplosN1M1,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  it("errores/api-inexistente.js termina en 1 con TypeError (rojo de l02)", () => {
+    const rojo = ejecutarNode(["errores/api-inexistente.js"], dirEjemplosN1M1);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("TypeError");
+    expect(rojo.stderr).toContain("getUsuarioAsync is not a function");
+  });
+
+  it("errores/ventana-excedida.js termina en 1 con el límite de ventana (rojo de l03)", () => {
+    const rojo = ejecutarNode(["errores/ventana-excedida.js"], dirEjemplosN1M1);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("tokens del contexto: 720");
+    expect(rojo.stderr).toContain("el contexto excede la ventana (720 > 400)");
+  });
+
+  it("errores/claim-refutado.js termina en 1 con el claim refutado (rojo de l05)", () => {
+    const rojo = ejecutarNode(["errores/claim-refutado.js"], dirEjemplosN1M1);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("REFUTADO — «parsearFilas valida el número de columnas»");
+  });
+
+  it("comprobar-nota.js rechaza una nota sin fechas de consulta con código 1", () => {
+    const carpeta = carpetaTemporal();
+    writeFileSync(
+      join(carpeta, "rota.md"),
+      [
+        "# Nota rota",
+        "",
+        "## Pregunta",
+        "",
+        "¿Funciona esta nota sin fechas?",
+        "",
+        "## Respuesta corta",
+        "",
+        "Una respuesta que el comprobador no llega a discutir.",
+        "",
+        "## Afirmaciones",
+        "",
+        "1. la primera afirmación",
+        "2. la segunda afirmación",
+        "3. la tercera afirmación",
+        "",
+        "## Evidencia",
+        "",
+        "```text",
+        "$ node --version",
+        "v24.22.0",
+        "```",
+        "",
+        "## Fuentes",
+        "",
+        "- [Models](https://platform.openai.com/docs/models)",
+        "- [Pricing](https://platform.openai.com/docs/pricing)",
+        "",
+      ].join("\n"),
+    );
+    const rojo = spawnSync(process.execPath, ["comprobar-nota.js", join(carpeta, "rota.md")], {
+      cwd: dirEjemplosN1M1,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("NOTA NO VÁLIDA");
+    expect(rojo.stderr).toContain("fuente sin fecha de consulta");
+  });
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -862,5 +1003,25 @@ describe("cobertura de ejemplos", () => {
     ];
 
     expect(archivosVerificables(dirEjemplosM5)).toEqual([...enManifiesto].sort());
+  });
+
+  it("n1/m1: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    const enManifiesto = [
+      "tokenizar.js",
+      "alucinacion-api-inexistente.js",
+      "ventana-contexto.js",
+      "coste-contexto.js",
+      "sensibilidad-contexto.js",
+      "comprobar-claim.js",
+      "comprobar-nota.js",
+      "errores/api-inexistente.js",
+      "errores/ventana-excedida.js",
+      "errores/claim-refutado.js",
+      "nota-ejemplo.md",
+    ];
+
+    expect(archivosVerificables(dirEjemplosN1M1, [], ["nota-ejemplo.md"])).toEqual(
+      [...enManifiesto].sort(),
+    );
   });
 });

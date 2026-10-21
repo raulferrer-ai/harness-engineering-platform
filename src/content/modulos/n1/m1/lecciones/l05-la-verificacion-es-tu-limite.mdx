@@ -1,0 +1,210 @@
+---
+titulo: "La verificación es tu límite"
+resumen: "La prosa del modelo no se puede refutar; una condición ejecutable sí. Traduces tres afirmaciones típicas en comprobaciones, ejecutas las dos que fallan — una en rojo deliberado — y corriges el código hasta que las tres quedan verificadas."
+nivel: "n1"
+modulo: "m1"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Distinguir una afirmación no verificable de una afirmación traducible a condición"
+  - "Convertir afirmaciones de un asistente en condiciones ejecutables"
+  - "Interpretar los resultados VERIFICADO y REFUTADO como evidencia, no como opinión"
+  - "Corregir el código a partir de una condición refutada en lugar de discutirla"
+prerrequisitos:
+  - "n1/m1/l04-contexto-y-sensibilidad"
+actualizado: "2026-10-21"
+tags:
+  - "verificacion"
+  - "claims"
+  - "pruebas"
+  - "evidencia"
+  - "criterios"
+fuentes:
+  - titulo: "martinfowler.com: The Practical Test Pyramid"
+    url: "https://martinfowler.com/articles/practical-test-pyramid.html"
+    fecha: "2026-10-21"
+  - titulo: "arXiv:2202.03629 — A Survey of Hallucination in Natural Language Generation"
+    url: "https://arxiv.org/abs/2202.03629"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Todo lo visto hasta aquí (predicción, conocimiento congelado, ventana, sensibilidad) conduce al mismo punto: **el modelo no se puede corregir discutiendo con él**. Lo que sí puedes hacer es convertir sus afirmaciones en **condiciones ejecutables**: cosas que se cumplen o no, con un código de salida que lo dice. Una afirmación que no puedes traducir a una condición es, mientras tanto, una opinión sin verificar. En `n0` ya operabas así con Git y las pruebas; aquí lo aplicas a la prosa de un asistente con `comprobar-claim.js` y su rojo deliberado `errores/claim-refutado.js`.
+
+## Conceptos
+
+### De la prosa a la condición
+
+Un asistente escribe: _«parsearFilas valida el número de columnas»_. Como prosa es indiscutible — puede ser cierto, a medias o nada. Como condición, se vuelve un juicio:
+
+```js
+const filas = parsearFilas("a,1\nb"); // fila incompleta a propósito
+const cumple = filas.every((f) => f.length === 2);
+```
+
+`ejemplos/comprobar-claim.js` toma tres afirmaciones típicas y las ejecuta:
+
+```sh
+node comprobar-claim.js
+```
+
+Salida real (Node v24.22.0, 2026-10-21):
+
+```text
+afirmaciones del asistente, convertidas en comprobaciones:
+
+VERIFICADO — «parsearFilas devuelve siempre un array»
+   la condición se cumple
+VERIFICADO — «parsearFilas ignora las líneas vacías»
+   la condición se cumple
+REFUTADO — «parsearFilas valida el número de columnas»
+   la condición NO se cumple
+
+--- lectura ---
+La prosa del modelo no se puede refutar; la condición sí.
+Cada claim útil debe poder traducirse a una condición ejecutable.
+Si no puedes traducirlo, o es una opinión, o no está verificado.
+```
+
+Dos de tres sobreviven y la tercera cae. Fíjate en que el módulo no «cree» ni «duda»: ejecuta y reporta. El veredicto `REFUTADO` no proviene del modelo sino de `parsearFilas("a,1\nb")` devolviendo `[["a","1"],["b"]]`.
+
+### Refutar con la misma luz que verificar
+
+`ejemplos/errores/claim-refutado.js` aísla el caso que importa: la afirmación que no se sostiene, en rojo con código 1 (igual que los rojos de `n0/m5`: el rojo es información, no un accidente):
+
+```sh
+node errores/claim-refutado.js
+echo $?
+```
+
+Salida real (2026-10-21):
+
+```text
+REFUTADO — «parsearFilas valida el número de columnas»
+   detalle: se esperaban 2 columnas en todas las filas, hay: [["a","1"],["b"]]
+   el asistente afirmó algo que la ejecución contradice.
+codigo=1
+```
+
+Esta simetría es la disciplina entera: **la misma energía para verificar que para refutar**. Si solo ejecutas lo que ya esperas que pase, montas un aprobador; si ejecutas también las afirmaciones incómodas, montas una verificación. El survey de alucinaciones de l02 explica por qué hace falta: la fluidez del texto no correlaciona con su verdad (fuente consultada el 2026-10-21).
+
+### El criterio de traducción (y cuándo no se puede)
+
+Antes de repetir una afirmación del asistente, pásate esta lupa:
+
+1. **¿Tiene condición?** Un nombre de método → cógalo y comprueba si existe. Un comportamiento → entrada/salida. Un rendimiento → mide. Una afirmación sobre el mundo → fuente con fecha (l06).
+2. **¿Es falsable?** Si ningún resultado posible la contradice («es más robusto», «queda más limpio» sin criterio), es opinión: discútela o acórtala con un criterio.
+3. **¿Quién la ejecuta?** Una condición que nadie corre en tu flujo es una promesa. Aquí encaja la Pirámide de Pruebas de Fowler: la base son las pruebas automatizadas baratas que corren siempre — tu condición debe vivir ahí, no en el chat.
+
+Conviene ser honestos con el límite del método: la condición verifica **eso** que escribiste, no todo el sistema. Verificar bien también es acotar qué cubre tu comprobación — que es lo que practicabas con `git diff` y las suites de `n0`.
+
+## Ejercicio
+
+Corrige `parsearFilas` en una copia de `comprobar-claim.js` hasta que las **tres** afirmaciones queden verificadas, y confirma que el rojo del módulo sigue en rojo.
+
+```sh
+mkdir taller && cd taller
+mkdir errores
+cp ../ejemplos/comprobar-claim.js claims-arreglados.js
+cp ../ejemplos/errores/claim-refutado.js errores/
+python3 - claims-arreglados.js <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+viejo = """function parsearFilas(texto) {
+  return texto
+    .split("\\n")
+    .filter((l) => l.trim() !== "")
+    .map((l) => l.split(","));
+}"""
+nuevo = """function parsearFilas(texto) {
+  const lineas = texto.split("\\n").filter((l) => l.trim() !== "");
+  const columnas = lineas[0].split(",").length;
+  return lineas.map((l) => l.split(",")).filter((f) => f.length === columnas);
+}"""
+assert viejo in s, "no se encontró parsearFilas"
+open(p, "w", encoding="utf-8").write(s.replace(viejo, nuevo))
+PY
+node claims-arreglados.js
+node errores/claim-refutado.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- `claims-arreglados.js` imprime **tres** líneas `VERIFICADO` y ninguna `REFUTADO`;
+- la corrección respeta el número de columnas de la primera fila (cabecera) y descarta las filas que no lo cumplen;
+- `errores/claim-refutado.js` termina con `codigo=1` y su mensaje `REFUTADO — «parsearFilas valida el número de columnas»`;
+- puedes explicar por qué el rojo **no** se arregla: es la demostración del claim refutado, y arreglarlo destruiría el ejemplo.
+
+Pista: si `python3` no está disponible, haz el cambio en `claims-arreglados.js` con tu editor; el bloque a sustituir es la función `parsearFilas` completa.
+
+## Solución explicada
+
+La secuencia de arriba, en el directorio `taller/` que crea el propio ejercicio (borrado tras la ejecución). Salida real (2026-10-21):
+
+```text
+VERIFICADO — «parsearFilas devuelve siempre un array»
+   la condición se cumple
+VERIFICADO — «parsearFilas ignora las líneas vacías»
+   la condición se cumple
+VERIFICADO — «parsearFilas valida el número de columnas»
+   la condición se cumple
+---
+REFUTADO — «parsearFilas valida el número de columnas»
+   detalle: se esperaban 2 columnas en todas las filas, hay: [["a","1"],["b"]]
+codigo=1
+```
+
+Por qué funciona: la condición del tercer claim sigue siendo idéntica; lo que cambia es el código bajo prueba. La versión corregida lee el número de columnas de la cabecera y **descarta** las filas que no lo cumplen, de modo que `parsearFilas("a,1\nb")` devuelve solo `[["a","1"]]` y `every(f => f.length === 2)` se cumple. Es la dinámica real de trabajar con un asistente: la afirmación orienta, la condición juzga, el código se corrige.
+
+Errores típicos al resolverlo:
+
+- **Adaptar la condición al código**: si cambias el `every(...)` para que pase, no has verificado nada — has hecho trampa. Las condiciones se tocan cuando cambia el **requisito**, no cuando fallan.
+- **«Arreglar» también el rojo**: `errores/claim-refutado.js` tiene su `parsearFilas` propio y su rojo es intencionado. Si lo corriges, pierdes la demostración del refutado (los rojos de `n0/m5` tampoco se arreglaban).
+- **Dejar filas malas en silencio**: filtrar las filas inválidas es una decisión de diseño (¿la fila incompleta se ignora o se rechaza?). Si elige ignorar, deja constancia — el comportamiento también es una afirmación que alguien verificará.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la copia corregible y el rojo (comandos del ejercicio).
+
+2. Ejecuta tus tres comprobaciones:
+
+   ```sh
+   node claims-arreglados.js
+   echo $?
+   ```
+
+   Esperado: tres `VERIFICADO` y código `0`. Si aparece algún `REFUTADO`, tu corrección no cubre esa condición: lee el `detalle` que imprime el script.
+
+3. Confirma que el rojo sigue en rojo:
+
+   ```sh
+   node errores/claim-refutado.js
+   echo $?
+   ```
+
+   Esperado: `REFUTADO — «parsearFilas valida el número de columnas»` y `1`.
+
+4. Registra las tres salidas en tu trabajo del módulo: la afirmación, la condición que la tradujiste y su veredicto. Ese registro es el esqueleto de la nota técnica de l06.
+
+## Errores comunes
+
+- **Tomar `VERIFICADO` como prueba de todo**: verificó esa condición con esa entrada. Añade la entrada rara que te preocupa — la tercera columna vacía, el acento, el fichero grande.
+- **Que la prosa se escape sin traducir**: «ya está validado» sin condición no es verificación. Si no puedes escribir el `if`, aún no lo es.
+- **Discutir en lugar de ejecutar**: el ciclo discutir → reafirmar → seguir no produce evidencia. El ciclo afirmar → condición → ejecutar sí (el `echo $?` de `n0/m5` otra vez).
+- **Ignorar el detalle del REFUTADO**: el mensaje incluye las filas reales `[["a","1"],["b"]]`. Ese detalle es tu punto de partida para corregir; no lo sustituyas por un «falla por algo».
+- **Condiciones frágiles por formato**: atar la comprobación a espacios o a orden de claves la hace fallar por cosmética. Verifica el comportamiento, no la puntuación.
+
+## Fuentes
+
+- [martinfowler.com: The Practical Test Pyramid](https://martinfowler.com/articles/practical-test-pyramid.html) — consultado el 2026-10-21.
+- [arXiv:2202.03629 — A Survey of Hallucination in Natural Language Generation](https://arxiv.org/abs/2202.03629) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l06 «Nota técnica con fuentes»](/curriculo/n1/m1/l06-nota-tecnica-con-fuentes/) — el entregable del módulo: tus afirmaciones, tus condiciones y tus fuentes con fecha, en un documento que otro puede revisar.
+- Proyecto longitudinal: en `n0/m5` el diff era la conversación de revisión; aquí la condición ejecutable es la conversación con un modelo.

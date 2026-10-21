@@ -1,0 +1,232 @@
+---
+titulo: "Nota técnica con fuentes"
+resumen: "El entregable de n1/m1 es una nota técnica que otro puede revisar sin ti: pregunta, respuesta corta, afirmaciones numeradas, evidencia ejecutada y fuentes con URL y fecha de consulta. Escribes la tuya y la validas con un comprobador ejecutable."
+nivel: "n1"
+modulo: "m1"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Estructurar una nota técnica: pregunta, respuesta, afirmaciones, evidencia y fuentes"
+  - "Citar fuentes con URL y fecha de consulta, y verificar que responden antes de citarlas"
+  - "Sustentar cada afirmación con evidencia ejecutada y su entorno"
+  - "Validar el entregable con comprobar-nota.js y corregir lo que señale"
+prerrequisitos:
+  - "n1/m1/l05-la-verificacion-es-tu-limite"
+actualizado: "2026-10-21"
+tags:
+  - "entregable"
+  - "nota-tecnica"
+  - "fuentes"
+  - "citacion"
+  - "evidencia"
+fuentes:
+  - titulo: "Purdue OWL: APA — General Format (citar fuentes con fecha de consulta)"
+    url: "https://owl.purdue.edu/owl/research_and_citation/apa_style/apa_formatting_and_style_guide/general_format.html"
+    fecha: "2026-10-21"
+  - titulo: "RFC 2119: Key words for use in RFCs to Indicate Requirement Levels"
+    url: "https://www.rfc-editor.org/rfc/rfc2119"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La nota técnica es el entregable de `n1/m1`: un documento breve que permite a otro (o a ti en un mes) **revisar tus afirmaciones sin repetir tu conversación**. Su estructura es fija: una pregunta, una respuesta corta, afirmaciones numeradas, evidencia con salida real y fuentes con URL y fecha de consulta. Dos reglas la sostienen: cada afirmación importante va acompañada de su comprobación (l05), y toda fuente se cita con la fecha en que la miraste — porque una página puede cambiar. La validas con `ejemplos/comprobar-nota.js`, que devuelve `0` cuando nada queda sin anclar y `1` con la lista exacta de lo que falta.
+
+## Conceptos
+
+### La anatomía de la nota
+
+Cinco secciones, ni una más:
+
+- **Pregunta** — la duda concreta que la nota resuelve. Si no cabe en una pregunta, no es una nota: es un ensayo.
+- **Respuesta corta** — la respuesta en 3–5 líneas, antes que el desarrollo (quien revisa decide en esa pantalla si sigue).
+- **Afirmaciones** — los claims numerados (1, 2, 3…) que sostienen la respuesta. Aquí se aplica la lupa de l05: cada una debe ser falsable.
+- **Evidencia** — el comando que ejecutaste y su salida real, con entorno (versión de Node, fecha). Es lo que convierte tu respuesta en algo revisable.
+- **Fuentes** — `[Título](URL) — consultado el AAAA-MM-DD` por cada apoyo externo.
+
+Una nota con este formato ya circuló en esta lección como ejemplo: `ejemplos/nota-ejemplo.md`. Y `ejemplos/comprobar-nota.js` la valida sin piedad:
+
+```sh
+node comprobar-nota.js nota-ejemplo.md
+echo $?
+```
+
+Salida real (Node v24.22.0, 2026-10-21):
+
+```text
+NOTA VÁLIDA — nota-ejemplo.md
+  afirmaciones: 3
+  fuentes con URL y fecha de consulta: 2
+codigo=0
+```
+
+### Citar con fecha de consulta, y verificar antes de citar
+
+Una URL no es una cita estable: el contenido cambia, la página desaparece, el precio se actualiza. Por eso toda fuente lleva **fecha de consulta** — es la práctica estándar de citación (el manual del Purdue OWL la recoge como parte de la referencia; consultado el 2026-10-21). Añade un paso que la fecha implica: **verifica que la fuente responde antes de citarla**. El mismo `curl` que usamos para comprobar las fuentes de este módulo:
+
+```sh
+for u in "https://jalammar.github.io/illustrated-gpt2/" "https://platform.openai.com/docs/models"; do
+  code=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 20 "$u")
+  echo "$code  $u"
+done
+```
+
+Salida real (2026-10-21):
+
+```text
+200  https://jalammar.github.io/illustrated-gpt2/
+200  https://platform.openai.com/docs/models
+```
+
+Un `200` no garantiza que la página diga lo que le atribuyes — eso es lectura tuya — pero un `404` o un `403` sí te dice que esa fuente, tal cual la citaste, no la podrá abrir quien te revise. Una cita que no se puede abrir no es una cita.
+
+### Afirmaciones precisas, evidencia con entorno
+
+RFC 2119 estandariza palabras clave (`MUST`, `SHOULD`, `MAY`) precisamente porque la ambigüedad en un texto técnico se paga en implementaciones contradictorias (consultado el 2026-10-21). Tu nota no usa esas palabras, pero sí su lección: **escribe cada afirmación al nivel de precisión que puedes verificar**. «El esquema ocupa 1867 tokens con este tokenizador» es verificable; «el esquema es ligero» no lo es. Y acompaña la evidencia de su entorno — versión y fecha — como hacían las salidas de las lecciones de `n0`: sin entorno, una salida no se puede reproducir.
+
+Ese es el puente con todo el módulo: l01 te dio la unidad (token), l02 el motivo de la duda (plausibilidad sin verificación), l03 el límite (ventana y coste), l04 el sesgo (sensibilidad al contexto) y l05 el método (condiciones). La nota es donde esos cinco cabos se atan en un entregable.
+
+### Qué hace el comprobador — y qué no
+
+`comprobar-nota.js` comprueba **estructura**: las cinco secciones, al menos tres afirmaciones numeradas, y por cada fuente una URL `http(s)` y una fecha con formato `AAAA-MM-DD`. Falla en rojo listando exactamente qué falta:
+
+```sh
+node comprobar-nota.js mi-nota-sin-fechas.md
+echo $?
+```
+
+Salida real (2026-10-21), nota con las fechas borradas:
+
+```text
+NOTA NO VÁLIDA — 2 problema(s) en mi-nota-sin-fechas.md:
+  - fuente sin fecha de consulta (AAAA-MM-DD): - [OpenAI Docs: Models](https://platform.openai.com/docs/models)
+  - fuente sin fecha de consulta (AAAA-MM-DD): - [Anthropic Docs: Models overview](https://docs.anthropic.com/en/docs/about-claude/models/overview)
+codigo=1
+```
+
+No valida el contenido: no sabe si tus fuentes dicen lo que les atribuyes ni si tu evidencia es representativa. Esa parte es **tu** trabajo de revisión (y la de quien te revise). El comprobador solo garantiza una cosa, que es la que más se olvida: que nada quede **sin anclar**.
+
+## Ejercicio
+
+Escribe tu propia nota técnica sobre una afirmación del módulo, valida que es estructuralmente correcta y comprueba que la detección funciona borrando una fecha.
+
+````sh
+mkdir taller && cd taller
+cp ../ejemplos/comprobar-nota.js .
+cat > mi-nota.md <<'EOF'
+# ¿Cuánto contexto consume el esquema del proyecto?
+
+## Pregunta
+
+¿Cuántos tokens ocupa `src/lib/schemas.ts` y qué parte de una ventana consume?
+
+## Respuesta corta
+
+El esquema ocupa 1867 tokens con el tokenizador mínimo del módulo: el 23,3 %
+de una ventana de 8000. Medir antes de pegar archivos evita desbordar el
+contexto por ignorancia.
+
+## Afirmaciones
+
+1. Contar tokens de un fichero es inmediato con el tokenizador del módulo.
+2. El esquema del proyecto cabe con holgura en una ventana de 8000 tokens.
+3. Repetir el mismo fichero cuatro veces ya consumiría más de la mitad.
+
+## Evidencia
+
+```text
+$ node medir-archivo.js
+archivo: muestra.ts → 154 líneas
+tokens medidos: 1867
+ocuparía el 23.3% de una ventana de 8000 tokens
+```
+
+## Fuentes
+
+- [OpenAI Docs: Models](https://platform.openai.com/docs/models) — consultado el 2026-10-21
+- [Anthropic Docs: Models overview](https://docs.anthropic.com/en/docs/about-claude/models/overview) — consultado el 2026-10-21
+EOF
+node comprobar-nota.js mi-nota.md
+echo "codigo=$?"
+sed 's/ — consultado el 2026-10-21$//' mi-nota.md > mi-nota-sin-fechas.md
+node comprobar-nota.js mi-nota-sin-fechas.md
+echo "codigo=$?"
+````
+
+Esto se cumple cuando:
+
+- `mi-nota.md` devuelve `NOTA VÁLIDA — …` con `afirmaciones: 3` y `fuentes con URL y fecha de consulta: 2`, y `codigo=0`;
+- `mi-nota-sin-fechas.md` devuelve `codigo=1` con dos líneas `fuente sin fecha de consulta`;
+- la evidencia de tu nota es una salida que **tú** ejecutaste (no copiada de esta lección), con su entorno;
+- cada afirmación de tu nota es traducible a una condición (l05).
+
+Pista: usa la salida real de `medir-archivo.js` del ejercicio de l03 si ya lo hiciste; si no, ejecuta `tokenizar.js` sobre un texto tuyo y cita esa medida.
+
+## Solución explicada
+
+La secuencia de arriba, en el directorio `taller/` que crea el propio ejercicio (borrado tras la ejecución). Salida real (2026-10-21):
+
+```text
+NOTA VÁLIDA — mi-nota.md
+  afirmaciones: 3
+  fuentes con URL y fecha de consulta: 2
+codigo=0
+---
+NOTA NO VÁLIDA — 2 problema(s) en mi-nota-sin-fechas.md:
+  - fuente sin fecha de consulta (AAAA-MM-DD): - [OpenAI Docs: Models](https://platform.openai.com/docs/models)
+  - fuente sin fecha de consulta (AAAA-MM-DD): - [Anthropic Docs: Models overview](https://docs.anthropic.com/en/docs/about-claude/models/overview)
+codigo=1
+```
+
+Por qué funciona: el comprobador parsea lo mínimo — secciones por presencia, afirmaciones por numeración (`^\d+\.`), fuentes por su línea `- [..](..) — consultado el ..`. Al quitar la fecha con `sed`, las líneas de fuente siguen existiendo pero pierden el sufijo requerido, así que el veredicto cambia de `0` a `1` sin tocar nada más. Es el mismo contrato que `comprobar-claim.js` imponía a `parsearFilas`: estructura mínima, fallo explícito, código de salida que manda.
+
+Errores típicos al resolverlo:
+
+- **Pegar la evidencia de la lección en vez de la tuya**: la nota deja de ser tuya y no podrías repetir la medida ante un revisor. Ejecuta y copia tu salida.
+- **Citar sin consultar**: una fuente «que seguro que lo dice» sin fecha y sin `200` es exactamente lo que el comprobador (y tu reputación) no debería dejar pasar.
+- **Afirmaciones sin condición**: «cabe con holgura» está bien si tu nota puede decir _cómo_ lo comprobarías (tokens ÷ 8000). Si no, vuelve a l05 y afina.
+- **Romper el formato del heredoc**: los acentos y las comillas del `cat > … <<'EOF'` son seguros por las comillas simples del delimitador; si tu terminal corrompe tildes, escribe el fichero con el editor.
+
+## Cómo verificarlo
+
+1. Escribe tu nota en el taller y lanza el comprobador (comandos del ejercicio):
+
+   ```sh
+   node comprobar-nota.js mi-nota.md
+   echo $?
+   ```
+
+   Esperado: `NOTA VÁLIDA`, `afirmaciones: 3`, `fuentes con URL y fecha de consulta: 2` y `0`.
+
+2. Comprueba la detección de errores:
+
+   ```sh
+   node comprobar-nota.js mi-nota-sin-fechas.md
+   echo $?
+   ```
+
+   Esperado: `NOTA NO VÁLIDA` con las dos líneas `fuente sin fecha de consulta` y `1`.
+
+3. Verifica que tus fuentes responden (el `for … curl` de «Conceptos»): todas deben imprimir `200`.
+
+4. Archiva en tu trabajo las tres salidas y el fichero `mi-nota.md`: esa nota es el **entregable del módulo** — con su fecha, sus afirmaciones y sus fuentes — listo para que otro lo revise sin ti.
+
+## Errores comunes
+
+- **Fecha de publicación en vez de fecha de consulta**: lo que importa es cuándo la miraste tú; el artículo puede ser de hace años y seguir siendo la referencia.
+- **Fuentes sin `200`**: `403`/`404` significa que quien te revise no podrá abrirla. Cambia de URL o de fuente — no la cites «de memoria».
+- **Una sola fuente para todo**: si tres afirmaciones se apoyan en un único enlace, una retirada se lleva la nota entera. Diversifica y apóyate en tu propia evidencia ejecutada.
+- **Que el comprobador sea el único revisor**: valida estructura, no verdad. Distinguir una cosa de la otra es, literalmente, el tema del módulo.
+- **Olvidar el entorno en la evidencia**: «tokens medidos: 1867» sin decir con qué tokenizador y cuándo no se puede reproducir.
+
+## Fuentes
+
+- [Purdue OWL: APA — General Format](https://owl.purdue.edu/owl/research_and_citation/apa_style/apa_formatting_and_style_guide/general_format.html) — consultado el 2026-10-21.
+- [RFC 2119: Key words for use in RFCs to Indicate Requirement Levels](https://www.rfc-editor.org/rfc/rfc2119) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: entrega tu `mi-nota.md` como entregable de `n1/m1` y pide una revisión — el ciclo rama → revisión → fusión de `n0/m5` aplica igual a documentos.
+- Siguiente módulo: [n1/m2 «Tareas pequeñas: instrucciones y contexto mínimo»](/curriculo/n1/m2/) — con los límites mapeados, aprendes a formular tareas que el asistente resuelve de forma verificable.

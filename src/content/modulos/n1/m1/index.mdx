@@ -5,5 +5,24 @@ modulo: "m1"
 objetivos:
   - "Explicar qué es un modelo de lenguaje, su contexto y sus límites, con fuentes"
 entregable: "Nota técnica con fuentes citadas y fecha"
-actualizado: "2026-10-19"
+actualizado: "2026-10-21"
 ---
+
+## Para quién es este módulo
+
+Puerta de entrada al nivel `n1`: ya sabes programar, probar y versionar (`n0` entero), y ahora vas a trabajar **con** un asistente sin ceder en verificación. Aquí entiendes qué es exactamente un modelo de lenguaje: predicción de tokens (l01), conocimiento congelado y alucinación como fallo ejecutable (l02), ventana de contexto finita, con coste y desbordamiento (l03), sensibilidad de la respuesta al contexto (l04), la verificación como único límite que controlas (l05) y, como entregable, una nota técnica con fuentes citadas y fecha (l06). Público objetivo: quien cierra `n0/m5` con su flujo rama → revisión → fusión. Duración estimada: de 5 a 6 horas repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas la **nota técnica con fuentes citadas y fecha**: pregunta, respuesta corta, afirmaciones numeradas, evidencia ejecutada con su entorno y fuentes con URL y fecha de consulta, validada con `ejemplos/comprobar-nota.js` (código `0`). La carpeta `ejemplos/` reúne **6 scripts verdes** con solo librería estándar — tokenizador, alucinación de juguete, ventana de contexto, coste por turno, sensibilidad al contexto y comprobador de la nota — más **3 rojos deliberados**: la API inventada (`TypeError`, código `1`), la ventana excedida (código `1`) y el claim refutado (código `1`). Todo se ejecuta offline, sin dependencias ni claves de API: la verificabilidad del módulo no depende de ningún proveedor en vivo.
+
+## Lecciones
+
+| #   | Lección                                                                                                | Tiempo |
+| --- | ------------------------------------------------------------------------------------------------------ | ------ |
+| 1   | [Modelos de lenguaje: predicción de tokens](/curriculo/n1/m1/l01-modelos-de-lenguaje-como-prediccion/) | 45 min |
+| 2   | [Los límites del entrenamiento](/curriculo/n1/m1/l02-los-limites-del-entrenamiento/)                   | 50 min |
+| 3   | [La ventana de contexto](/curriculo/n1/m1/l03-la-ventana-de-contexto/)                                 | 55 min |
+| 4   | [Contexto y sensibilidad](/curriculo/n1/m1/l04-contexto-y-sensibilidad/)                               | 50 min |
+| 5   | [La verificación es tu límite](/curriculo/n1/m1/l05-la-verificacion-es-tu-limite/)                     | 55 min |
+| 6   | [Entregable: nota técnica con fuentes](/curriculo/n1/m1/l06-nota-tecnica-con-fuentes/)                 | 60 min |

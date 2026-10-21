@@ -1,0 +1,185 @@
+---
+titulo: "Contexto y sensibilidad"
+resumen: "La respuesta no depende solo de la pregunta: depende de todo lo que la rodea en la ventana. Demuestras con un modelo determinista que cambiar una sola línea del contexto cambia la respuesta, y aprendes a componer contexto en lugar de sufrirlo."
+nivel: "n1"
+modulo: "m1"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Explicar por qué la respuesta depende del contexto completo y no solo de la pregunta"
+  - "Demostrar con un ejemplo ejecutable que una línea de contexto cambia la respuesta"
+  - "Reconocer instrucciones contradictorias y sesgos heredados del contexto"
+  - "Componer contexto mínimo, ordenado y sin contradicciones para una tarea"
+prerrequisitos:
+  - "n1/m1/l03-la-ventana-de-contexto"
+actualizado: "2026-10-21"
+tags:
+  - "contexto"
+  - "sensibilidad"
+  - "prompting"
+  - "instrucciones"
+  - "orden"
+fuentes:
+  - titulo: "OpenAI Docs: Prompt engineering guide"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-21"
+  - titulo: "Anthropic Docs: Prompting Claude"
+    url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/prompting-claude"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La respuesta del modelo es función de **toda la ventana**: instrucciones, ejemplos, código cercano, notas heredadas y el orden en que aparecen. Por eso la misma pregunta con distinto contexto produce respuestas distintas, y por eso instrucciones contradictorias producen respuestas incoherentes. No es ruido aleatorio: es dependencia del contexto, y se demuestra — `ejemplos/sensibilidad-contexto.js` mantiene la pregunta idéntica y cambia **una sola línea** de contexto para voltear la respuesta. La consecuencia práctica: componer el contexto mínimo y ordenado para la tarea es parte del trabajo, no un extra.
+
+## Conceptos
+
+### Todo el contexto es entrada
+
+En l01 viste que el modelo predice el siguiente token condicionado por **todos** los tokens anteriores. Eso significa que no hay una «parte de la pregunta» y otra «parte de relleno»: cualquier fragmento de la ventana — un comentario de archivo, un `import` de otro módulo, la frase de una lección anterior — desplaza la distribución del siguiente token. Los guías de prompt engineering de OpenAI y de Anthropic lo recogen como recomendación operativa: el contexto debe ser relevante, consistente y estar bien ordenado (fuentes consultadas el 2026-10-21).
+
+`ejemplos/sensibilidad-contexto.js` aísla la propiedad con un «modelo» de juguete **determinista y sin red**: puntúa tres opciones según las pistas que aparecen en el contexto. No reproduce la genialidad de un modelo real; reproduce exactamente lo que queremos aislar — _la respuesta cambia cuando cambia el contexto, con la pregunta intacta_:
+
+```sh
+node sensibilidad-contexto.js
+```
+
+Salida real (Node v24.22.0, 2026-10-21):
+
+```text
+contexto A (lee un archivo)
+  pregunta: ¿Qué módulo debo usar aquí?
+  respuesta: fs/promises
+  pistas que la sostienen: [{"nombre":"fs/promises","puntos":2},{"nombre":"JSON","puntos":1},{"nombre":"HTTP","puntos":0}]
+
+contexto B (hace una petición)
+  pregunta: ¿Qué módulo debo usar aquí?
+  respuesta: HTTP
+  pistas que la sostienen: [{"nombre":"HTTP","puntos":1},{"nombre":"JSON","puntos":0},{"nombre":"fs/promises","puntos":0}]
+
+contexto C (sesgo del equipo: JSON)
+  pregunta: ¿Qué módulo debo usar aquí?
+  respuesta: JSON
+  pistas que la sostienen: [{"nombre":"JSON","puntos":2},{"nombre":"HTTP","puntos":0},{"nombre":"fs/promises","puntos":0}]
+```
+
+La pregunta es literalmente idéntica en los tres casos (`¿Qué módulo debo usar aquí?`) y hay tres respuestas distintas: `fs/promises`, `HTTP` y `JSON`. En C, una nota sobre costumbres del equipo — ni siquiera sobre la tarea — decide la respuesta.
+
+### Una línea basta para voltear la respuesta
+
+El ejercicio de esta lección cambia **solo la nota del equipo** en el contexto C (de «usa JSON» a «se lee de ficheros planos del disco») y observa el resultado. Salida real (2026-10-21), tras el cambio de una línea:
+
+```text
+contexto C (sesgo del equipo: ficheros)
+  pregunta: ¿Qué módulo debo usar aquí?
+  respuesta: fs/promises
+  pistas que la sostienen: [{"nombre":"fs/promises","puntos":2},{"nombre":"JSON","puntos":1},{"nombre":"HTTP","puntos":0}]
+```
+
+La respuesta de C pasó de `JSON` a `fs/promises` sin tocar la pregunta. Este es el mecanismo detrás de tres fenómenos del día a día: (1) **sesgos heredados** — un comentario viejo en el archivo sigue votando; (2) **contradicciones** — si la nota del equipo y la tarea dicen cosas distintas, el contexto contiene votos enfrentados y la respuesta oscila; (3) **sensibilidad al orden** — lo que aparece cerca de la pregunta pesa más que lo que quedó al borde de la ventana.
+
+### Orden, consistencia y mínimo
+
+De la sensibilidad salen tres reglas de composición, todas coherentes con los guías oficiales de referencia:
+
+- **Mínimo**: solo el contexto que resuelve la tarea (regla de coste de l03) — cada archivo de más es un voto añadido.
+- **Consistente**: una sola instrucción por tema; si el `README`, el código y la tarea dicen lo mismo, los votos suman en la misma dirección.
+- **Ordenado**: instrucciones de tarea al principio y al final (lo que se lee cerca de la respuesta), datos en medio; versiones viejas fuera.
+
+La sensibilidad no es un defecto que «se va a arreglar»: es la consecuencia directa de que el modelo predice condicionado por todo. Quien compone contexto está afinando la condición de la predicción.
+
+## Ejercicio
+
+Cambia **una sola línea** del contexto C de `sensibilidad-contexto.js` y observa cómo su respuesta deja de ser `JSON`.
+
+```sh
+mkdir taller && cd taller
+cp ../ejemplos/sensibilidad-contexto.js .
+python3 - sensibilidad-contexto.js <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+s = s.replace(
+    '["C (sesgo del equipo: JSON)", contextoC]',
+    '["C (sesgo del equipo: ficheros)", contextoC]')
+s = s.replace(
+    "// Nota del equipo: en este repositorio todo lo que toca datos usa JSON.\n// Conviene mantener el mismo criterio en el nuevo código.",
+    "// Nota del equipo: en este repositorio todo lo que toca datos se lee de\n// ficheros planos del disco. Conviene mantener el mismo criterio.")
+open(p, "w", encoding="utf-8").write(s)
+PY
+node sensibilidad-contexto.js
+```
+
+Esto se cumple cuando:
+
+- A siguen respondiendo `fs/promises` y B `HTTP` (la pregunta no ha cambiado);
+- C pasa de `JSON` a `fs/promises` con **solo** esa línea de nota modificada;
+- las pistas de C muestran `fs/promises` con más puntos que `JSON`;
+- puedes nombrar qué voto del contexto se añadió y cuál perdió.
+
+Pista: si no tienes `python3`, abre `sensibilidad-contexto.js` en tu editor y cambia a mano esas dos líneas — el efecto es el mismo y no altera el resto del script.
+
+## Solución explicada
+
+La secuencia de arriba, en el directorio `taller/` que crea el propio ejercicio (borrado tras la ejecución). Salida real (2026-10-21):
+
+```text
+contexto A (lee un archivo)
+  respuesta: fs/promises
+contexto B (hace una petición)
+  respuesta: HTTP
+contexto C (sesgo del equipo: ficheros)
+  respuesta: fs/promises
+  pistas que la sostienen: [{"nombre":"fs/promises","puntos":2},{"nombre":"JSON","puntos":1},{"nombre":"HTTP","puntos":0}]
+```
+
+Por qué funciona: el «modelo» del ejemplo puntúa cada opción sumando las palabras-clave presentes en el contexto. La nota nueva introduce `ficheros` y `disco` (pistas de `fs/promises`) y retira `JSON`; con eso, `fs/promises` gana 2 a 1. El mecanismo es grosero a propósito: basta _cualquier_ dependencia del contexto para que la propiedad sea demostrable, y así lo es sin red, sin claves y de forma reproducible.
+
+Errores típicos al resolverlo:
+
+- **Cambiar también la pregunta**: el punto del ejercicio se pierde si tocas más de la nota. Si la pregunta varía, ya no estás midiendo sensibilidad al contexto.
+- **Olvidar el rótulo del contexto**: el `["C (sesgo del equipo: JSON)", contextoC]` sigue diciendo «JSON» y la salida queda contradictoria. El rótulo es parte de la demo.
+- **Esperar que el modelo real «se corrija solo»**: en el modelo real no hay puntajes transparentes; por eso el ejemplo usa un modelo de juguete — para que la propiedad sea observable con certeza. Con un modelo real, la comprobación equivalente es pedir la misma pregunta con tres contextos y comparar.
+
+## Cómo verificarlo
+
+1. Copia el ejemplo y aplica el cambio de una línea (comandos del ejercicio).
+
+2. Ejecuta la demo modificada:
+
+   ```sh
+   node sensibilidad-contexto.js
+   echo $?
+   ```
+
+   Esperado: código `0`; A → `fs/promises`, B → `HTTP`, C → `fs/promises` con la nota de ficheros.
+
+3. Compara con la versión original del módulo (sin modificar):
+
+   ```sh
+   node ../ejemplos/sensibilidad-contexto.js
+   ```
+
+   Esperado: C → `JSON`. Las dos salidas, lado a lado, son la demostración: misma pregunta, distinto contexto, distinta respuesta.
+
+4. Registra ambas salidas en tu trabajo: la línea que cambiaste, la respuesta antes y la después.
+
+## Errores comunes
+
+- **Atribuir la variación a «el modelo es aleatorio»**: puede haber azar en modelos reales, pero aquí no lo hay — el ejemplo es determinista. La propiedad demostrada es dependencia del contexto, que existe aunque la temperatura sea 0.
+- **Mezclar contexto de tareas distintas**: pegar en un turno código de otra tarea importa sus pistas. Un archivo de otra parte del proyecto es un contexto que vota.
+- **Instrucciones duplicadas o contradictorias**: repetir la misma regla en tres sitios no la refuerza; si dos reglas chocan, estás creando exactamente el escenario del contexto C modificado.
+- **Dejar comentarios obsoletos que votan**: «aquí no usamos X» escrito hace dos versiones sigue en la ventana. Revisa el contexto como revisas el diff (n0/m5).
+- **Confundir sensibilidad con fragilidad del dato**: si un cambio de contexto altera tu resultado, el resultado no estaba anclado a evidencia — vuelve a l05 cuando lo tengas.
+
+## Fuentes
+
+- [OpenAI Docs: Prompt engineering guide](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-21.
+- [Anthropic Docs: Prompting Claude](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/prompting-claude) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l05 «La verificación es tu límite»](/curriculo/n1/m1/l05-la-verificacion-es-tu-limite/) — con los límites del modelo sobre la mesa, el único mecanismo que tienes a tu favor: traducir afirmaciones en comprobaciones.
+- Proyecto longitudinal: la regla de contexto mínimo completa la de `n0/m5` — revisa antes de fusionar **y** manda antes de consumir.

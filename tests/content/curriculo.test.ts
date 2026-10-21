@@ -212,11 +212,36 @@ describe("colección de lecciones", () => {
     }
   });
 
+  /**
+   * Cuerpo de una lección sin sus bloques de código cercados: las secciones de
+   * la plantilla (§6) son secciones del documento, no encabezados `## …` que
+   * aparezcan dentro de un ejemplo copiable (p. ej. la plantilla de la nota
+   * técnica de n1/m1/l06). H11: decide sobre el documento, no sobre el código.
+   */
+  function sinBloquesDeCodigo(cuerpo: string): string {
+    const fuera: string[] = [];
+    let nivel = 0;
+    for (const linea of cuerpo.split("\n")) {
+      if (nivel === 0) {
+        const apertura = linea.match(/^(`{3,})(\S.*)?$/);
+        if (apertura) {
+          nivel = apertura[1].length;
+          continue;
+        }
+        fuera.push(linea);
+        continue;
+      }
+      const cierre = linea.match(/^(`{3,})\s*$/);
+      if (cierre && cierre[1].length >= nivel) nivel = 0;
+    }
+    return fuera.join("\n");
+  }
+
   it("toda lección declara al menos un ejercicio (sección «## Ejercicio») o es un laboratorio", () => {
     for (const ficha of fichasLeccion) {
       if (ficha.data.tipo === "laboratorio") continue;
       expect(
-        /^## Ejercicio$/m.test(ficha.cuerpo),
+        /^## Ejercicio$/m.test(sinBloquesDeCodigo(ficha.cuerpo)),
         `${ficha.rel}: falta la sección «## Ejercicio» y no es un laboratorio`,
       ).toBe(true);
     }
@@ -236,7 +261,7 @@ describe("colección de lecciones", () => {
     for (const ficha of fichasLeccion) {
       if (ficha.data.tipo !== "leccion") continue;
       const posiciones = secciones.map((seccion) =>
-        ficha.cuerpo.search(new RegExp(`^## ${seccion}$`, "m")),
+        sinBloquesDeCodigo(ficha.cuerpo).search(new RegExp(`^## ${seccion}$`, "m")),
       );
       for (let i = 0; i < secciones.length; i++) {
         expect(
