@@ -1,0 +1,192 @@
+---
+titulo: "Aserciones con intención"
+resumen: "Una aserción es una afirmación sobre lo que debe ocurrir. Aquí aprendes a elegir entre las funciones de node:assert según lo que comparas, a escribir mensajes que expliquen el contrato y a ver qué queda en la salida cuando una aserción anónima falla —pura aritmética, sin contexto—."
+nivel: "n0"
+modulo: "m6"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Elegir la aserción adecuada: estricta, profunda, de excepción y de texto"
+  - "Escribir mensajes de aserción que declaran el contrato, no repiten el código"
+  - "Leer un AssertionError con actual y expected para localizar el desajuste"
+  - "Explicar por qué se usa node:assert/strict y no la aserción laxa"
+prerrequisitos:
+  - "n0/m6/l01-que-merece-la-pena-probar"
+actualizado: "2026-10-21"
+tags:
+  - "aserciones"
+  - "assert"
+  - "node"
+fuentes:
+  - titulo: "assert | Node.js"
+    url: "https://nodejs.org/api/assert.html"
+    fecha: "2026-10-21"
+  - titulo: "errors | Node.js"
+    url: "https://nodejs.org/api/errors.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una **aserción** es una afirmación ejecutable: «esto es verdad, y si no lo es, detente». En Node se escribe con `node:assert/strict`, que compara sin coerción de tipos. Elige la función según lo que afirmas: `strictEqual` para valores, `deepStrictEqual` para estructuras, `throws` para contratos de error y `match` para la forma de un texto. Añade siempre un **mensaje** que diga qué contrato se rompió: es lo único que leerá la persona —o el agente— cuando la prueba falle.
+
+## Conceptos
+
+### La aserción es un contrato, no una comprobación
+
+Desde `n0/m1/l04` usas `assert` dentro de pruebas. La diferencia de este módulo es el **criterio**: una aserción bien escrita declara la intención del negocio (`"el carrito debe conservar los dos artículos"`), no la aritmética del código (`length === 2`). Cuando alguien —o un asistente— rompa ese contrato en el futuro, el mensaje de la aserción es el primer y a menudo único indicio de qué se pretendía.
+
+### Cuatro aserciones, cuatro intenciones
+
+El ejemplo del módulo, `ejemplos/aserciones-intencion.js`, recorre las cuatro familias sobre el mismo carrito. Salida real con Node v24.22.0 el 2026-10-21:
+
+```text
+4 aserciones en verde: estricta, profunda, excepción y texto
+```
+
+Por dentro hace esto:
+
+```js
+import assert from "node:assert/strict";
+
+assert.strictEqual(carrito.length, 2, "el carrito debe conservar los dos artículos");
+assert.deepStrictEqual(
+  carrito[0],
+  { nombre: "teclado", precio: 45 },
+  "el primer artículo se guarda entero",
+);
+assert.throws(
+  () => carrito.at(99).precio,
+  TypeError,
+  "acceder a un artículo inexistente debe lanzar TypeError",
+);
+assert.match(carrito[1].nombre, /^rat/, "el segundo artículo empieza por «rat»");
+```
+
+- `strictEqual(a, b)` — comparación **estrecha**: mismo valor y mismo tipo. Sin la coerción de `==` que hace `"5" == 5` verdadero.
+- `deepStrictEqual(a, b)` — comparación **profunda**: recorre objetos y arrays campo a campo. `deepEqual` (laxa) acepta `1 == "1"` dentro; por eso solo se usa `/strict`.
+- `throws(fn, Tipo)` — afirma que la función **lanza**, y de ese tipo. Es la única forma honesta de probar un caso de error (l01).
+- `match(texto, /patrón/)` — afirma la **forma** del texto sin acoplar el valor entero.
+
+### Qué queda cuando una aserción anónima falla
+
+El rojo deliberado `ejemplos/errores/asercion-sin-mensaje.js` compara el total de una factura sin mensaje y sin contrato:
+
+```js
+const base = 450;
+const totalConIva = base;
+assert.strictEqual(totalConIva, 544.5);
+```
+
+Salida real —stderr, código `1`— con Node v24.22.0:
+
+```text
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  actual: 450,
+  expected: 544.5,
+```
+
+El `AssertionError` te da **actual** y **expected**: eso ya es mucho. Pero no te dice _por qué_ 544,5 era lo esperado —¿IVA del 21 %? ¿recargo? ¿redondeo?—. Un mensaje convierte esa cifra en contrato: `"el total con IVA del 21 % sobre 450 € debe ser 544,5"`. Nota también `ERR_ASSERTION` en la clase: es el código que `node --test` agrupa como fallo de aserción, distinto de un `TypeError` real de tu programa (l05).
+
+### El módulo `node:assert/strict`
+
+Se importa siempre en su **variante estricta**: `import assert from "node:assert/strict"`. El módulo laxo (`node:assert`) sigue existiendo y `equal`/`deepEqual` aplican coerción; en pruebas, esa complacencia oculta bugs de tipo. Con `/strict`, `strictEqual` es la aserción por defecto y la comparación laxa no entra en tu vocabulario.
+
+## Ejercicio
+
+Crea `ejercicios/total-factura.js`: una función `totalFactura(lineas)` que suma `precio × cantidad` de cada línea y aplica un 21 % de IVA redondeando a dos decimales. Escribe después una batería con **las cuatro familias** de aserción: un valor estricto, una estructura profunda (la factura completa), un caso de error con `throws` y un texto con `match` sobre el concepto de una línea.
+
+Esto se cumple cuando:
+
+- la aserción profunda compara la factura entera —líneas e importe— y no solo su total;
+- `throws` comprueba que una línea sin `precio` lanza `TypeError`, no que «cualquier error» ocurra;
+- el `match` afirma algo real del dato —p. ej. que el concepto empieza por mayúscula o contiene «IVA»—, no un patrón que pase con todo;
+- cada aserción lleva mensaje de contrato, y ejecutar el script termina en verde con código `0`.
+
+Pista: copia la estructura de `ejemplos/aserciones-intencion.js` y sustituye el carrito por tu factura.
+
+## Solución explicada
+
+Implementación posible:
+
+```js
+export function totalFactura(lineas) {
+  const base = lineas.reduce((suma, linea) => {
+    if (typeof linea.precio !== "number")
+      throw new TypeError("cada línea necesita un precio numérico");
+    return suma + linea.precio * linea.cantidad;
+  }, 0);
+  return Math.round(base * 1.21 * 100) / 100;
+}
+```
+
+Y la batería con las cuatro familias:
+
+```js
+import assert from "node:assert/strict";
+import { totalFactura } from "./factura.js";
+
+const factura = { lineas: [{ concepto: "Curso de Git", precio: 40, cantidad: 2 }] };
+
+assert.strictEqual(totalFactura(factura.lineas), 96.8, "80 € + 21 % de IVA = 96,8 €");
+assert.deepStrictEqual(
+  factura.lineas[0],
+  { concepto: "Curso de Git", precio: 40, cantidad: 2 },
+  "la línea se guarda entera",
+);
+assert.throws(
+  () => totalFactura([{ cantidad: 1 }]),
+  TypeError,
+  "una línea sin precio numérico debe rechazarse",
+);
+assert.match(factura.lineas[0].concepto, /^Curso/, "el concepto empieza por mayúscula");
+```
+
+Salida real medida el 2026-10-21 con Node v24.22.0:
+
+```text
+4 aserciones en verde: estricta, profunda, excepción y texto
+```
+
+El error típico al resolverlo: usar `deepStrictEqual` sobre el total en vez de sobre la estructura —prueba lo mismo que `strictEqual`—, o escribir `assert.ok(total === 96.8)`, que al fallar pierde el par `actual/expected` y deja solo «The expression evaluated to a falsy value». El segundo error: mensajes que repiten el código (`"total es 96.8"`); el mensaje debe expresar **por qué** es ese valor.
+
+## Cómo verificarlo
+
+1. Con tus dos ficheros —implementación y batería— en `ejercicios/`:
+
+   ```sh
+   node ejercicios/total-factura.js
+   echo $?
+   ```
+
+   Debes ver tu línea de resumen en verde y código `0`.
+
+2. Comprueba que tu `throws` es real: comenta el `throw TypeError` de la implementación y repite. La aserción de excepción debe fallar en rojo con «Missing expected exception» — señal de que tu batería protegía algo de verdad.
+
+3. Ejemplos del módulo, con sus salidas documentadas:
+
+   ```sh
+   node src/content/modulos/n0/m6/ejemplos/aserciones-intencion.js
+   node src/content/modulos/n0/m6/ejemplos/errores/asercion-sin-mensaje.js; echo $?
+   ```
+
+   El primero termina en verde con `4 aserciones…` y código `0`; el segundo en rojo con `AssertionError`, `actual: 450` y código `1`.
+
+## Errores comunes
+
+- **`assert.ok(a === b)`**. Pierde el detalle de comparación. Usa `strictEqual` y deja que el `AssertionError` muestre `actual` y `expected`.
+- **Aserciones laxas por costumbre**. `node:assert` (sin `/strict`) hace comparaciones que aceptan `1 == "1"`. Importa siempre `/strict`.
+- **Mensajes que narran la línea**. `"longitud es 2"` no aporta. Di el contrato: `"el carrito debe conservar los dos artículos"`.
+- **Probar excepciones con `try/catch` a mano**. `assert.throws` verifica tipo y existencia; el `try/catch` manual suele quedar en un flag que nadie comprueba.
+
+## Fuentes
+
+- [assert | Node.js](https://nodejs.org/api/assert.html) — consultado el 2026-10-21.
+- [errors | Node.js](https://nodejs.org/api/errors.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l03 «Estructura de una suite: describe, it y beforeEach»](/curriculo/n0/m6/l03-estructura-de-una-suite/): cómo agrupar aserciones en pruebas legibles y aisladas con el runner de Node.
+- Proyecto longitudinal: cada aserción con mensaje es un contrato que un agente podrá leer sin adivinar; en `n1/m1` verificaste afirmaciones de modelos, aquí blindas las tuyas.

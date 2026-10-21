@@ -91,7 +91,7 @@ Igual que en `n0/m4` (l07), una entrega sin nota es un código sin contexto. La 
 
 ### Esto cierra la parte «Git limpio» de `f1`
 
-La fase `f1` del proyecto longitudinal pide «aplicación sencilla, con tests y Git limpio», con criterio «tests verdes en local y CI mínimo». `n0/m4` entregó la aplicación con sus tests; `n0/m5` entrega la parte de **Git limpio**: historial por conceptos, revisión del diff, recuperación y flujo por ramas con respaldo en remoto. Con esto queda cerrada la parte «Git limpio»; la fase `f1` se cierra con el nivel `n0` completo, que aún tiene pendientes `n0/m6` (Pruebas y depuración) y `n0/m7` (Fundamentos web: HTML, CSS y HTTP). El «CI mínimo» se practica aquí con el remoto local; un pipeline de integración continua real es objeto de niveles posteriores.
+La fase `f1` del proyecto longitudinal pide «aplicación sencilla, con tests y Git limpio», con criterio «tests verdes en local y CI mínimo». `n0/m4` entregó la aplicación con sus tests; `n0/m5` entrega la parte de **Git limpio**: historial por conceptos, revisión del diff, recuperación y flujo por ramas con respaldo en remoto. Con esto queda cerrada la parte «Git limpio»; la fase `f1` se cierra con el nivel `n0` completo, que aún tiene pendiente `n0/m7` (Fundamentos web: HTML, CSS y HTTP) — `n0/m6` (Pruebas y depuración) ya está publicado—. El «CI mínimo» se practica aquí con el remoto local; un pipeline de integración continua real es objeto de niveles posteriores.
 
 ## Ejercicio
 
@@ -177,6 +177,6 @@ Errores típicos al resolverlo:
 
 - **Módulo completo.** Con l07 has recorrido `n0/m5` entero: historial como contrato (l01), revisión del diff (l02), recuperación de versiones (l03), remoto y flujo push/pull (l04), ramas por cambio (l05), revisión como conversación (l06) y el flujo completo (l07).
 - **Entrega del módulo**: la carpeta `ejemplos/` con 6 demos de Git (`.sh`), la suite `flujo-completo.test.js` con **7 pruebas `node --test` en verde**, 2 rojos deliberados (conflicto de fusión y push rechazado) y sus 2 rojos registrados en la batería de verificación del repositorio.
-- **Cierre de la parte «Git limpio» de `f1`**: con `n0/m4` entregaste la «aplicación con tests» y con `n0/m5` la parte «Git limpio»; la fase `f1` se cierra con el nivel `n0` completo (siguen `n0/m6` y `n0/m7`).
+- **Cierre de la parte «Git limpio» de `f1`**: con `n0/m4` entregaste la «aplicación con tests» y con `n0/m5` la parte «Git limpio»; la fase `f1` se cierra con el nivel `n0` completo (sigue `n0/m7` — `n0/m6` ya está publicado—).
 - Proyecto longitudinal: el flujo que practicaste aquí —rama, revisión, fusión y respaldo— es el mismo que sostiene el desarrollo asistido por IA en los niveles siguientes: los cambios del agente también pasan por rama, revisión del diff y fusión.
-- Siguiente nivel: [`n1/m1` «Cómo funcionan los modelos de código»](/curriculo/n1/m1/l01-modelos-de-lenguaje-como-prediccion/) — con la verificación ya instalada, toca entender qué es exactamente un modelo de lenguaje, su contexto y sus límites.
+- Siguiente módulo: [n0/m6 «Pruebas y depuración»](/curriculo/n0/m6/l01-que-merece-la-pena-probar/) — con el historial ya blindado, toca blindar el comportamiento: qué probar, cómo asercionar y cómo leer una traza completa. El nivel `n1` —que empieza por [`n1/m1` «Cómo funcionan los modelos de código»](/curriculo/n1/m1/l01-modelos-de-lenguaje-como-prediccion/)— llega tras cerrar `n0`.

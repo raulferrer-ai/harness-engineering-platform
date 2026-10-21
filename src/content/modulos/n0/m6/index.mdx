@@ -5,5 +5,25 @@ modulo: "m6"
 objetivos:
   - "Escribir aserciones, leer trazas de error y localizar fallos"
 entregable: "Suite de tests que falla a propósito y luego pasa"
-actualizado: "2026-10-19"
+actualizado: "2026-10-21"
 ---
+
+## Para quién es este módulo
+
+Continuación directa de `n0/m5`: tu proyecto ya está versionado con su flujo de rama → revisión → fusión. Aquí das el paso de **criterio sobre las pruebas**: ya sabes ejecutar `node --test` desde `n0/m1` y leer errores básicos desde `n0/m2`— este módulo lo eleva a método completo. Aprendes qué casos merece la pena probar y por qué las fronteras descubren más fallos que los valores centrales (l01), a asercionar con intención para que el error explique el contrato roto (l02), a estructurar suites aisladas con `describe`/`it`/`beforeEach` (l03), a ciclar rojo-verde antes de implementar (l04), a leer una traza completa hasta localizar tu primer frame sospechoso (l05), a eliminar la inestabilidad inyectando el reloj y el azar (l06) y a componer el entregable del módulo (l07). Público objetivo: quien tiene `n0/m1` a `n0/m5` a sus espaldas. Duración estimada: unas 6 horas repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas la **suite de tests que falla a propósito y luego pasa** (`ejemplos/`): 13 ficheros — la batería de fronteras, las cuatro familias de aserción, la suite aislada `descuento.test.js` (**6 pruebas `node --test` en verde**), la demostración del ciclo rojo-verde con sus dos códigos reales, el análisis de una traza de siete frames, el reloj y el azar inyectados con semilla, y la suite del entregable `presupuesto.test.js` (**8 pruebas en verde**) con su demostrador que corre **la misma suite** contra la versión con el bug de frontera — rojo `pass 7 / fail 1`, código de suite `1`— y contra la correcta — verde `pass 8 / fail 0`, código de suite `0`—. Cierre con **3 rojos deliberados** con su clase, mensaje y código reales: el `AssertionError` sin mensaje (`actual: 450, expected: 544.5`, código `1`), el estado compartido entre pruebas (`pass 1 / fail 1`, código `1`) y la traza perdida (`TypeError` con tres frames, código `1`). Este módulo, junto con `n0/m7`, cierra la fase `f1` del proyecto longitudinal.
+
+## Lecciones
+
+| #   | Lección                                                                                                                                   | Tiempo |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [Qué merece la pena probar](/curriculo/n0/m6/l01-que-merece-la-pena-probar/)                                                              | 45 min |
+| 2   | [Aserciones con intención](/curriculo/n0/m6/l02-aserciones-con-intencion/)                                                                | 45 min |
+| 3   | [Estructura de una suite: describe, it y beforeEach](/curriculo/n0/m6/l03-estructura-de-una-suite/)                                       | 50 min |
+| 4   | [El ciclo rojo-verde](/curriculo/n0/m6/l04-el-ciclo-rojo-verde/)                                                                          | 55 min |
+| 5   | [Leer la traza completa](/curriculo/n0/m6/l05-leer-la-traza-completa/)                                                                    | 55 min |
+| 6   | [Pruebas inestables: el reloj y el azar](/curriculo/n0/m6/l06-pruebas-inestables-el-reloj-y-el-azar/)                                     | 50 min |
+| 7   | [Entregable: una suite que falla a propósito y luego pasa](/curriculo/n0/m6/l07-entregable-una-suite-que-falla-a-proposito-y-luego-pasa/) | 60 min |

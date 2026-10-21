@@ -1,0 +1,167 @@
+---
+titulo: "Qué merece la pena probar"
+resumen: "No todo el código merece las mismas pruebas. Aprendes a elegir los casos: el camino feliz, las fronteras —justo dentro, justo fuera— y los errores de entrada, y a ejecutarlos como una batería que termina en verde o en rojo con código de salida."
+nivel: "n0"
+modulo: "m6"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Distinguir camino feliz, casos de frontera y casos de error"
+  - "Explicar por qué las fronteras descubren más fallos que los valores centrales"
+  - "Escribir una tabla de casos con entrada, resultado esperado y descripción"
+  - "Ejecutar una batería de casos y leer su resumen de verdes y rojos"
+prerrequisitos:
+  - "n0/m5/l07-flujo-completo-rama-revision-fusion"
+actualizado: "2026-10-21"
+tags:
+  - "pruebas"
+  - "casos-limite"
+  - "calidad"
+fuentes:
+  - titulo: "The Practical Test Pyramid | Martin Fowler"
+    url: "https://martinfowler.com/articles/practical-test-pyramid.html"
+    fecha: "2026-10-21"
+  - titulo: "test runner | Node.js"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Probar solo el caso normal descubre pocos fallos. Divide los casos en tres familias: **camino feliz** (entrada normal), **frontera** (el valor justo de un lado y justo del otro del límite) y **error** (entrada inválida que la función debe rechazar). Las fronteras concentran la mayoría de los fallos porque los límites suelen escribirse con `>`, `<`, `>=` o `<=`, y solo una de las cuatro formas es correcta. Una batería de casos es un script que compara entrada contra esperado, imprime cada veredicto y termina con código `0` si todo pasa y `1` si algo falla.
+
+## Conceptos
+
+### Las tres familias de casos
+
+En `n0/m2` y `n0/m3` ya escribiste pruebas; aquí damos un paso de criterio: **qué** probar. La práctica consolidada (y la que usa el «practical test pyramid» de Martin Fowler) reparte los casos así:
+
+- **Camino feliz**: la entrada típica que la función debe resolver. Comprueba que el camino principal existe.
+- **Frontera**: el valor en el límite y sus vecinos. Si un descuento aplica «desde 50 €», prueban `49,99`, `50` y `50,01`, no `80`.
+- **Error**: entradas que la función debe rechazar con una excepción clara —negativos donde no los hay, textos donde se esperan números, `null` inesperado—.
+
+La frontera es donde vive el error: `base > 50` y `base >= 50` pasan el mismo caso central (`80`) y fallan distinto en el límite (`50`). Por eso un solo valor «cómodo» engaña.
+
+### Una tabla de casos es un contrato
+
+El patrón más legible para una batería es una **tabla**: cada fila describe un caso, su entrada y su resultado esperado; un bucle los ejecuta todos y acumula veredictos. Ventajas frente a un `console.log` a mano: añadir un caso es añadir una fila, y el resumen final es una sola línea que puedes leer —y citar—.
+
+### El código de salida es parte del contrato
+
+Una batería seria no «imprime y ya»: **termina con código `1` si algún caso falla**. Ese es el mismo contrato de `node --test` que viste en `n0/m1/l04`, y lo que hará que tu suite sea usable desde Git, desde un hook o desde un agente sin interpretar texto. Los ejemplos de este módulo cumplen esa regla: `process.exit(1)` solo cuando hay rojos.
+
+### El ejemplo ejecutable: `ejemplos/casos-limite.js`
+
+El módulo de ejemplo clasifica stock por unidades. La tabla cubre las tres familias: un camino feliz (`20`), las cuatro fronteras del rango «bajo» (`1`, `5`, `0`, `6` —justo dentro y justo fuera—) y un caso de error razonable (negativo). Salida real medida con Node v24.22.0 el 2026-10-21:
+
+```text
+verde — 20 → suficiente (esperado: suficiente)
+verde — 1 → bajo (esperado: bajo)
+verde — 5 → bajo (esperado: bajo)
+verde — 0 → agotado (esperado: agotado)
+verde — -3 → agotado (esperado: agotado)
+verde — 6 → suficiente (esperado: suficiente)
+6 de 6 casos en verde
+```
+
+Fíjate en la última línea: es el veredicto. Y si alguna fila fallara, el script imprime `rojo` en esa fila y termina con código `1`.
+
+## Ejercicio
+
+Crea `ejercicios/envio-peso.js`: una función `envio(peso)` que cobra `3,5` € para pesos de `0` excluido a `5` incluido, `7,5` € por encima y lance `RangeError` con peso `0` o negativo. Escribe su tabla de casos con las tres familias —al menos una frontera por lado— y termina el script con el mismo contrato del ejemplo: resumen final y código `1` si hay rojos.
+
+Esto se cumple cuando:
+
+- la frontera `5` cobra `3,5` y la frontera `6` cobra `7,5` (el límite exacto pertenece a la barata);
+- el peso `0` lanza `RangeError` y la batería lo comprueba con `assert.throws` o un `try/catch` que marque el caso;
+- ejecutar el script con la implementación correcta imprime todos los verdes y termina con código `0`;
+- si rompes la frontera en el código —cambias `<=` por `<`—, la batería marca ese caso en rojo y termina con código `1`.
+
+Pista: la tabla del ejemplo es tu andamiaje; cambia filas, no el bucle.
+
+## Solución explicada
+
+Una implementación posible:
+
+```js
+function envio(peso) {
+  if (peso <= 0) throw new RangeError("el peso debe ser mayor que 0");
+  return peso <= 5 ? 3.5 : 7.5;
+}
+```
+
+Y su batería, con la tabla del ejemplo:
+
+```js
+const casos = [
+  { descripcion: "camino feliz: 2 kg", entrada: 2, esperado: 3.5 },
+  { descripcion: "frontera: 5 kg (límite incluido)", entrada: 5, esperado: 3.5 },
+  { descripcion: "frontera: 6 kg (un gramo por encima)", entrada: 6, esperado: 7.5 },
+  { descripcion: "frontera: 0 kg → rechazo", entrada: 0, esperadoError: RangeError },
+  { descripcion: "error: peso negativo", entrada: -1, esperadoError: RangeError },
+];
+```
+
+Salida real de la versión correcta, medida el 2026-10-21 con Node v24.22.0:
+
+```text
+verde — 2 → 3.5 (esperado: 3.5)
+verde — 5 → 3.5 (esperado: 3.5)
+verde — 6 → 7.5 (esperado: 7.5)
+verde — 0 → RangeError (esperado: RangeError)
+verde — -1 → RangeError (esperado: RangeError)
+5 de 5 casos en verde
+```
+
+Y esta es la parte que importa del ejercicio: rompes la frontera a propósito (`peso < 5 ? 3.5 : 7.5`) y la misma batería se vuelve roja exactamente en la fila del límite:
+
+```text
+verde — 2 → 3.5 (esperado: 3.5)
+rojo — 5 → 7.5 (esperado: 3.5)
+verde — 6 → 7.5 (esperado: 7.5)
+verde — 0 → RangeError (esperado: RangeError)
+verde — -1 → RangeError (esperado: RangeError)
+4 de 5 casos en verde
+```
+
+El error típico al resolverlo: elegir `50` en vez de `49,99/50/50,01` como frontera. Con números enteros no distingues `>` de `>=`; con un valor exacto en el límite sí. El segundo error típico: olvidar el caso de error y que `envio(-1)` devuelva `7,5` en silencio — la función «funciona» y en producción cobra gastos imposibles.
+
+## Cómo verificarlo
+
+1. Guarda tu implementación y batería en `ejercicios/envio-peso.js` y ejecútala:
+
+   ```sh
+   node ejercicios/envio-peso.js
+   echo $?
+   ```
+
+   Debes ver `5 de 5 casos en verde` y código `0`.
+
+2. Cambia la frontera a `peso < 5` y repite: la fila de `5 kg` sale en rojo, el resumen dice `4 de 5` y el código es `1`.
+
+3. Compara tu criterio con el ejemplo del módulo:
+
+   ```sh
+   node src/content/modulos/n0/m6/ejemplos/casos-limite.js
+   ```
+
+   Termina en verde con `6 de 6` y código `0`, como documenta esta lección.
+
+## Errores comunes
+
+- **Probar solo el centro del rango.** `envio(2)` pasa con `>`, `<` o `>=`. Prueba el límite y sus vecinos.
+- **Baterías que siempre terminan en `0`.** Si no hay `process.exit(1)` cuando hay rojos, ni Git ni un agente detectarán el fallo.
+- **Casos sin descripción.** Una fila sin texto —`entrada 5, esperado 3.5`— es un fallo futuro inexplicable. Escribe qué familia cubre.
+- **Confundir caso de error con error de la batería.** Que la función lance `RangeError` es el resultado **esperado**; se marca en verde cuando la lanza, en rojo si no lo hace.
+
+## Fuentes
+
+- [The Practical Test Pyramid | Martin Fowler](https://martinfowler.com/articles/practical-test-pyramid.html) — consultado el 2026-10-21.
+- [test runner | Node.js](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l02 «Aserciones con intención»](/curriculo/n0/m6/l02-aserciones-con-intencion/): cómo escribir cada comparación para que, cuando falle, el error explique qué esperabas.
+- Proyecto longitudinal: la batería de fronteras es el filtro que pondrás delante de cualquier cambio que haga un asistente en la «aplicación con tests» de `f1`; en `n0/m5` protegías el historial, aquí proteges el comportamiento.

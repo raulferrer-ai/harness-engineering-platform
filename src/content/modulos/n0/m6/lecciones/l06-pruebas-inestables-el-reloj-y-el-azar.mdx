@@ -1,0 +1,212 @@
+---
+titulo: "Pruebas inestables: el reloj y el azar"
+resumen: "La peor clase de prueba no es la que falla, sino la que falla de vez en cuando. Aquí identificas las dos fuentes de inestabilidad —el tiempo y el azar entrando por la puerta de atrás— y las corregiges con la misma receta: inyectar el reloj y el generador de azar como parámetros, hasta que la misma entrada dé siempre la misma salida."
+nivel: "n0"
+modulo: "m6"
+orden: 6
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Reconocer una prueba inestable y su coste en confianza"
+  - "Identificar las dos entradas traseras del tiempo y el azar en un módulo"
+  - "Convertir una dependencia del reloj en un parámetro inyectado"
+  - "Sustituir Math.random por un generador con semilla en pruebas"
+prerrequisitos:
+  - "n0/m6/l05-leer-la-traza-completa"
+actualizado: "2026-10-21"
+tags:
+  - "inestabilidad"
+  - "determinismo"
+  - "reloj"
+  - "azar"
+fuentes:
+  - titulo: "Eradicating Non-Determinism in Tests | Martin Fowler"
+    url: "https://martinfowler.com/articles/nonDeterminism.html"
+    fecha: "2026-10-21"
+  - titulo: "test runner | Node.js"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una prueba **inestable** (_flaky_) falla unas veces y pasa otras sin que el código cambie. Casi siempre la causa es una dependencia oculta: el módulo lee el **reloj del sistema** (`new Date()`, `Date.now()`) o el **azar** (`Math.random()`) por su cuenta, y su resultado deja de ser función solo de la entrada. La cura es la misma para ambas: **inyectarlas** —el reloj como parámetro `ahora`, el azar como generador con semilla—. Con dependencias inyectadas, la misma entrada produce siempre la misma salida, y la suite vuelve a ser un instrumento de medida.
+
+## Conceptos
+
+### El coste de una prueba que «a veces falla»
+
+Una suite con una inestable pierde lo único que la justifica: la confianza. Cuando el verde deja de significar «funciona» y empieza a significar «funcionaba esta mañana», el equipo aprende a ignorar los rojos —y con ellos, los importantes. Por eso la comunidad llega a decir que una prueba inestable es **peor que no tener prueba**: te da la sensación de cobertura sin la garantía. La detección es costosa (repeticiones, bisect de orden, logs) y la causa casi nunca está donde grita el fallo, sino en la línea donde el módulo miró el reloj sin decírtelo.
+
+### Las dos entradas traseras
+
+Martin Fowler las resume en su artículo sobre no determinismo en pruebas: **tiempo** y **aleatoriedad** son dependencias como cualquier otra, y una dependencia que el módulo toma por su cuenta — sin recibir la— es una dependencia que tus pruebas no controlan. La sintoma clásica: el lunes en verde, en producción el día 31 en rojo; o una comparación de fechas que caducó con el calendario.
+
+### El reloj inyectado
+
+El ejemplo `ejemplos/reloj-inyectado.js` muestra la receta completa. Su función toma el reloj como parámetro —`esHoraDeCierre(ahora, horaCierre)`— y las pruebas le pasan instantes construidos a mano:
+
+```js
+function esHoraDeCierre(ahora, horaCierre) {
+  return ahora.getHours() === horaCierre;
+}
+
+const ensayos = [
+  { hora: 19, esperado: false },
+  { hora: 20, esperado: true },
+  { hora: 21, esperado: false },
+];
+```
+
+Salida real con Node v24.22.0 el 2026-10-21:
+
+```text
+verde — 19:00 → cierre: false
+verde — 20:00 → cierre: true
+verde — 21:00 → cierre: false
+```
+
+Ni un `new Date()` real en la prueba: la hora de cierre se comprueba en las tres posiciones que importan —antes, en y después del límite— porque tú decides cuándo «es» cada instante. Es la frontera de l01 aplicada al tiempo.
+
+### El azar con semilla
+
+El mismo ejemplo aplica la receta al azar con un generador congruencial lineal — ocho líneas, sin dependencias—. Dos corridas con la misma semilla producen la misma lista:
+
+```text
+verde — semilla 7, corrida 1: 0.2388 0.9135 0.6125 0.9270 0.0493
+verde — semilla 7, corrida 2: 0.2388 0.9135 0.6125 0.9270 0.0493
+4 aserciones en verde con el reloj y el azar inyectados
+```
+
+Ese número deja de ser aleatorio para tu prueba: es **reproducible**. Si una corrección rompe la generación, el fallo se reproduce en tu máquina, en el CI y en la máquina de la persona que te reportó el bug — las tres veces con la misma lista.
+
+### Dónde termina la inyección
+
+Inyectar no significa construir una abstracción de reloj para todo el programa. En unidades pequeñas basta con un **parámetro con valor por defecto**: `function facturar(lineas, ahora = new Date())`. El programa real sigue usando el reloj del sistema —el default—, y tus pruebas pasan el suyo. El criterio: si una función toma una decisión que **cambia con el calendario o con el azar**, su firma debe dejar verlo.
+
+## Ejercicio
+
+Crea `ejercicios/caducidad.js` con una función `estaCaducado(articulo, hoy)` —artículo con `caducadoEl` en ISO— y una batería que compruebe cinco casos con `hoy` inyectado: un día antes, el propio día, un instante después, un artículo sin fecha y un formato inválido que lance `RangeError`. Después rompe la inyección —la función ignora `hoy` y decide con el reloj real— y observa el resultado: el ensayo que inyecta un `hoy` **posterior** a la caducidad cae en rojo, porque el reloj real de hoy todavía no ha llegado a esa fecha. Ese rojo es el aprendizaje: qué ensayo puede pillar un reloj oculto, y por qué los otros dos pasan hoy solo por coincidencia de calendario.
+
+Esto se cumple cuando:
+
+- la batería pasa con `pass 5`, `fail 0` y código `0`, y **ninguna** prueba llama a `new Date()` sin argumentos;
+- el caso del día exacto prueba la frontera —`estaCaducado` devuelve `false` en el instante de `caducadoEl` y `true` apenas transcurrido—;
+- con la mutación, la suite cae en rojo señalando «un día después ya está caducado» —`fail 1`, código `1`—, y escribes en tu nota **por qué ese ensayo es el único que puede pillarla**: los dos primeros esperan `false` y el reloj real de hoy también devuelve `false`, así que pasan por casualidad;
+- explicas qué habría pasado de mantenerse la mutación: el rojo se habría **movido** de un ensayo a otro según el día de ejecución — el veredicto dejó de ser función de la entrada y pasó a ser función del calendario, que es exactamente la inestabilidad de esta lección—.
+
+Pista: la frontera temporal, como la numérica, se prueba en el instante exacto y en sus vecinos.
+
+## Solución explicada
+
+Implementación de referencia —el reloj es parámetro con default:
+
+```js
+export function estaCaducado(articulo, hoy = new Date()) {
+  if (typeof articulo.caducadoEl !== "string") {
+    throw new RangeError("el artículo necesita caducadoEl en formato ISO");
+  }
+  const caducadoMs = Date.parse(articulo.caducadoEl);
+  if (Number.isNaN(caducadoMs)) {
+    throw new RangeError("el artículo necesita caducadoEl en formato ISO");
+  }
+  return hoy.getTime() > caducadoMs;
+}
+```
+
+Y su batería —cinco ensayos, todos con `hoy` a mano:
+
+```js
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { estaCaducado } from "./caducidad.js";
+
+const articulo = { nombre: "conserva", caducadoEl: "2026-10-25T00:00:00.000Z" };
+
+describe("estaCaducado", () => {
+  it("el día antes no está caducado", () => {
+    assert.strictEqual(estaCaducado(articulo, new Date("2026-10-24T12:00:00.000Z")), false);
+  });
+
+  it("en el propio día caducado aún no caduca", () => {
+    assert.strictEqual(estaCaducado(articulo, new Date("2026-10-25T00:00:00.000Z")), false);
+  });
+
+  it("un día después ya está caducado", () => {
+    assert.strictEqual(estaCaducado(articulo, new Date("2026-10-25T00:00:00.001Z")), true);
+  });
+
+  it("rechaza un artículo sin caducadoEl con RangeError", () => {
+    assert.throws(
+      () => estaCaducado({ nombre: "fresco" }, new Date("2026-10-21T00:00:00.000Z")),
+      RangeError,
+    );
+  });
+
+  it("rechaza un formato no ISO con RangeError", () => {
+    assert.throws(
+      () => estaCaducado({ caducadoEl: "25/10/2026" }, new Date("2026-10-21T00:00:00.000Z")),
+      RangeError,
+    );
+  });
+});
+```
+
+Salida real medida el 2026-10-21 con Node v24.22.0 —el `código de salida` añadido es lo que devuelve `echo $?`—:
+
+```text
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+código de salida: 0
+```
+
+La mutación —`hoy` ignorado, reloj real en el cuerpo— deja la suite en **rojo** con esta salida real medida el 2026-10-21 (Node v24.22.0, `código de salida` = resultado de `echo $?`):
+
+```text
+ℹ tests 5
+ℹ pass 4
+ℹ fail 1
+  ✖ un día después ya está caducado
+código de salida: 1
+```
+
+Lee el rojo con detalle, que es de lo que va el ejercicio: ese ensayo inyecta `hoy = 2026-10-25T00:00:00.001Z` y espera `true`, pero el reloj real de hoy —2026-10-21— devuelve `false`, así que la única forma de satisfacerlo es controlando el reloj. Los dos primeros ensayos esperan `false` y el reloj real **también** devuelve `false`: pasan hoy por coincidencia de calendario, no porque la implementación sea correcta. Y si la mutación se mantuviera, el rojo no desaparecería: se **movería** — el 2026-10-26 el reloj real superará la caducidad y los dos primeros ensayos caerán mientras el tercero pasará—. Ese desplazamiento es la firma de la inestabilidad: la suite ya no mide tu lógica, mide el día en que la ejecutas. La corrección sigue siendo la misma: el reloj entra por parámetro y la suite vuelve a ser instrumento. Error típico al resolverlo: validar solo `typeof caducadoEl === "string"` y dejar pasar `Date.parse("25/10/2026") → NaN`; el quinto ensayo está ahí para pillar ese hueco — misma lección de l01, aplicada a un formato.
+
+## Cómo verificarlo
+
+1. Batería de la solución, en verde:
+
+   ```sh
+   node --test ejercicios/caducidad.test.js; echo $?
+   ```
+
+   `pass 5`, `fail 0`, código `0`.
+
+2. Mutación —ignorar `hoy`, decidir con el reloj real—: la suite cae en rojo con `fail 1` —«un día después ya está caducado»— y código `1`. Anota en tu nota por qué ese ensayo la pilla y los otros dos no hoy.
+
+3. Ejemplo del módulo, con su salida documentada:
+
+   ```sh
+   node src/content/modulos/n0/m6/ejemplos/reloj-inyectado.js
+   ```
+
+   Cuatro aserciones en verde —tres de reloj, una de azar reproducible— y código `0`.
+
+## Errores comunes
+
+- **`new Date()` dentro de la lógica de negocio.** Cualquier decisión que dependa del instante actual debe recibirlo; si no, tus pruebas miden el calendario, no tu código.
+- **`Math.random()` en pruebas.** Un fallo no reproducible no se puede arreglar: con generador con semilla, la «aleatoriedad» de prueba es una lista fija.
+- **Inyectar pero no usar.** El parámetro con default que el cuerpo ignora sigue atado al reloj real. Solo el ensayo que inyecta un `hoy` futuro puede pillar esa mutación — y los ensayos conformes con el día de hoy pasan por casualidad, con el rojo listo para moverse mañana.
+- **Probar solo «hoy».** La frontera temporal, como la numérica (l01): instante exacto y sus vecinos.
+
+## Fuentes
+
+- [Eradicating Non-Determinism in Tests | Martin Fowler](https://martinfowler.com/articles/nonDeterminism.html) — consultado el 2026-10-21.
+- [test runner | Node.js](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l07 «Entregable: una suite que falla a propósito y luego pasa»](/curriculo/n0/m6/l07-entregable-una-suite-que-falla-a-proposito-y-luego-pasa/): con las piezas del módulo —fronteras, aserciones, suite aislada, ciclo y determinismo— cierras la entrega del módulo.
+- Proyecto longitudinal: el determinismo es la misma moneda que la trazabilidad de `f4`; un sistema de agentes que decide con reloj y azar ocultos no se puede auditar, igual que una suite que los usa no se puede creer.

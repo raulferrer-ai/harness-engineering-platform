@@ -1,0 +1,172 @@
+---
+titulo: "Leer la traza completa"
+resumen: "Cuando la suite no falla con un AssertionError sino con un error de tu programa, el mapa está en la pila de stack. Aprendes a leerla de arriba abajo —clase, mensaje, frames—, a distinguir tus frames de los del runtime y a localizar la primera línea tuya donde algo valía null."
+nivel: "n0"
+modulo: "m6"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Descomponer un error en clase, mensaje y pila de frames"
+  - "Distinguir los frames del runtime (node:internal) de los del código propio"
+  - "Localizar el primer frame propio de una traza profunda"
+  - "Elegir entre capturar el error o dejarlo escapar según el contrato"
+prerrequisitos:
+  - "n0/m6/l04-el-ciclo-rojo-verde"
+actualizado: "2026-10-21"
+tags:
+  - "errores"
+  - "stack"
+  - "depuracion"
+fuentes:
+  - titulo: "errors | Node.js"
+    url: "https://nodejs.org/api/errors.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un error en Node lleva tres piezas: **clase** (`TypeError`, `RangeError`…), **mensaje** y **pila** (`stack`), una línea por frame desde el punto de fallo hasta el inicio del programa. Lee la traza de arriba abajo: el **primer frame** es donde ocurrió el fallo —a menudo dentro de un método que no escribiste— y el primer frame de **tu código** —el primer fichero que no es `node:internal`— es donde está la causa. Una pila de siete frames no es ruido: es el historial de llamadas que llevó al fallo.
+
+## Conceptos
+
+### Las tres piezas de un error
+
+En `n0/m1/l05` y `n0/m2/l02` ya viste `TypeError` y `ReferenceError` desde el lado del lenguaje. Ahora los lees como instrumento de depuración. Un error de runtime tiene:
+
+- **clase** — el _qué tipo_ de fallo: `TypeError` dice que una operación recibió un tipo inválido, casi siempre `null` o `undefined` escondido en medio;
+- **mensaje** — el _detalle_: `Cannot read properties of null (reading 'nombre')` te dice incluso qué propiedad se buscaba;
+- **stack** — el _camino_: cada `at …` es una llamada, de la más reciente (arriba) a la inicial (abajo).
+
+### De la traza al punto de fallo
+
+El ejemplo `ejemplos/leer-traza.js` lanza un `TypeError` deliberado tres funciones en profundidad y parsea su propia traza:
+
+```text
+clase: TypeError
+mensaje: Cannot read properties of null (reading 'length')
+frames en la pila: 7
+primer frame de TU código: interna
+  frame: interna → leer-traza.js
+  frame: mediate → leer-traza.js
+  frame: principal → leer-traza.js
+```
+
+Salida real con Node v24.22.0 el 2026-10-21. Dos lecturas: los **tres frames superiores** son tus funciones —`interna` falló sobre `articulos: null`, llamada por `mediate`, por `principal`— y el resto de frames son del runtime (carga del módulo y arranque), que filtra el ejemplo con `!frame.includes("node:internal")`. La regla práctica: **el primer frame de tu código es el sospechoso principal**; el segundo y el tercero te dicen quién le pasó los datos mal.
+
+### Capturar vs dejar escapar
+
+`leer-traza.js` usa `try/catch` porque su **contrato** es analizar el error: lo captura, lo examina y termina en verde. El rojo deliberado `ejemplos/errores/traza-perdida.js` hace lo contrario: un `perfil.nombre` sobre `null` **sin capturar**, tres frames de profundidad. Salida real —stderr, código `1`:
+
+```text
+TypeError: Cannot read properties of null (reading 'nombre')
+    at interna (…/errores/traza-perdida.js:11:31)
+    at mediate (…/errores/traza-perdida.js:7:10)
+    at principal (…/errores/traza-perdida.js:3:10)
+```
+
+Un error no capturado **detiene el proceso con código `1`** — y eso, en una suite, es un fallo del runner. Captura solo cuando puedas hacer algo con el error (reintentar, transformarlo, reportarlo); en el resto de casos, dejarlo escapar es más honesto que un `catch` vacío, que convierte un fallo ruidoso en un silencio peligroso.
+
+### El contrato de la excepción con `throw` intencionado
+
+Si la traza es tu mapa, `throw` es tu señalización: lanzar un error **con clase y mensaje propios** —`throw new RangeError("la base no puede ser negativa")`— convierte el fallo futuro de un tercero en una traza legible en su primer frame. Ya lo practicaste en `n0/m6/l02` con `assert.throws`; aquí completes el círculo: la clase que lanzas es la que tu usuario —humano o agente— verá en la traza.
+
+## Ejercicio
+
+Crea `ejercicios/dependencia.js`: una función `resumenFactura(factura)` que recibe `{ lineas: [{ concepto, precio, cantidad }] }` y devuelve el total con IVA. Deliberadamente, un consumidor le pasará `factura.lineas` como `null`. Escribe además `ejercicios/dependencia.test.js` que **capture el error con `assert.throws`** y afirme que es un `TypeError` cuyo mensaje menciona `lineas`. Después rompe el contrato —captura con `try/catch` vacío y devuelve `0`— y observa cómo la prueba deja de probar.
+
+Esto se cumple cuando:
+
+- ejecutar la batería en verde termina con `pass ≥ 1`, `fail 0` y código `0`, y el `assert.throws` verifica **clase y mensaje**;
+- lees tu propia traza antes de escribir el `assert.throws`: sabes decir qué frame es tuyo y cuál del runtime;
+- con el `catch` vacío, la batería cae en rojo —`Missing expected exception`— y el proceso termina con código `1`;
+- explicas por qué el `catch` vacío es peor que no capturar nada.
+
+Pista: `assert.throws(fn, { name: "TypeError", message: /lineas/ })` afirma las dos piezas a la vez.
+
+## Solución explicada
+
+Implementación de referencia —con la validación explícita que enseña esta lección, el error lleva **tu** clase y **tu** mensaje:
+
+```js
+export function resumenFactura(factura) {
+  if (!Array.isArray(factura.lineas)) {
+    throw new TypeError("factura.lineas debe ser una lista de líneas");
+  }
+  const base = factura.lineas.reduce((suma, linea) => suma + linea.precio * linea.cantidad, 0);
+  return Math.round(base * 1.21 * 100) / 100;
+}
+```
+
+Sin la validación, el `reduce` sobre `null` lanzaría `TypeError: Cannot read properties of null (reading 'reduce')` — mismo patrón, pero un mensaje que solo decifra quien ya sabe qué pasó. Con ella, el primer frame de la traza apunta a tu `throw` y el mensaje nombra el campo. La batería:
+
+```js
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { resumenFactura } from "./dependencia.js";
+
+describe("resumenFactura", () => {
+  it("rechaza una factura sin lineas con TypeError explicando el campo", () => {
+    assert.throws(
+      () => resumenFactura({ lineas: null }),
+      { name: "TypeError", message: /lineas/ },
+      "el consumidor debe ver qué campo faltaba sin leer la traza",
+    );
+  });
+
+  it("calcula el total con IVA cuando las lineas existen", () => {
+    const lineas = [{ concepto: "Curso", precio: 40, cantidad: 2 }];
+    assert.strictEqual(resumenFactura({ lineas }), 96.8);
+  });
+});
+```
+
+Salida real medida el 2026-10-21 con Node v24.22.0 —el `código de salida` añadido es lo que devuelve `echo $?` al terminar—:
+
+```text
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+código de salida: 0
+```
+
+Y la mutación —`try { … } catch { return 0; }`— produce rojo: la primera prueba falla con `Missing expected exception (TypeError)` y el proceso termina en `1`. Error típico al resolverlo: `assert.throws(fn, TypeError)` sin mensaje; pasa, pero no distingue «rechazó `lineas: null`» de «rechazó cualquier cosa». El mensaje es parte del contrato, como en l02.
+
+## Cómo verificarlo
+
+1. Batería en verde:
+
+   ```sh
+   node --test ejercicios/dependencia.test.js; echo $?
+   ```
+
+   `pass 2`, `fail 0`, código `0`.
+
+2. Mutación —`catch` vacío—: la primera prueba cae con «Missing expected exception» y código `1`.
+
+3. Ejemplos del módulo, con sus salidas documentadas:
+
+   ```sh
+   node src/content/modulos/n0/m6/ejemplos/leer-traza.js
+   node src/content/modulos/n0/m6/ejemplos/errores/traza-perdida.js; echo $?
+   ```
+
+   El primero: `clase: TypeError` y `primer frame de TU código: interna`, código `0`. El segundo: traza con tres frames en stderr y código `1`.
+
+## Errores comunes
+
+- **Capturar y tragarse el error** (`catch {}`). La suite pasa, el bug vive. Si no puedes manejar el error, no lo capture.
+- **Leer solo el mensaje.** El mensaje dice _qué_; los frames dicen _desde dónde llegó_. Sin la pila, sabes que hubo un `null` pero no quién lo pasó.
+- **`assert.throws` sin tipo ni mensaje.** Cualquier error satisfaría la aserción; no prueba el contrato.
+- **Culpar al primer frame siempre.** El primer frame es el sospechoso, no el veredicto: a veces el fallo legítimo es del que llamó con datos malos (el segundo frame).
+
+## Fuentes
+
+- [errors | Node.js](https://nodejs.org/api/errors.html) — consultado el 2026-10-21.
+- [assert | Node.js](https://nodejs.org/api/assert.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l06 «Pruebas inestables: el reloj y el azar»](/curriculo/n0/m6/l06-pruebas-inestables-el-reloj-y-el-azar/): el caso más difícil de depurar no es el que falla siempre, sino el que falla de vez en cuando — ahí la causa casi siempre es el tiempo o el azar entrando por la puerta de atrás.
+- Proyecto longitudinal: leer trazas es la habilidad que separa al alumno del operador; cuando tus agentes de `f4` fallen, su log será otra traza — y la leerás igual.

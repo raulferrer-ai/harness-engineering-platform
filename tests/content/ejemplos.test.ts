@@ -25,6 +25,12 @@ import { afterAll, describe, expect, it } from "vitest";
  * - H11 añade `n1/m1` (primer módulo conceptual): demos con **solo librería
  *   estándar** que miden límites reales (tokenización, ventana, coste,
  *   sensibilidad) sin red ni claves de API, más el comprobador del entregable;
+ * - H12 añade `n0/m6` (pruebas y depuración): demos verdes con `node:test` y
+ *   `node:assert/strict` —fronteras, aserciones con mensaje, suite aislada,
+ *   ciclo rojo-verde, trazas y reloj/azar inyectados— y 3 rojos deliberados
+ *   (AssertionError sin mensaje, estado compartido, TypeError con traza); las
+ *   implementaciones `descuento.js`/`presupuesto.js` se verifican por
+ *   importación desde sus suites;
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -50,6 +56,10 @@ const dirEjemplosM5 = fileURLToPath(
 
 const dirEjemplosN1M1 = fileURLToPath(
   new URL("../../src/content/modulos/n1/m1/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosM6 = fileURLToPath(
+  new URL("../../src/content/modulos/n0/m6/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -873,6 +883,100 @@ describe("ejemplos del módulo n1/m1: demos ejecutables (solo librería estánda
   });
 });
 
+describe("ejemplos del módulo n0/m6: pruebas y depuración", () => {
+  interface DemoM6 {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  // H12: demos verdes con solo librería estándar: fronteras, aserciones,
+  // suites node:test, ciclo rojo-verde, trazas y determinismo (reloj/semilla).
+  const demos: DemoM6[] = [
+    {
+      fichero: "casos-limite.js",
+      marcas: ["6 de 6 casos en verde"],
+      descripcion: "l01: la batería de fronteras termina en verde",
+    },
+    {
+      fichero: "aserciones-intencion.js",
+      marcas: ["4 aserciones en verde: estricta, profunda, excepción y texto"],
+      descripcion: "l02: las cuatro familias de aserción con mensaje",
+    },
+    {
+      fichero: "descuento.test.js",
+      marcas: ["pass 6", "fail 0"],
+      descripcion: "l03: la suite aislada con beforeEach (6 pruebas)",
+    },
+    {
+      fichero: "ciclo-rojo-verde.js",
+      marcas: ["ciclo completo: rojo (1) → verde (0)"],
+      descripcion: "l04: el ciclo TDD con sus dos códigos de salida",
+    },
+    {
+      fichero: "leer-traza.js",
+      marcas: ["clase: TypeError", "primer frame de TU código: interna"],
+      descripcion: "l05: la traza parseada hasta el primer frame propio",
+    },
+    {
+      fichero: "reloj-inyectado.js",
+      marcas: ["4 aserciones en verde con el reloj y el azar inyectados", "corrida 2: 0.2388"],
+      descripcion: "l06: reloj inyectado y azar con semilla reproducible",
+    },
+    {
+      fichero: "presupuesto.test.js",
+      marcas: ["pass 8", "fail 0"],
+      descripcion: "l07: la suite del entregable (8 pruebas)",
+    },
+    {
+      fichero: "entregable-rojo-verde.js",
+      marcas: ["entregable válido", "pass 7", "fail 1"],
+      descripcion: "l07: la misma suite en rojo con el bug y en verde sin él",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero], {
+        cwd: dirEjemplosM6,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  it("errores/asercion-sin-mensaje.js termina en 1 con AssertionError (rojo de l02)", () => {
+    const rojo = ejecutarNode(["errores/asercion-sin-mensaje.js"], dirEjemplosM6);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("AssertionError");
+    expect(rojo.stderr).toContain("actual: 450");
+    expect(rojo.stderr).toContain("expected: 544.5");
+  });
+
+  it("errores/estado-compartido.js termina en 1 con pass 1 / fail 1 (rojo de l03)", () => {
+    const rojo = ejecutarNode(["errores/estado-compartido.js"], dirEjemplosM6);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("pass 1");
+    expect(rojo.stdout).toContain("fail 1");
+    expect(rojo.stdout).toContain("cada prueba debería partir de cero");
+  });
+
+  it("errores/traza-perdida.js termina en 1 con TypeError de tres frames (rojo de l05)", () => {
+    const rojo = ejecutarNode(["errores/traza-perdida.js"], dirEjemplosM6);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("TypeError: Cannot read properties of null");
+    expect(rojo.stderr).toContain("at interna");
+    expect(rojo.stderr).toContain("at mediate");
+    expect(rojo.stderr).toContain("at principal");
+  });
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -1023,5 +1127,27 @@ describe("cobertura de ejemplos", () => {
     expect(archivosVerificables(dirEjemplosN1M1, [], ["nota-ejemplo.md"])).toEqual(
       [...enManifiesto].sort(),
     );
+  });
+
+  it("m6: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // `descuento.js` y `presupuesto.js` son las implementaciones bajo prueba:
+    // se verifican por importación desde sus suites `.test.js`.
+    const enManifiesto = [
+      "casos-limite.js",
+      "aserciones-intencion.js",
+      "descuento.js",
+      "descuento.test.js",
+      "ciclo-rojo-verde.js",
+      "leer-traza.js",
+      "reloj-inyectado.js",
+      "presupuesto.js",
+      "presupuesto.test.js",
+      "entregable-rojo-verde.js",
+      "errores/asercion-sin-mensaje.js",
+      "errores/estado-compartido.js",
+      "errores/traza-perdida.js",
+    ];
+
+    expect(archivosVerificables(dirEjemplosM6)).toEqual([...enManifiesto].sort());
   });
 });
