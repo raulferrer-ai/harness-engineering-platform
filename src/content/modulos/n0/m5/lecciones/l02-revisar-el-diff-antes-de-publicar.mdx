@@ -1,0 +1,199 @@
+---
+titulo: "Revisar el diff antes de publicar"
+resumen: "El diff es tu red de seguridad antes de que un cambio se congele en el historial. Aquí aprendes a leer git diff y git diff --staged para revisar cada línea antes de commitear, y a detectar cambios que no querías incluir."
+nivel: "n0"
+modulo: "m5"
+orden: 2
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Interpretar la salida de git diff: qué cambió y en qué fichero"
+  - "Usar git diff --staged para revisar lo que está a punto de commitearse"
+  - "Entender la diferencia entre working tree, staging area e historial"
+  - "Detectar y deshacer cambios no deseados antes de commitear"
+prerrequisitos:
+  - "n0/m5/l01-el-historial-como-contrato"
+actualizado: "2026-10-21"
+tags:
+  - "git"
+  - "diff"
+  - "revision"
+  - "staging"
+fuentes:
+  - titulo: "git-scm.com: Recording Changes — Viewing Changes"
+    url: "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-diff Documentation"
+    url: "https://git-scm.com/docs/git-diff"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-add Documentation"
+    url: "https://git-scm.com/docs/git-add"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-stash Documentation"
+    url: "https://git-scm.com/docs/git-stash"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`git diff` muestra lo que cambiaste pero aún no preparaste; `git diff --staged` muestra lo que está preparado y a punto de commitearse. Revisar el diff antes de `git commit` es el ritual que evita congelar errores, archivos que no tocaban o cambios a medias. En Git hay tres zonas — working tree, staging area e historial — y el diff es la lente que te deja mirar las transiciones entre ellas.
+
+## Conceptos
+
+### Las tres zonas de Git
+
+Git tiene tres estados que importan aquí: el **working tree** (tus ficheros tal y como están en disco), el **staging area** (el área de preparación: lo que has dicho con `git add` que irá al próximo commit) y el **historial** (los commits ya congelados). El `git add` mueve cambios del working tree al staging; el `git commit` mueve el staging al historial. El diff te deja mirar cada frontera.
+
+```text
+working tree  --git add-->  staging area  --git commit-->  historial
+     |                            |                             |
+ git diff                   git diff --staged              git log
+```
+
+### `git diff`: lo que aún no está preparado
+
+`git diff` compara tu working tree con el staging area. Lo que muestra es lo que has cambiado en disco pero **no** le has dicho todavía a Git que incluya. La demostración de esta lección — `ejemplos/revisar-diff.sh` — cambia un importe en el CSV y muestra las dos vistas:
+
+```sh
+git diff   # sin preparar: lo que aún NO entra en el próximo commit
+```
+
+Salida real (Git 2.50.1, 2026-10-21):
+
+```text
+diff --git a/gastos.csv b/gastos.csv
+index 218eb27..b7bd385 100644
+--- a/gastos.csv
++++ b/gastos.csv
+@@ -1,2 +1,3 @@
+ pan,comida,1.85
+ cine,ocio,12.00
++transporte,transporte,5.40
+```
+
+La línea con `+` es una adición; con `-`, una eliminación; sin prefijo, contexto. Aquí se añade una línea de transporte al CSV. Es lo que verías si ejecutaras `git commit` ahora mismo: **no**, porque sin `git add` el cambio no está en staging y el commit lo ignoraría.
+
+### `git diff --staged`: lo que está a punto de congelarse
+
+`git diff --staged` compara el staging con el último commit. Esto es exactamente lo que se enviará al historial con `git commit`. Revisar este diff **antes** de commitear es el ritual que evita la mayoría de errores de versionado:
+
+```sh
+git diff --staged   # preparado: lo que SÍ entrará en el próximo commit
+```
+
+```text
+diff --git a/gastos.csv b/gastos.csv
+index 892aeb0..218eb27 100644
+--- a/gastos.csv
++++ b/gastos.csv
+@@ -1,2 +1,2 @@
+ pan,comida,1.85
+-cine,ocio,9.00
++cine,ocio,12.00
+```
+
+El cambio preparado modifica el importe de cine de `9.00` a `12.00`. Si esto es lo que querías, commiteas con confianza. Si ves algo que no reconoces — un fichero que no tocabas, un cambio a medias — todavía puedes deshacerlo con `git restore` o `git reset HEAD <fichero>` antes de que se congele.
+
+### El diff entre commits
+
+Una vez congelado, puedes comparar cualquier par de commits con `git diff A B`. La forma más común es comparar un commit con su padre:
+
+```sh
+git diff HEAD~1 HEAD   # el commit recién creado, comparado con su padre
+```
+
+```text
+index 892aeb0..218eb27 100644
+--- a/gastos.csv
++++ b/gastos.csv
+@@ -1,2 +1,2 @@
+ pan,comida,1.85
+-cine,ocio,9.00
++cine,ocio,12.00
+```
+
+`HEAD~1` es el commit anterior a `HEAD` (el actual). Este diff muestra exactamente lo que aportó el último commit: la misma información que `--staged` mostraba antes de commitear, pero ahora ya es historia inmutable.
+
+### Revisar antes de publicar
+
+La regla es simple: **el diff es tu revisión antes de congelar**. Cuando trabajes con un compañero (l04 y l06), el mismo ritual se aplica en la rama antes de pedir la fusión. Revisar tu propio diff antes de commitear te ahorra la vergüenza de un commit accidental y le ahorra al revisor preguntarse por qué tocaste algo que no tocaba. Es el mismo principio que aplicarás al revisar el diff de otra persona en l06.
+
+## Ejercicio
+
+Prepara un cambio en tu proyecto, revísalo con `git diff --staged` y solo entonces commitea. Después, mira el diff de lo que acabas de commitear.
+
+```sh
+cd mi-proyecto
+# 1. hacer un cambio real en un fichero
+# 2. prepararlo
+git add <fichero>
+# 3. revisar ANTES de commitear
+git diff --staged
+# 4. commitear
+git commit -m "<mensaje descriptivo>"
+# 5. mirar el diff del commit recién creado
+git diff HEAD~1 HEAD
+```
+
+Esto se cumple cuando:
+
+- `git diff --staged` muestra exactamente el cambio que querías, ni más ni menos;
+- el commit refleja solo lo revisado;
+- `git diff HEAD~1 HEAD` muestra el mismo cambio, ahora como historia;
+- puedes explicar la diferencia entre lo que mostraba `git diff` (sin preparar) y `git diff --staged` (preparado) en tu propio caso.
+
+Pista: si `git diff --staged` muestra un fichero que no querías incluir, deshazlo con `git restore --staged <fichero>` antes de commitear: el cambio vuelve al working tree pero sale del staging.
+
+## Solución explicada
+
+El ritual completo: hacer el cambio, prepararlo con `git add`, **revisar el diff staged**, y solo entonces commitear. La revisión previa es lo que separa un historial limpio de uno con commits accidentales.
+
+Errores típicos al resolverlo:
+
+- **Commitear sin revisar**. `git add . && git commit` en una sola línea omite la revisión. Aprovecha que Git separa preparar de congelar: usa ese intervalo para mirar.
+- **Revisar `git diff` en vez de `git diff --staged`**. Si revisas el working tree y luego haces `add`, el staging puede contener algo distinto de lo que miraste. Revisa siempre el `--staged` justo antes del commit.
+- **Desconfundir los `+` y `-`**. `+` es lo que se añade (línea nueva o modificación); `-` es lo que se quita. En un cambio de una línea verás a menudo un `-` y un `+` juntos: es una modificación.
+- **Dejar cambios a medias preparados**. Un `git add` viejo puede dejar en staging un cambio que ya no quieres. `git diff --staged` te lo enseña antes de que sea tarde.
+
+## Cómo verificarlo
+
+1. Sigue la secuencia del ejercicio sobre tu proyecto.
+
+2. Revisa el diff staged justo antes de commitear:
+
+   ```sh
+   git diff --staged
+   ```
+
+   Salida esperada: el diff de tu cambio, con `+`/`-` por línea tocada. Si ves ficheros que no esperabas, sácalos del staging.
+
+3. Mira el diff del commit tras commitear:
+
+   ```sh
+   git diff HEAD~1 HEAD
+   ```
+
+   Salida esperada: el mismo cambio que viste en `--staged`, ahora comparado con su padre. Los hashes de los ficheros (`index ...`) coinciden con los del `--staged`.
+
+4. Registra ambos diffs y compáralos: la información debe ser idéntica; lo que cambia es la perspectiva (staging vs. historial).
+
+## Errores comunes
+
+- **Confundir `git diff` con `git diff --staged`**: el primero muestra el working tree contra el staging (lo no preparado); el segundo, el staging contra el último commit (lo que va a commitearse). Revisar el equivocado deja pasar cambios sin mirar.
+- **Hacer `git add .` ciegamente**: añade todo lo modificado, incluidos archivos temporales o cambios que no tocaban. Especifica ficheros o revisa siempre el `--staged`.
+- **Dar por bueno el diff sin leerlo**: el diff está ahí para leerse, no solo para ejecutarse. Un vistazo a las líneas `+`/`-` evita la mayoría de errores.
+- **Commitear con el staging sucio de sesiones anteriores**: si preparaste algo hace tres commits y olvidaste, puede quedar mezclado. `git diff --staged` y `git status` lo muestran.
+- **No entender `HEAD~1`**: si tu repositorio tiene un solo commit, `HEAD~1` no existe y Git fallará con «ambiguous argument». Asegúrate de tener al menos dos commits antes de usar esta comparación.
+
+## Fuentes
+
+- [git-scm.com: Recording Changes to the Repository](https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository) — consultado el 2026-10-21.
+- [git-scm.com: git-diff Documentation](https://git-scm.com/docs/git-diff) — consultado el 2026-10-21.
+- [git-scm.com: git-add Documentation](https://git-scm.com/docs/git-add) — consultado el 2026-10-21.
+- [git-scm.com: git-stash Documentation](https://git-scm.com/docs/git-stash) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l03 «Recuperar versiones: restore, stash y reflog»](/curriculo/n0/m5/l03-recuperar-versiones-restore-stash-y-reflog/) — cómo deshacer, aparcar y recuperar cambios sin perder nada.
+- Proyecto longitudinal: la parte «Git limpio» de `f1` se construye con estos rituales; el módulo la cierra con el flujo completo en l07.

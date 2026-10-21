@@ -1,0 +1,209 @@
+---
+titulo: "Recuperar versiones: restore, stash y reflog"
+resumen: "Git casi nunca pierde nada: lo que parece perdido suele estar en el staging, en un stash o en el reflog. Aquí aprendes a deshacer cambios con git restore, a aparcar trabajo en caliente con git stash y a rescatar lo que creías perdido con git reflog."
+nivel: "n0"
+modulo: "m5"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Deshacer cambios en el working tree con git restore sin tocar el historial"
+  - "Aparcar y recuperar trabajo en curso con git stash"
+  - "Entender que git reset --hard no borra realmente: el reflog conserva todo"
+  - "Recuperar un commit que creías perdido con git reflog"
+prerrequisitos:
+  - "n0/m5/l02-revisar-el-diff-antes-de-publicar"
+actualizado: "2026-10-21"
+tags:
+  - "git"
+  - "restore"
+  - "stash"
+  - "reflog"
+  - "recuperacion"
+fuentes:
+  - titulo: "git-scm.com: git-restore Documentation"
+    url: "https://git-scm.com/docs/git-restore"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-stash Documentation"
+    url: "https://git-scm.com/docs/git-stash"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-reflog Documentation"
+    url: "https://git-scm.com/docs/git-reflog"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-reset Documentation"
+    url: "https://git-scm.com/docs/git-reset"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`git restore` deshace cambios en tus ficheros; `git stash` aparca trabajo en curso para retomarlo después; `git reflog` registra cada movimiento de `HEAD` y te deja recuperar incluso lo que creías perdido con `git reset --hard`. La lección clave: en Git casi nada se pierde de verdad. Lo que parece borrado suele estar en una de estas tres capas, y aprender a usarlas es lo que te permite experimentar sin miedo.
+
+## Conceptos
+
+### `git restore`: deshacer cambios en disco
+
+`git restore <fichero>` descarta los cambios sin preparar en ese fichero y lo devuelve al estado del último commit. Es la forma moderna de deshacer un «lo estoy liando». La demostración de esta lección — `ejemplos/recuperar-versiones.sh` — lo muestra tras modificar el resumen:
+
+```sh
+git restore resumen.txt   # descarta el cambio sin preparar (sin vuelta atrás)
+```
+
+El fichero vuelve al contenido del último commit. Esta operación **no se puede deshacer**: lo que estaba en el working tree y no estaba preparado, se pierde. Por eso Git la reserva para cambios que realmente quieres abandonar.
+
+Con `--staged`, el efecto es distinto y más seguro:
+
+```sh
+git restore --staged resumen.txt   # deshace la preparación, conserva el cambio
+```
+
+Aquí el fichero sale del staging pero su contenido modificado se queda en disco. Git lo resume en `git status`:
+
+```text
+ M resumen.txt
+```
+
+El prefijo ` M` significa «modificado, sin preparar»: el cambio sigue ahí, solo que ya no formará parte del próximo commit. Es la forma de arrepentirse de un `git add` sin perder el trabajo.
+
+### `git stash`: aparcar trabajo en caliente
+
+Cuando estás a medio camino de un cambio y necesitas cambiar de rama sin commitear, `git stash` guarda tu working tree y staging en una pila y deja el árbol limpio. La demostración lo usa con un cambio de fecha:
+
+```sh
+git stash push -m "prueba de fecha"
+```
+
+```text
+Saved working directory and index state On main: prueba de fecha
+```
+
+`git stash list` muestra la pila; `git stash pop` recupera lo último aparocado y lo saca de la pila:
+
+```text
+stash@{0}: On main: prueba de fecha
+```
+
+Tras `pop`, el cambio vuelve al working tree y puedes retomarlo donde lo dejaste. El stash es ideal para cambios experimentales que aún no quieres convertir en commits: los aparcas, atiendes otra cosa y vuelves.
+
+### `git reset --hard` y el reflog
+
+`git reset --hard HEAD~1` mueve `HEAD` un commit atrás **y** descarta los cambios en disco. Parece destructivo, pero Git conserva el commit anterior en el **reflog** (reference log), un registro de cada movimiento de `HEAD`. La demostración simula una pérdida y la recupera:
+
+```sh
+git reset --hard HEAD~1   # «pierdo» el último commit
+```
+
+```text
+HEAD is now at cb8bfda Añade resumen.txt
+```
+
+El contenido del commit desaparece de los ficheros. Pero el commit no está borrado: está en el reflog. La recuperación usa el identificador guardado:
+
+```sh
+git reset --hard <hash>
+```
+
+```text
+HEAD is now at 2151d62 Añade la fecha al resumen
+total: 83.69
+fecha: 2026-10-21
+```
+
+El fichero recupera su contenido completo. `git reflog` lista los movimientos y te da los hashes que necesitas para volver a cualquier punto reciente. Por eso en Git es difícil perder trabajo de verdad: incluso un `--hard` deja un rastro que puedes seguir.
+
+### La jerarquía de la recuperación
+
+Para cada tipo de pérdida hay una herramienta:
+
+| Qué perdiste                    | Cómo recuperarlo                                  |
+| ------------------------------- | ------------------------------------------------- |
+| Cambios sin preparar            | `git restore` (si no los preparaste, ya no están) |
+| Cambio preparado que no querías | `git restore --staged`                            |
+| Trabajo aparocado               | `git stash pop` / `git stash apply`               |
+| Commit tras `reset --hard`      | `git reflog` + `git reset --hard <hash>`          |
+
+El orden importa: antes de entrar en pánico, comprueba `git status`, `git stash list` y `git reflog`. Casi siempre lo que buscas está en una de esas tres capas.
+
+## Ejercicio
+
+En un repositorio de prueba, experimenta los tres mecanismos de recuperación y documenta qué recupera cada uno.
+
+```sh
+# 1. stash: aparca un cambio y recupéralo
+# 2. restore --staged: deshaz un add sin perder el cambio
+# 3. reset --hard y recuperación con reflog
+git stash push -m "cambio a medias"
+git stash list
+git stash pop
+git restore --staged <fichero>
+git reset --hard HEAD~1
+git reflog -n 3
+git reset --hard HEAD@{1}
+```
+
+Esto se cumple cuando:
+
+- `git stash pop` devuelve tu cambio al working tree;
+- `git restore --staged` deja el fichero modificado pero fuera del staging (` M`);
+- tras un `reset --hard`, `git reflog` te muestra el hash anterior y `git reset --hard HEAD@{1}` lo restaura;
+- puedes explicar, para cada pérdida, qué herramienta corresponde.
+
+Pista: `HEAD@{1}` es la posición de `HEAD` hace un movimiento; `HEAD@{0}` es la actual. Tras un `reset --hard`, la recuperación está en `HEAD@{1}`.
+
+## Solución explicada
+
+La secuencia de arriba, ejecutada en un repositorio de prueba. Cada mecanismo cubre una capa distinta: el stash la pila de trabajo pendiente, el `restore --staged` la frontera entre staging y working tree, y el reflog el historial de movimientos de `HEAD`.
+
+Errores típicos al resolverlo:
+
+- **Usar `git restore` (sin `--staged`) pensando que deshace un add**. Sin `--staged`, restore descarta el contenido en disco. Con `--staged`, solo saca el fichero del staging y conserva el cambio. La diferencia es la pérdida o no del trabajo.
+- **Esperar que `HEAD@{0}` recupere el commit perdido tras un reset**. Después de un `reset --hard`, `HEAD@{0}` es la posición a la que acabas de ir (el reset); la posición anterior está en `HEAD@{1}`. Confundirlos te deja donde estabas.
+- **Acumular stashes sin orden**. `git stash` crea una pila; si nunca haces `pop` o `apply`, se acumulan y pierdes de vista qué hay en cada uno. Revisa `git stash list` con regularidad.
+- **Creer que `--hard` borra para siempre**. El reflog guarda los movimientos durante un tiempo (por defecto unos 90 días). Mientras no lo expirees, puedes volver atrás. Es tu red de seguridad, no una excusa para resetear a lo loco.
+
+## Cómo verificarlo
+
+1. Practica los tres mecanismos en un repositorio de prueba (los comandos del ejercicio).
+
+2. Recupera un cambio aparocado:
+
+   ```sh
+   git stash push -m "cambio a medias"
+   git stash list
+   git stash pop
+   ```
+
+   Salida esperada: `stash list` muestra `stash@{0}`; tras `pop`, el cambio vuelve al working tree y la pila queda vacía.
+
+3. Recupera un commit tras `reset --hard`:
+
+   ```sh
+   git reset --hard HEAD~1
+   git reflog -n 3
+   git reset --hard HEAD@{1}
+   ```
+
+   Salida esperada: `reflog` muestra el commit anterior; `reset --hard HEAD@{1}` restaura `HEAD` y los ficheros a ese punto.
+
+4. Registra la salida de `git reflog -n 3` y confirma que los hashes permiten volver al estado previo al reset.
+
+## Errores comunes
+
+- **Ejecutar `git restore` (sin `--staged`) cuando querías deshacer un add**: el cambio en disco se descarta. Usa `--staged` para conservar el trabajo.
+- **Buscar la recuperación en `HEAD@{0}` tras un reset**: tras `reset --hard`, `HEAD@{0}` es el destino del reset; la posición anterior está en `HEAD@{1}`.
+- **Acumular stashes sin retomarlos**: la pila crece y olvidas qué contiene cada entrada. Haz `pop` o `apply` y comprueba el estado con `git stash list`.
+- **Pensar que `reset --hard` es irreversible**: el reflog conserva los movimientos de `HEAD`. Antes de entrar en pánico, ejecuta `git reflog` y localiza el hash que necesitas.
+- **No mirar `git status` antes de recuperar**: a veces lo que parece perdido solo está en otra rama o en el staging. `git status` y `git stash list` son el primer diagnóstico.
+
+## Fuentes
+
+- [git-scm.com: git-restore Documentation](https://git-scm.com/docs/git-restore) — consultado el 2026-10-21.
+- [git-scm.com: git-stash Documentation](https://git-scm.com/docs/git-stash) — consultado el 2026-10-21.
+- [git-scm.com: git-reflog Documentation](https://git-scm.com/docs/git-reflog) — consultado el 2026-10-21.
+- [git-scm.com: git-reset Documentation](https://git-scm.com/docs/git-reset) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l04 «El remoto: origin, push, fetch y pull»](/curriculo/n0/m5/l04-el-remoto-origin-push-fetch-y-pull/) — cómo publicar tu historial y trabajar con otros sin red usando un repositorio remoto local.
+- Proyecto longitudinal: la recuperación con reflog es la base de la parte «Git limpio» de `f1`; el módulo la cierra con el flujo completo en l07.

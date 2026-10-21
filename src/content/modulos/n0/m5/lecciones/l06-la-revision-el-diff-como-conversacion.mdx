@@ -1,0 +1,185 @@
+---
+titulo: "La revisión: el diff como conversación"
+resumen: "Revisar no es dar el visto bueno: es leer el diff de una rama y preguntar por qué cada línea cambió. Aquí aprendes a revisar tu propio trabajo antes de fusionar, a usar git log main..rama y git diff main...rama como herramientas de lectura y a entender qué mira un revisor."
+nivel: "n0"
+modulo: "m5"
+orden: 6
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Revisar el diff de una rama con git diff main...rama (tres puntos)"
+  - "Distinguir la aportación de la rama con git log main..rama --stat"
+  - "Entender qué busca un revisor: intención, alcance y riesgo"
+  - "Aplicar la revisión a tu propio trabajo antes de fusionar"
+prerrequisitos:
+  - "n0/m5/l05-ramas-por-cambio-feature-branch"
+actualizado: "2026-10-21"
+tags:
+  - "git"
+  - "revision"
+  - "diff"
+  - "calidad"
+fuentes:
+  - titulo: "git-scm.com: git-diff Documentation (two-dot vs three-dot)"
+    url: "https://git-scm.com/docs/git-diff"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-log Documentation"
+    url: "https://git-scm.com/docs/git-log"
+    fecha: "2026-10-21"
+  - titulo: "GitHub Docs: About pull requests"
+    url: "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La revisión lee el diff de una rama y pregunta por qué. `git log main..rama --stat` te dice qué aporta la rama, commit a commit; `git diff main...rama` (con **tres puntos**) te muestra el cambio completo desde el punto donde la rama se abrió. Un revisor mira tres cosas: la intención del cambio, su alcance (si toca solo lo que debe) y su riesgo (si las pruebas siguen en verde). Revisar tu propio trabajo antes de fusionar es el mismo hábito, un poco más exigente.
+
+## Conceptos
+
+### Dos puntos vs tres puntos
+
+La diferencia entre `git diff A..B` y `git diff A...B` es sutil pero decisiva. `A..B` compara los dos extremos directamente; `A...B` compara cada extremo con su **punto de fusión común** (el commit desde el que ambas ramas divergieron). Para revisar una rama, lo que quieres es `A...B`: muestra lo que la rama aporta, sin incluir cambios que `main` haya hecho por su cuenta en paralelo.
+
+La demostración de esta lección — `ejemplos/revision.sh` — usa tres puntos sobre la rama `formatea-importes`:
+
+```sh
+git diff main...formatea-importes   # el diff desde el punto de bifurcación
+```
+
+```text
+diff --git a/gastos.csv b/gastos.csv
+index d1ef559..79750c7 100644
+--- a/gastos.csv
++++ b/gastos.csv
+@@ -1 +1,2 @@
+-pan,1.85
++pan,1.85 EUR
++cine,9.00 EUR
+diff --git a/notas.txt b/notas.txt
+new file mode 100644
+--- /dev/null
++++ b/notas.txt
+@@ -0,0 +1 @@
++revisar el redondeo del total
+```
+
+El diff muestra dos cosas: el formato de importes en el CSV y un fichero nuevo `notas.txt`. Un revisor atento detecta aquí que `notas.txt` **no pertenece** a este cambio: es un apunte personal que se coló en la rama. Ese es exactamente el tipo de hallazgo que la revisión debe hacer.
+
+### `git log main..rama --stat`: la aportación commit a commit
+
+Antes de leer el diff completo, conviene ver la narrativa: qué commits aporta la rama y cuánto pesa cada uno.
+
+```sh
+git log main..formatea-importes --stat
+```
+
+```text
+commit 09f6d09...  Añade notas.txt con un pendiente
+ notas.txt | 1 +
+commit ee98e3d...  Añade cine formateado
+ gastos.csv | 1 +
+commit 27f376d...  Formatea los importes con moneda
+ gastos.csv | 2 +-
+```
+
+Aquí se ve la historia de la rama: tres commits, dos sobre el CSV y uno que añade `notas.txt`. El revisor puede preguntarse ya desde aquí por el tercer commit: ¿por qué este cambio incluye un fichero de notas?
+
+### Qué mira un revisor
+
+La revisión no busca errores de estilo, sino tres cosas:
+
+- **Intención**: ¿el mensaje del commit y el diff cuentan la misma historia? Si el commit dice «formatea importes» pero el diff añade un fichero de notas, hay una desconexión.
+- **Alcance**: ¿el cambio toca solo lo que debe? Un diff que modifica ficheros que no tienen nada que ver con el objetivo es una señal de rama sucia.
+- **Riesgo**: ¿las pruebas siguen en verde después del cambio? Si el diff altera un contrato (una función, un formato), debe venir acompañado de pruebas que lo sostengan.
+
+Este marco es el mismo que usarás al revisar el trabajo de otros (o el tuyo, con más exigencia) en un flujo con revisión por pares, como el que practica esta plataforma con sus Pull Requests.
+
+### Revisar tu propio trabajo
+
+Revisar antes de fusionar no es solo cortesía: es el momento más barato de corregir. Cuando fusionas con `--no-ff` (l05), el commit de fusión consolida el trabajo de la rama. Si lo revisas antes, puedes still añadir commits de corrección a la rama; si fusionas sin revisar, corregir exige un nuevo cambio sobre `main`. El ritual es: `git log main..rama --stat`, `git diff main...rama`, y solo entonces fusionar.
+
+En la demostración, la revisión identifica que `notas.txt` sobra. La corrección sería quitarlo de la rama (por ejemplo, con `git rm --cached notas.txt` y un nuevo commit) antes de fusionar.
+
+## Ejercicio
+
+Revisa tu propia rama antes de fusionarla y documenta qué encontraste.
+
+```sh
+# 1. ver la aportación commit a commit
+git log main..<rama> --stat
+# 2. leer el diff completo desde el punto de bifurcación
+git diff main...<rama>
+# 3. vista corta para decidir
+git diff main...<rama> --stat
+# 4. si hay algo fuera de lugar, corregirlo en la rama antes de fusionar
+```
+
+Esto se cumple cuando:
+
+- `git log main..<rama> --stat` muestra los commits de la rama y sus ficheros;
+- `git diff main...<rama>` muestra solo el trabajo de la rama (no cambios ajenos de `main`);
+- puedes señalar, para cada fichero tocado, por qué está en este cambio;
+- si encontraste algo fuera de alcance, lo corregiste en la rama antes de fusionar.
+
+Pista: si el diff incluye un fichero que no reconoces, pregúntate si pertenece al objetivo de la rama. Si no, quítalo antes de fusionar.
+
+## Solución explicada
+
+La secuencia de arriba, ejecutada sobre tu rama. `git log main..rama --stat` da la narrativa; `git diff main...rama` da el detalle; el `--stat` del diff da la vista corta. La demostración muestra que la revisión detecta `notas.txt` como fuera de alcance.
+
+Errores típicos al resolverlo:
+
+- **Usar dos puntos en el diff**. `git diff main..rama` compara los extremos directamente e incluye cambios que `main` hizo mientras tanto. Para revisar, usa tres puntos (`main...rama`), que compara con el punto de fusión común.
+- **Fusionar sin revisar**. Es el error de proceso. El merge consolida lo que hay; si no lo miraste, corregir exige un cambio nuevo sobre `main`.
+- **Revisar solo el diff, sin mirar los mensajes**. Un mensaje que no coincide con el diff es una señal de desconexión entre intención y ejecución.
+- **Buscar errores de estilo en vez de riesgo**. La revisión se centra en intención, alcance y riesgo. El formato lo debe resolver el lint; la revisión mira si el cambio es correcto y está acotado.
+- **Corregir en `main` en vez de en la rama**. Si encuentras algo, corrige en la rama y haz un commit nuevo; así la corrección queda en la misma revisión.
+
+## Cómo verificarlo
+
+1. Sigue la secuencia del ejercicio sobre tu rama.
+
+2. Mira la aportación commit a commit:
+
+   ```sh
+   git log main..<rama> --stat
+   ```
+
+   Salida esperada: los commits de la rama, cada uno con sus ficheros y líneas.
+
+3. Lee el diff desde el punto de bifurcación:
+
+   ```sh
+   git diff main...<rama>
+   ```
+
+   Salida esperada: los `+`/`-` del trabajo de la rama. Si ves ficheros ajenos al objetivo, son candidatos a corrección.
+
+4. Toma la vista corta y decide:
+
+   ```sh
+   git diff main...<rama> --stat
+   ```
+
+   Salida esperada: el resumen de ficheros tocados. Regístralo y usa la lista para decidir si todo pertenece al cambio.
+
+## Errores comunes
+
+- **Confundir `A..B` con `A...B`**: para revisar una rama, `main...rama` (tres puntos) compara con el punto de fusión común y muestra solo la aportación; `main..rama` (dos puntos) puede incluir cambios ajenos.
+- **Fusionar sin haber leído el diff**: el merge consolida; corregir después es más caro. La revisión es el momento barato de corregir.
+- **Dejar entrar ficheros fuera de alcance**: como `notas.txt` de la demostración. Si no pertenece al objetivo, quítalo de la rama antes de fusionar.
+- **Revisar solo al final**: cuanto antes revises, más barato es corregir. Revisar tras cada commit de la rama es más eficaz que revisar todo de golpe.
+- **Confiar en que «seguro que está bien»**: la revisión es una lectura deliberada. Saltársela traslada el riesgo a producción o al revisor siguiente.
+
+## Fuentes
+
+- [git-scm.com: git-diff Documentation](https://git-scm.com/docs/git-diff) — consultado el 2026-10-21.
+- [git-scm.com: git-log Documentation](https://git-scm.com/docs/git-log) — consultado el 2026-10-21.
+- [GitHub Docs: About pull requests](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l07 «Entregable: flujo completo rama → revisión → fusión»](/curriculo/n0/m5/l07-flujo-completo-rama-revision-fusion/) — el cierre del módulo: componer todo en un flujo real y redactar la nota de entrega.
+- Proyecto longitudinal: la revisión del diff es la pieza que completa la parte «Git limpio» de `f1`; el entregable de l07 cierra la fase.

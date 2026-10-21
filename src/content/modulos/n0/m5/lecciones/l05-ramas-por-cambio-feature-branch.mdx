@@ -1,0 +1,197 @@
+---
+titulo: "Ramas por cambio: feature branch"
+resumen: "Una rama es un puntero a un commit que te deja trabajar en un cambio sin tocar la línea principal. Aquí aprendes a crear una rama por cambio, a commitear en ella y a fusionarla con git merge --no-ff para que el historial recuerde que hubo una rama."
+nivel: "n0"
+modulo: "m5"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Crear una rama con git switch -c y trabajar en ella sin afectar a main"
+  - "Entender que una rama es un puntero, no una copia del proyecto"
+  - "Fusionar una rama con git merge --no-ff y leer el historial resultante"
+  - "Borrar una rama ya fusionada con git branch -d"
+prerrequisitos:
+  - "n0/m5/l04-el-remoto-origin-push-fetch-y-pull"
+actualizado: "2026-10-21"
+tags:
+  - "git"
+  - "ramas"
+  - "merge"
+  - "feature-branch"
+fuentes:
+  - titulo: "git-scm.com: Basic Branching and Merging"
+    url: "https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-branch Documentation"
+    url: "https://git-scm.com/docs/git-branch"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-switch Documentation"
+    url: "https://git-scm.com/docs/git-switch"
+    fecha: "2026-10-21"
+  - titulo: "git-scm.com: git-merge Documentation"
+    url: "https://git-scm.com/docs/git-merge"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una rama en Git es solo un **puntero a un commit**: crearla es barato y no copia tu proyecto. Trabajar en una rama te deja commitear un cambio aislado sin tocar `main`. Cuando el cambio está listo, lo fusionas con `git merge --no-ff`, que fuerza un commit de fusión para que el historial recuerde que ese trabajo vino de una rama. Cada cambio merece su propia rama: es la base de la revisión (l06) y del flujo completo (l07).
+
+## Conceptos
+
+### Una rama es un puntero
+
+Cuando haces `git init`, Git crea una rama por defecto, normalmente `main`. Una rama no es una copia del código: es una etiqueta (un puntero) que señala al commit actual. `HEAD` es un puntero a la rama en la que estás. Al crear una rama y moverte a ella, solo añades un puntero nuevo; los ficheros no se copian.
+
+```sh
+git switch -c anade-cine   # crea la rama y te mueve a ella
+```
+
+`git switch -c` crea la rama y te coloca en ella. `git switch <rama>` te mueve entre ramas existentes. La demostración de esta lección — `ejemplos/ramas-feature.sh` — crea la rama `anade-cine` y commitea en ella dos cambios en el CSV, sin que `main` se entere.
+
+### Trabajar en la rama
+
+Los commits que hagas en la rama solo afectan a esa rama. `main` queda intacto hasta que fusiones. La demostración muestra lo que aporta la rama respecto a `main`:
+
+```sh
+git log main..anade-cine --oneline
+```
+
+```text
+cbfdb76 Añade museo al CSV
+4e0e76e Añade cine al CSV
+```
+
+La sintaxis `main..anade-cine` significa «commits que están en `anade-cine` pero no en `main`»: exactamente lo que aporta la rama. Es la vista que usarás en la revisión (l06) para ver solo el trabajo nuevo.
+
+### Fusionar con `--no-ff`
+
+Para llevar el trabajo a `main`, vuelves a ella y fusionas:
+
+```sh
+git switch main
+git merge --no-ff anade-cine -m "Fusiona anade-cine"
+```
+
+`--no-ff` fuerza un **commit de fusión** aunque Git podría avanzar en línea recta. El historial queda así:
+
+```text
+*   ca7f4a2 Fusiona anade-cine
+|\
+| * cbfdb76 Añade museo al CSV
+| * 4e0e76e Añade cine al CSV
+|/
+* 91e1f80 Añade gastos.csv
+```
+
+El commit de fusión (`ca7f4a2`) es el punto donde la rama se reincorpora a `main`. Gráficamente, la rama `anade-cine` se ve como una «burbuja» que se abrió desde `main` y volvió a engancharse. Sin `--no-ff`, Git podría aplanar los commits en `main` y perderías la evidencia de que ese trabajo se hizo en una rama aislada y revisada.
+
+### Borrar la rama fusionada
+
+Una vez fusionada, la rama ya no hace falta:
+
+```sh
+git branch -d anade-cine
+```
+
+```text
+Deleted branch anade-cine (was cbfdb76).
+```
+
+`git branch -d` (con `-d`, no `-D`) solo borra ramas que ya están fusionadas: es una red de seguridad que evita perder trabajo sin fusionar. `git branch` (sin argumentos) lista las ramas restantes, con `*` en la actual.
+
+### Por qué una rama por cambio
+
+La disciplina de «una rama, un cambio» hace que cada cambio sea **revisable** (l06), **revertible** (puedes deshacer una fusión sin deshacer otras) y **paralelizable** (dos cambios no se entrelazan). Cuando el historial tiene commits atómicos en ramas atómicas, el flujo completo rama → revisión → fusión (l07) se vuelve mecánico y seguro.
+
+## Ejercicio
+
+Aísla un cambio real de tu proyecto en su propia rama, fusiona con `--no-ff` y borra la rama.
+
+```sh
+# 1. crear la rama desde main
+git switch main
+git switch -c <nombre-de-la-rama>
+# 2. hacer y commitear el cambio
+git add <ficheros> && git commit -m "<mensaje>"
+# 3. ver lo que aporta la rama
+git log main..<rama> --oneline
+# 4. volver a main y fusionar
+git switch main
+git merge --no-ff <rama> -m "Fusiona <rama>"
+# 5. borrar la rama y ver el historial
+git branch -d <rama>
+git log --graph --oneline -n 5
+```
+
+Esto se cumple cuando:
+
+- la rama contiene el cambio aislado, sin afectar a `main` hasta la fusión;
+- `git log main..<rama> --oneline` muestra los commits de la rama;
+- el `git log --graph` muestra el commit de fusión (el nodo `*` con dos ramas convergiendo);
+- `git branch -d` borra la rama sin protestar (estaba fusionada).
+
+Pista: el nombre de la rama debe describir el cambio (`anade-cine`, `corrige-total`), no la acción (`mi-rama`, `rama-2`).
+
+## Solución explicada
+
+La secuencia de arriba. La rama aísla el cambio; `git log main..<rama>` muestra su aportación; el merge `--no-ff` crea el commit de fusión que documenta la reincorporación; `-d` borra la rama ya fusionada.
+
+Errores típicos al resolverlo:
+
+- **Fusionar sin `--no-ff`**. Si Git puede hacer fast-forward, no se crea commit de fusión y la rama se «aplana» en `main`. Pierdes la evidencia del trabajo aislado. `--no-ff` la conserva.
+- **Confundir `<rama>` con `main..<rama>`**. `git log <rama>` muestra todo el historial de la rama, que incluye los commits heredados de `main`. `main..<rama>` muestra solo los que aporta la rama; eso es lo que revisas.
+- **Borrar la rama con `-D` antes de fusionar**. `-D` fuerza el borrado y puede descartar trabajo sin fusionar. Usa `-d`, que se niega si la rama no está fusionada.
+- **Cambiar de rama con cambios sin commitear**. `git switch` protege el trabajo sin commitear; si hay conflicto entre tus cambios y la rama destino, Git te lo dirá. Usa `git stash` (l03) si necesitas apartarlos.
+- **Nombres de rama genéricos**. `feature-1` no dice nada. Un nombre descriptivo hace que `git log --graph` se lea sin esfuerzo.
+
+## Cómo verificarlo
+
+1. Sigue la secuencia del ejercicio sobre tu proyecto.
+
+2. Mira lo que aporta la rama:
+
+   ```sh
+   git log main..<rama> --oneline
+   ```
+
+   Salida esperada: los commits de la rama, sin los heredados de `main`.
+
+3. Tras fusionar, inspecciona el historial gráfico:
+
+   ```sh
+   git log --graph --oneline -n 5
+   ```
+
+   Salida esperada: el commit de fusión en la cima, con la rama convergiendo de nuevo a `main` (el patrón con `|\` y `|/`).
+
+4. Borra la rama y lista las restantes:
+
+   ```sh
+   git branch -d <rama>
+   git branch
+   ```
+
+   Salida esperada: `Deleted branch ...`; `git branch` muestra solo `main` (con `*` si estás en ella).
+
+## Errores comunes
+
+- **Omitir `--no-ff` en la fusión**: Git puede hacer fast-forward y no crea commit de fusión; pierdes el rastro del trabajo aislado. Usa `--no-ff` para conservarlo.
+- **Revisar `git log <rama>` en vez de `main..<rama>`**: el primero muestra historial heredado; el segundo, solo la aportación de la rama. Para revisar, lo correcto es la resta.
+- **Borrar la rama sin fusionar con `-D`**: fuerza el borrado y puede descartar trabajo. `-d` se protege si no está fusionada.
+- **Acumular ramas sin fusionar**: muchas ramas abiertas envejecen y divergen. Fusiona o descarta con regularidad.
+- **Crear la rama desde un punto equivocado**: `git switch -c` crea desde `HEAD`. Si estás en otra rama, la nueva nace ahí. Empieza siempre desde `main` para un cambio aislado.
+
+## Fuentes
+
+- [git-scm.com: Basic Branching and Merging](https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging) — consultado el 2026-10-21.
+- [git-scm.com: git-branch Documentation](https://git-scm.com/docs/git-branch) — consultado el 2026-10-21.
+- [git-scm.com: git-switch Documentation](https://git-scm.com/docs/git-switch) — consultado el 2026-10-21.
+- [git-scm.com: git-merge Documentation](https://git-scm.com/docs/git-merge) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Siguiente lección: [l06 «La revisión: el diff como conversación»](/curriculo/n0/m5/l06-la-revision-el-diff-como-conversacion/) — cómo revisar el trabajo de una rama antes de fusionarla.
+- Proyecto longitudinal: las ramas por cambio son la columna vertebral de la parte «Git limpio» de `f1`; el módulo la cierra con el flujo completo en l07.
