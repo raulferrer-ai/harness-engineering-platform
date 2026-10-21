@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
 
 /**
- * H3: los ejemplos del primer módulo se comprueban **ejecutándolos** (frente a
+ * H3+H7: los ejemplos de los módulos se comprueban **ejecutándolos** (frente a
  * H2, donde solo se lintiaban). Convención del repositorio:
  *
  * - `ejemplos/*.js` deben terminar con código 0 (verde);
@@ -19,6 +19,10 @@ import { afterAll, describe, expect, it } from "vitest";
 
 const dirEjemplos = fileURLToPath(
   new URL("../../src/content/modulos/n0/m1/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosM2 = fileURLToPath(
+  new URL("../../src/content/modulos/n0/m2/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -179,6 +183,132 @@ describe("ejemplos del módulo n0/m1: ejecución real", () => {
   });
 });
 
+/** Casos directos de m2: un fichero, sin preparación, código de salida esperado. */
+const casosDirectosM2: CasoDirecto[] = [
+  {
+    ruta: "tipos.js",
+    codigo: 0,
+    stdoutContiene: "string number number boolean",
+    descripcion: "l01: el mapa de tipos imprime typeof y la trampa de null",
+  },
+  {
+    ruta: "variables.js",
+    codigo: 0,
+    stdoutContiene: "dentro del bloque: Grace",
+    descripcion: "l02: la sombra de ámbito no pisa la variable exterior",
+  },
+  {
+    ruta: "errores/acceso-undefined.js",
+    codigo: 1,
+    stderrContiene: "TypeError",
+    descripcion: "l01: TypeError al leer una propiedad de undefined",
+  },
+  {
+    ruta: "errores/const-reasignada.js",
+    codigo: 1,
+    stderrContiene: "Assignment to constant variable",
+    descripcion: "l02: TypeError al reasignar una const",
+  },
+  {
+    ruta: "errores/tdz.js",
+    codigo: 1,
+    stderrContiene: "ReferenceError",
+    descripcion: "l02: ReferenceError de zona prohibida (TDZ)",
+  },
+];
+
+describe("ejemplos del módulo n0/m2: ejecución real", () => {
+  it.each(casosDirectosM2)("$ruta → código $codigo ($descripcion)", (caso) => {
+    const resultado = ejecutarNode([caso.ruta], dirEjemplosM2);
+    expect(resultado.status, `${caso.ruta} → stderr: ${resultado.stderr}`).toBe(caso.codigo);
+    if (caso.stdoutContiene) expect(resultado.stdout).toContain(caso.stdoutContiene);
+    if (caso.stderrContiene) expect(resultado.stderr).toContain(caso.stderrContiene);
+  });
+
+  it("l01: la salida de tipos.js es exactamente la documentada (5 líneas)", () => {
+    const resultado = ejecutarNode(["tipos.js"], dirEjemplosM2);
+    expect(resultado.status).toBe(0);
+    expect(resultado.stdout).toBe(
+      "string number number boolean\n" +
+        "typeof undefined = undefined\n" +
+        "typeof null = object (trampa conocida: null se reporta como objeto)\n" +
+        "typeof objeto = object\n" +
+        '"5" === 5 es false pero "5" == 5 es true\n',
+    );
+  });
+
+  it("l02: la salida de variables.js es exactamente la documentada (3 líneas)", () => {
+    const resultado = ejecutarNode(["variables.js"], dirEjemplosM2);
+    expect(resultado.status).toBe(0);
+    expect(resultado.stdout).toBe("dentro del bloque: Grace\nfuera del bloque: Ada\ncontador: 1\n");
+  });
+
+  const suites: Array<{ fichero: string; pruebas: number }> = [
+    { fichero: "normalizar.test.js", pruebas: 4 },
+    { fichero: "dinero.test.js", pruebas: 4 },
+    { fichero: "dividir.test.js", pruebas: 4 },
+    { fichero: "articulo.test.js", pruebas: 5 },
+    { fichero: "descripcion-articulo.test.js", pruebas: 3 },
+  ];
+
+  it.each(suites)("l03–l07: las pruebas de $fichero pasan con node --test", (suite) => {
+    const resultado = ejecutarNode(["--test", suite.fichero], dirEjemplosM2);
+    expect(resultado.status, resultado.stdout).toBe(0);
+    expect(resultado.stdout).toContain(`pass ${suite.pruebas}`);
+    expect(resultado.stdout).toContain("fail 0");
+  });
+
+  it("l07: node --test sobre toda la carpeta ejecuta las 20 pruebas del módulo", () => {
+    const resultado = ejecutarNode(["--test"], dirEjemplosM2);
+    expect(resultado.status, resultado.stdout).toBe(0);
+    expect(resultado.stdout).toContain("tests 20");
+    expect(resultado.stdout).toContain("pass 20");
+    expect(resultado.stdout).toContain("fail 0");
+  });
+
+  it("l04: sin Math.round el ruido decimal rompe 1 de 4 pruebas (caso registrado)", () => {
+    const carpeta = carpetaTemporal();
+    writeFileSync(
+      join(carpeta, "dinero.js"),
+      readFileSync(join(dirEjemplosM2, "dinero.js"), "utf8").replace(
+        "return Math.round(euros * 100);",
+        "return euros * 100;",
+      ),
+    );
+    writeFileSync(
+      join(carpeta, "dinero.test.js"),
+      readFileSync(join(dirEjemplosM2, "dinero.test.js"), "utf8"),
+    );
+
+    const rojo = ejecutarNode(["--test", "dinero.test.js"], carpeta);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("pass 3");
+    expect(rojo.stdout).toContain("fail 1");
+    expect(rojo.stdout).toContain("30.000000000000004");
+  });
+
+  it("l06: sin Object.freeze la prueba de congelación falla (caso registrado)", () => {
+    const carpeta = carpetaTemporal();
+    writeFileSync(
+      join(carpeta, "articulo.js"),
+      readFileSync(join(dirEjemplosM2, "articulo.js"), "utf8").replace(
+        "return Object.freeze({ nombre: nombre.trim(), precio, cantidad });",
+        "return { nombre: nombre.trim(), precio, cantidad };",
+      ),
+    );
+    writeFileSync(
+      join(carpeta, "articulo.test.js"),
+      readFileSync(join(dirEjemplosM2, "articulo.test.js"), "utf8"),
+    );
+
+    const rojo = ejecutarNode(["--test", "articulo.test.js"], carpeta);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("pass 4");
+    expect(rojo.stdout).toContain("fail 1");
+    expect(rojo.stdout).toContain("Missing expected exception");
+  });
+});
+
 describe("l07: la demo de Git (requiere git instalado)", () => {
   const gitDisponible = spawnSync("git", ["--version"], { encoding: "utf8" }).status === 0;
 
@@ -201,29 +331,49 @@ describe("l07: la demo de Git (requiere git instalado)", () => {
 });
 
 describe("cobertura de ejemplos", () => {
-  it("cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
-    const enManifiesto = new Set([
+  /** Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js). */
+  function archivosVerificables(dir: string): string[] {
+    const enDisco: string[] = [];
+    for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+      if (entrada.isFile() && (entrada.name.endsWith(".js") || entrada.name.endsWith(".sh"))) {
+        enDisco.push(entrada.name);
+      }
+    }
+    for (const entrada of readdirSync(join(dir, "errores"), { withFileTypes: true })) {
+      if (entrada.isFile() && entrada.name.endsWith(".js")) {
+        enDisco.push(`errores/${entrada.name}`);
+      }
+    }
+    return enDisco.sort();
+  }
+
+  it("m1: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    const enManifiesto = [
       ...casosDirectos.map((caso) => caso.ruta),
       "verificar-estructura.js",
       "saludo-funcion.test.js",
       "celsius-a-fahrenheit.test.js",
       "demo-git.sh",
-    ]);
+    ];
 
-    const enDisco: string[] = [];
-    for (const entrada of readdirSync(dirEjemplos, { withFileTypes: true })) {
-      if (entrada.isFile() && (entrada.name.endsWith(".js") || entrada.name.endsWith(".sh"))) {
-        enDisco.push(entrada.name);
-      }
-    }
-    for (const entrada of readdirSync(join(dirEjemplos, "errores"), {
-      withFileTypes: true,
-    })) {
-      if (entrada.isFile() && entrada.name.endsWith(".js")) {
-        enDisco.push(`errores/${entrada.name}`);
-      }
-    }
+    expect(archivosVerificables(dirEjemplos)).toEqual([...enManifiesto].sort());
+  });
 
-    expect(enDisco.sort()).toEqual([...enManifiesto].sort());
+  it("m2: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    const enManifiesto = [
+      ...casosDirectosM2.map((caso) => caso.ruta),
+      "normalizar.js",
+      "normalizar.test.js",
+      "dinero.js",
+      "dinero.test.js",
+      "dividir.js",
+      "dividir.test.js",
+      "articulo.js",
+      "articulo.test.js",
+      "descripcion-articulo.js",
+      "descripcion-articulo.test.js",
+    ];
+
+    expect(archivosVerificables(dirEjemplosM2)).toEqual([...enManifiesto].sort());
   });
 });

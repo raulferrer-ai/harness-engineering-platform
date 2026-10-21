@@ -1,0 +1,177 @@
+---
+titulo: "Números: precisión y conversión"
+resumen: "JavaScript guarda todos los números en coma flotante doble, y eso hace que 0.1 + 0.2 no sea 0.3. Aprendes a reconocer el ruido decimal, a trabajar con dinero en céntimos enteros con Math.round y a defender tus funciones de NaN y de conversiones silenciosas."
+nivel: "n0"
+modulo: "m2"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Explicar por qué 0.1 + 0.2 imprime 0.30000000000000004"
+  - "Modelar dinero en céntimos enteros y redondear con Math.round"
+  - "Distinguir Number.isNaN de la comprobación !== NaN"
+  - "Validar entradas numéricas con typeof y Math"
+  - "Leer un fallo de prueba por su diff (+ actual / - esperado)"
+prerrequisitos:
+  - "n0/m2/l03-textos-y-plantillas"
+actualizado: "2026-10-21"
+tags:
+  - "numeros"
+  - "punto-flotante"
+  - "dinero"
+  - "nan"
+fuentes:
+  - titulo: "Number | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number"
+    fecha: "2026-10-21"
+  - titulo: "Number.isNaN() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isNaN"
+    fecha: "2026-10-21"
+  - titulo: "Number.prototype.toFixed() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toFixed"
+    fecha: "2026-10-21"
+  - titulo: "0.1 + 0.2 = 0.30000000000000004"
+    url: "https://0.30000000000000004.com/"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Todos los números de JavaScript son **comas flotantes dobles**: representan los decimales con una precisión finita, así que `0.1 + 0.2` imprime `0.30000000000000004` y esa diferencia rompe comparaciones como `total === 30`. La solución para dinero es trabajar en **céntimos enteros** con `Math.round` al multiplicar. Y cuidado con `NaN`: no es un error de ejecución, **es un resultado**, y se compara con `Number.isNaN(valor)`, nunca con `valor === NaN`.
+
+## Conceptos
+
+### El ruido decimal
+
+`0.1` y `0.2` no tienen representación exacta en binario, igual que `1/3` no la tiene en decimal. Al sumarlos obtienes el vecino más cercano a `0.3`:
+
+```text
+0.1+0.2 = 0.30000000000000004
+0.1*3 = 0.30000000000000004
+19.99*100 = 1998.9999999999998
+```
+
+(Valores reales de Node v24.22.0, ejecutados el 2026-10-21.) Por eso un total «exacto» puede ser `6.300000000000001` y una comparación estricta fallar sin motivo aparente.
+
+### Dinero en céntimos enteros
+
+La defensa estándar: multiplica por 100, **redondea a entero** y opera con enteros; para presentar, vuelve a dividir. `Math.round` absorbe el ruido: `Math.round(0.1 * 3 * 100)` es `30`, no `30.000000000000004`.
+
+```js
+// dinero.js — trabajar con euros en céntimos enteros (lección l04)
+export function eurosACents(euros) {
+  if (typeof euros !== "number" || Number.isNaN(euros)) {
+    throw new TypeError("eurosACents espera un número");
+  }
+  if (euros < 0) {
+    throw new RangeError("eurosACents no acepta negativos");
+  }
+  return Math.round(euros * 100);
+}
+
+export function centsAEuros(cents) {
+  if (!Number.isInteger(cents) || cents < 0) {
+    throw new RangeError("centsAEuros espera céntimos enteros no negativos");
+  }
+  return cents / 100;
+}
+```
+
+Fíjate en las **dos clases de error distintas**: `TypeError` cuando la entrada no tiene el tipo correcto y `RangeError` cuando el tipo es válido pero el valor está fuera del dominio. Esa distinción te la pedirá la l05.
+
+### `NaN` y `toFixed`
+
+`NaN` («not a number») es un resultado **válido** de operaciones como `0/0` o `parseInt("abc")`. Trampa clásica: `NaN === NaN` es `false`, así que solo se comprueba con `Number.isNaN(valor)` (o validándolo al entrar, como hace `eurosACents`). Para **mostrar** dos decimales puedes usar `toFixed(2)`, pero devuelve un **texto**: no sirve para calcular, solo para presentar.
+
+## Ejercicio
+
+Añade esta prueba al final de `dinero.test.js` y ejecuta `node --test dinero.test.js`:
+
+```js
+test("eurosACents convierte 19.99 a 1999 céntimos", () => {
+  assert.strictEqual(19.99 * 100, 1998.9999999999998);
+  assert.strictEqual(eurosACents(19.99), 1999);
+});
+```
+
+Después, en `dinero.js`, cambia `Math.round` por `Math.trunc` y ejecuta otra vez.
+
+Esto se cumple cuando:
+
+- la primera ejecución pasa a `pass 5 / fail 0`: la prueba documenta el ruido **y** que `eurosACents` lo absorbe;
+- con `Math.trunc` ves exactamente una prueba en rojo y entiendes su diff;
+- puedes explicar por qué `Math.round` sobrevive a `1999 - epsilon` y `Math.trunc` no.
+
+Pista: `19.99 * 100` se queda **justo por debajo** de 1999; piensa qué hace cada función con `1998.9999999999998`.
+
+## Solución explicada
+
+La primera ejecución (con `Math.round`) termina en verde; salida real el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ eurosACents convierte a céntimos enteros (0.551292ms)
+✔ eurosACents absorbe el ruido decimal del punto flotante (0.199792ms)
+✔ eurosACents rechaza entradas que no son números válidos (1.264625ms)
+✔ centsAEuros devuelve el decimal equivalente (0.138084ms)
+✔ eurosACents convierte 19.99 a 1999 céntimos (0.08325ms)
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+```
+
+Con `Math.trunc`, la misma suite en rojo; salida real:
+
+```text
+✖ eurosACents convierte 19.99 a 1999 céntimos (0.961084ms)
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+1998 !== 1999
+ℹ pass 4
+ℹ fail 1
+```
+
+El diff lo dice todo: `trunc` **corta** hacia cero y `1998.9999999999998` se queda en `1998`; `Math.round` lo redondea al entero más cercano y devuelve `1999`. La primera aserción de la prueba (`=== 1998.9999999999998`) sigue pasando: el ruido es real, y es `eurosACents` quien lo absorbe. Restaura `Math.round` y vuelve al verde.
+
+## Cómo verificarlo
+
+1. Ejecuta las pruebas del ejemplo:
+
+   ```sh
+   node --test dinero.test.js
+   ```
+
+   Salida real (verde), ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ eurosACents convierte a céntimos enteros (1.812125ms)
+   ✔ eurosACents absorbe el ruido decimal del punto flotante (0.223834ms)
+   ✔ eurosACents rechaza entradas que no son números válidos (0.844834ms)
+   ✔ centsAEuros devuelve el decimal equivalente (4.003042ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+2. Aplica tu prueba de `19.99` y confirma `pass 5`.
+3. Como rojo deliberado, quita el `Math.round` del ejemplo (`return euros * 100;`) y ejecuta de nuevo. Salida real: `pass 3 / fail 1`, con el diff `+ 30.000000000000004 / - 30` en la prueba del ruido decimal. Restaura el verde.
+4. Aplica el cambio a `Math.trunc` del ejercicio y confirma el rojo `1998 !== 1999`. Restaura.
+
+## Errores comunes
+
+- **Comparar decimales con `===`.** `total === 30` puede fallar por una diferencia de `4e-15`. Redondea (o trabaja en céntimos) antes de comparar.
+- **Usar `toFixed` para calcular.** Devuelve un texto: `"6.30" * 2` no es aritmética fiable. `toFixed` es solo para presentar.
+- **Comprobar `NaN` con `===`.** `NaN === NaN` es `false`. Usa `Number.isNaN(valor)` o valida al entrar, como en `eurosACents`.
+- **Redondear con `trunc` o `floor` por dinero.** Cortar hacia abajo pierde céntimos reales; `Math.round` es la convención estándar (y si tu dominio exige otra política, esa decisión debe estar escrita y probada).
+
+## Fuentes
+
+- [Number | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number) — consultado el 2026-10-21.
+- [Number.isNaN() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isNaN) — consultado el 2026-10-21.
+- [Number.prototype.toFixed() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toFixed) — consultado el 2026-10-21.
+- [0.1 + 0.2 = 0.30000000000000004](https://0.30000000000000004.com/) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l05 «Funciones: contrato, entrada y salida»](/curriculo/n0/m2/l05-funciones-contrato-y-entrada/): formalizas el patrón que ya has usado tres veces —validar, calcular, devolver— y aprendes a distinguir `TypeError` de `RangeError` como contrato.
+- Si quieres ver más allá de `Math`, la guía de `Number` en MDN lista todas las operaciones estáticas (`isInteger`, `parseInt`, `parseFloat`) con sus diferencias.

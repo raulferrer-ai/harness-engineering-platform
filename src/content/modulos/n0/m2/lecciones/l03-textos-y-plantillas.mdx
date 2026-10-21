@@ -1,0 +1,185 @@
+---
+titulo: "Textos y plantillas"
+resumen: "El tipo string es inmutable y comparable solo si lo normalizas. Escribes tu primera función del módulo (normalizar), la defiendes contra entradas que no son texto y la compruebas con node:test: cuatro pruebas en verde y un rojo deliberado que te muestra cómo se ve un fallo real."
+nivel: "n0"
+modulo: "m2"
+orden: 3
+dificultad: "inicial"
+tiempoEstimado: 40
+objetivos:
+  - "Aplicar los métodos básicos de string: trim, toLowerCase y replace"
+  - "Comparar textos de forma fiable normalizándolos antes"
+  - "Escribir una función de texto con validación de entrada"
+  - "Ejecutar un fichero de pruebas con node --test y leer su resumen"
+  - "Interpretar un fallo de prueba con su diff de valores"
+prerrequisitos:
+  - "n0/m2/l02-const-let-y-ambito"
+actualizado: "2026-10-21"
+tags:
+  - "strings"
+  - "texto"
+  - "pruebas"
+  - "normalizacion"
+fuentes:
+  - titulo: "String | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String"
+    fecha: "2026-10-21"
+  - titulo: "String.prototype.trim() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/trim"
+    fecha: "2026-10-21"
+  - titulo: "Template literals (plantillas literales) | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un texto (`string`) es una secuencia de caracteres **inmutable**: cada método que «cambia» un texto devuelve otro nuevo. Comparar textos crudos es una trampa (`" Ada" !== "Ada"`), así que los programas reales **normalizan** antes de comparar: quitar espacios con `trim()`, pasar a minúsculas con `toLowerCase()` y colapsar espacios repetidos. Las **plantillas literales** (`` `texto ${valor}` ``) componen texto y valores con claridad.
+
+## Conceptos
+
+### Un texto no se modifica: se reemplaza
+
+```js
+const saludo = "  Hola  ";
+const limpio = saludo.trim(); // "Hola" — saludo sigue valiendo "  Hola  "
+```
+
+Los métodos devuelven un valor nuevo. Si no lo guardas en una variable, el resultado se pierde. Los que usarás a diario: `trim()` (espacios de los extremos), `toLowerCase()` y `toUpperCase()` (mayúsculas), `includes()` (¿contiene?), `slice()` (recortar) y `replace()` (sustituir; con `/\s+/g` colapsa espacios, tabulaciones y saltos de línea).
+
+### Plantillas literales
+
+Con las comillas invertidas `` ` `` compones texto e interpolas valores con `${expresion}`:
+
+```js
+const unidades = 3;
+console.log(`Total: ${unidades} uds`); // "Total: 3 uds"
+```
+
+Son la forma estándar de construir cadenas con variables; en la l07 compondrás las tuyas.
+
+### La función del módulo: `normalizar`
+
+```js
+// normalizar.js — lleva un texto a una forma comparable (lección l03)
+export function normalizar(texto) {
+  if (typeof texto !== "string") {
+    throw new TypeError("normalizar espera un texto");
+  }
+  return texto.trim().toLowerCase().replace(/\s+/g, " ");
+}
+```
+
+Dos decisiones que defender:
+
+- **Valida antes de trabajar.** Si la entrada no es texto, lanza `TypeError` con un mensaje claro en vez de devolver un resultado raro. Es el contrato de la función, y lo repetirás en cada función del módulo.
+- **Orden: trim → minúsculas → colapsar.** Cualquier orden funciona para este caso, pero el encadenado legible es el de arriba abajo: se lee como una receta.
+
+Y su fichero de pruebas, `normalizar.test.js`, con `node:test` y `node:assert/strict` (el mismo patrón de la l04 de m1):
+
+```js
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { normalizar } from "./normalizar.js";
+
+test("normalizar recorta los espacios y pasa a minúsculas", () => {
+  assert.strictEqual(normalizar("  HOLA Mundo "), "hola mundo");
+});
+
+test("normalizar colapsa espacios y tabulaciones internas en uno solo", () => {
+  assert.strictEqual(normalizar("pan\tsurtido   grande"), "pan surtido grande");
+});
+
+test("normalizar devuelve texto vacío para una cadena de espacios", () => {
+  assert.strictEqual(normalizar("   "), "");
+});
+
+test("normalizar rechaza lo que no sea texto", () => {
+  assert.throws(() => normalizar(42), TypeError);
+  assert.throws(() => normalizar(undefined), TypeError);
+});
+```
+
+## Ejercicio
+
+Crea `capitalizar.js` que importe `normalizar` y devuelva el texto con la primera letra en mayúscula; después escribe dos pruebas y ejecuta `node --test capitalizar.test.js`.
+
+Esto se cumple cuando:
+
+- `capitalizar("  buenos días ")` devuelve `"Buenos días"` (normaliza **y** eleva la primera letra);
+- una entrada que no es texto lanza `TypeError` y tu prueba lo comprueba con `assert.throws`;
+- `node --test capitalizar.test.js` termina en verde con `pass 2` y `fail 0`.
+
+Pista: normaliza primero, y para la primera letra usa `charAt(0).toUpperCase()` + `slice(1)`; no uses `toWellformed` ni mágia de mayúsculas completas.
+
+## Solución explicada
+
+La solución importa y compone; no reimplementa:
+
+```js
+// capitalizar.js — el ejercicio resuelto (lección l03)
+import { normalizar } from "./normalizar.js";
+
+export function capitalizar(texto) {
+  const limpio = normalizar(texto);
+  return limpio.charAt(0).toUpperCase() + limpio.slice(1);
+}
+```
+
+`normalizar` hace el trabajo sucio (recorte, minúsculas, espacios) y `capitalizar` solo añade su transformación. La validación no se repite: si `texto` no es texto, `normalizar` ya lanza el `TypeError`, y tu prueba de `assert.throws` lo comprueba.
+
+Salida real de `node --test capitalizar.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ capitalizar eleva la primera letra (0.647333ms)
+✔ capitalizar rechaza lo que no sea texto (0.309209ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+```
+
+Caso vacío: `capitalizar("")` devuelve `""` sin error, porque `normalizar("")` pasa el contrato (un texto vacío es un texto). Si tu dominio exigiera texto no vacío, sería `normalizar` quien lo decidiría, no `capitalizar`.
+
+## Cómo verificarlo
+
+1. Copia `normalizar.js` y `normalizar.test.js` de `ejemplos/` a tu carpeta de trabajo (o reimplementa siguiendo el listado de arriba).
+2. Ejecuta las pruebas del ejemplo:
+
+   ```sh
+   node --test normalizar.test.js
+   ```
+
+   Salida real (verde), ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ normalizar recorta los espacios y pasa a minúsculas (3.059667ms)
+   ✔ normalizar colapsa espacios y tabulaciones internas en uno solo (0.285042ms)
+   ✔ normalizar devuelve texto vacío para una cadena de espacios (0.184541ms)
+   ✔ normalizar rechaza lo que no sea texto (1.980625ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+3. Provoca un rojo a propósito: borra la línea `.toLowerCase()` de `normalizar.js` y ejecuta de nuevo. Pasas de `pass 4 / fail 0` a `pass 3 / fail 1`, con `✖ normalizar recorta los espacios y pasa a minúsculas` a la cabeza. Restaura el verde.
+4. Ejecuta tu `capitalizar.test.js` y confirma `pass 2 / fail 0`.
+
+## Errores comunes
+
+- **Guardar el resultado perdido.** `texto.trim()` sin asignarlo no cambia nada: el valor devuelto se descarta. Usa `const limpio = texto.trim();`.
+- **Comparar textos sin normalizar.** `"Ada" === "  ada "` es `false`. Normaliza ambos lados antes de comparar (l07 compondrá esta idea en un registro completo).
+- **Olvidar que `replace` con `/…/g` reemplaza todas las apariciones.** Sin la bandera `g` solo cambia la primera.
+- **Pruebas que solo miran el caso feliz.** Tres de las cuatro pruebas del ejemplo cubren casos límite (espacios internos, vacío, entrada inválida): ahí vive la mayoría de los bugs.
+
+## Fuentes
+
+- [String | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String) — consultado el 2026-10-21.
+- [String.prototype.trim() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/trim) — consultado el 2026-10-21.
+- [Template literals | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l04 «Números: precisión y conversión»](/curriculo/n0/m2/l04-numeros-precision-y-conversion/): por qué `0.1 + 0.2` no es `0.3`, qué es `NaN` y cómo trabajar con dinero en céntimos enteros.
+- Si nunca habías visto un fichero `.test.js` ejecutarse, vuelve a la l04 de m1: el mecanismo (`node:test` + `node:assert/strict`) es el mismo; aquí solo cambia el dominio.

@@ -1,0 +1,194 @@
+---
+titulo: "Funciones: contrato, entrada y salida"
+resumen: "Una función pequeña es un contrato: recibe entradas de un tipo concreto, las valida, calcula y devuelve un resultado de otro tipo. Escribes el contrato de dividir con sus dos errores —TypeError para tipos y RangeError para valores—, lo pruebas entero y aplicas el patrón a un factorial."
+nivel: "n0"
+modulo: "m2"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Escribir una función que valida su entrada antes de calcular"
+  - "Distinguir TypeError (tipo incorrecto) de RangeError (valor fuera de rango)"
+  - "Probar casos normales y casos de error con assert.throws"
+  - "Nombrar funciones con verbos y parámetros con sustantivos"
+  - "Aplicar el patrón completo a una función nueva con sus pruebas"
+prerrequisitos:
+  - "n0/m2/l04-numeros-precision-y-conversion"
+actualizado: "2026-10-21"
+tags:
+  - "funciones"
+  - "contrato"
+  - "errores"
+  - "validacion"
+fuentes:
+  - titulo: "Functions | MDN JavaScript Guide"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions"
+    fecha: "2026-10-21"
+  - titulo: "throw | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/throw"
+    fecha: "2026-10-21"
+  - titulo: "Assert | Node.js v24.22.0 Documentation"
+    url: "https://nodejs.org/docs/latest-v24.x/api/assert.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una función con contrato tiene tres zonas: **validar la entrada** (y fallar con un error claro si no encaja), **calcular** con los datos ya sanos y **devolver** el resultado. Los errores se eligen según lo que falla: `TypeError` cuando el **tipo** no es el esperado y `RangeError` cuando el tipo es válido pero el **valor** queda fuera del dominio. Las pruebas cubren ambos lados: los casos normales con `assert.strictEqual` y los de error con `assert.throws`.
+
+## Conceptos
+
+### El contrato de `dividir`
+
+```js
+// dividir.js — contrato explícito: valida la entrada y los errores de dominio (lección l05)
+export function dividir(dividendo, divisor) {
+  if (typeof dividendo !== "number" || typeof divisor !== "number") {
+    throw new TypeError("dividir espera dos números");
+  }
+  if (Number.isNaN(dividendo) || Number.isNaN(divisor)) {
+    throw new TypeError("dividir no acepta NaN");
+  }
+  if (divisor === 0) {
+    throw new RangeError("dividir no puede dividir entre cero");
+  }
+  return dividendo / divisor;
+}
+```
+
+Léelo como tres promesas:
+
+1. **Tipos.** Si no me das dos números, lanzo `TypeError` con un mensaje que nombra la función y lo que espera. El mensaje te lo agradecerá tu yo del futuro (y el error de aserción lo mostrará).
+2. **Valores especiales.** `NaN` es de tipo `number`, así que necesita su propia comprobación: también es `TypeError` porque el dato no es utilizable.
+3. **Dominio.** Dividir entre cero está **dentro del tipo** pero **fuera del dominio**: eso es un `RangeError`.
+
+Y solo entonces se calcula. Nota que la función no hace nada más: no redondea, no imprime, no guarda estado. Una responsabilidad, un nombre de verbo (`dividir`) y parámetros con sustantivos.
+
+### Probar los errores
+
+`assert.throws(fn, TipoError)` comprueba que `fn` lanza **ese tipo** de error:
+
+```js
+assert.throws(() => dividir("10", 2), TypeError);
+assert.throws(() => dividir(10, 0), RangeError);
+```
+
+Sin esto, un error mal clasificado pasaría desapercibido: si `dividir` lanzara `TypeError` al dividir entre cero, la segunda aserción fallaría y lo verías.
+
+### Fichero de pruebas completo
+
+`dividir.test.js` cubre cuatro zonas: cociente exacto, cociente decimal, entradas inválidas y división por cero:
+
+```js
+test("dividir devuelve el cociente exacto", () => {
+  assert.strictEqual(dividir(10, 2), 5);
+});
+
+test("dividir admite cocientes con decimales", () => {
+  assert.strictEqual(dividir(7, 2), 3.5);
+});
+
+test("dividir rechaza entradas que no son números", () => {
+  assert.throws(() => dividir("10", 2), TypeError);
+  assert.throws(() => dividir(10, "2"), TypeError);
+  assert.throws(() => dividir(Number.NaN, 2), TypeError);
+});
+
+test("dividir señala la división entre cero como error de rango", () => {
+  assert.throws(() => dividir(10, 0), RangeError);
+});
+```
+
+## Ejercicio
+
+Escribe `factorial.js` con su `factorial.test.js`, aplicando el patrón completo.
+
+Contrato de `factorial(n)`: recibe un **entero**; `n!` de `0` es `1`; los negativos no tienen factorial.
+
+Esto se cumple cuando:
+
+- `factorial(5)` devuelve `120` y `factorial(0)` devuelve `1`;
+- una entrada que no es entero (por ejemplo `2.5` o `"5"`) lanza `TypeError`;
+- un negativo lanza `RangeError`;
+- `node --test factorial.test.js` termina con `pass 4 / fail 0`.
+
+Pista: comprueba primero `typeof n !== "number" || !Number.isInteger(n)`, después `n < 0`, y solo al final calcula con un `let` acumulador.
+
+## Solución explicada
+
+```js
+// factorial.js — el ejercicio resuelto (lección l05)
+export function factorial(n) {
+  if (typeof n !== "number" || !Number.isInteger(n)) {
+    throw new TypeError("factorial espera un entero");
+  }
+  if (n < 0) {
+    throw new RangeError("factorial no acepta números negativos");
+  }
+  let resultado = 1;
+  for (let i = 2; i <= n; i++) {
+    resultado = resultado * i;
+  }
+  return resultado;
+}
+```
+
+Tres decisiones:
+
+- **`Number.isInteger` en la validación.** `2.5` es de tipo `number` pero no es entero: `factorial(2.5)` no tiene significado, y como el error es de valor inválido dentro del tipo, la clase correcta sigue siendo `TypeError` (no hay un «rango» que violar: el tipo entero ya se ha rechazado).
+- **El ciclo `for` es el único «cálculo con estado»** de la función, y vive al final, cuando las entradas ya son sanas. En la l07 verás la alternativa declarativa.
+- **Las pruebas cubren las tres capas del contrato**, una prueba por promesa más el caso feliz.
+
+Salida real de `node --test factorial.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ factorial de 0 y de 1 es 1 (0.820958ms)
+✔ factorial de 5 es 120 (0.104708ms)
+✔ factorial rechaza lo que no sea entero (0.284583ms)
+✔ factorial rechaza negativos como error de rango (0.325916ms)
+ℹ tests 4
+ℹ pass 4
+ℹ fail 0
+```
+
+## Cómo verificarlo
+
+1. Ejecuta las pruebas del ejemplo:
+
+   ```sh
+   node --test dividir.test.js
+   ```
+
+   Salida real (verde), ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ dividir devuelve el cociente exacto (1.672833ms)
+   ✔ dividir admite cocientes con decimales (0.413ms)
+   ✔ dividir rechaza entradas que no son números (0.602375ms)
+   ✔ dividir señala la división entre cero como error de rango (1.248375ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+2. Clasifica mal un error a propósito: cambia el `throw new RangeError(...)` de la división por cero por `throw new TypeError(...)` y ejecuta de nuevo. Salida real: `pass 3 / fail 1`, con `✖ dividir señala la división entre cero como error de rango` en rojo —la prueba miraba la **clase** del error, y ha cambiado. Restaura el verde.
+3. Ejecuta tu `factorial.test.js` y confirma `pass 4 / fail 0`.
+
+## Errores comunes
+
+- **Devolver `NaN` en vez de fallar.** `dividir(10, 0)` «funciona» y devuelve `NaN` sin `throw`: el error viaja hacia arriba enmascarado. Mejor fallar en el origen con un mensaje propio.
+- **Un solo `throw new Error(...)` para todo.** Si todo lanza `Error`, tus pruebas no pueden distinguir «entrada mal tipada» de «valor fuera de rango». Usa las clases específicas.
+- **Validar tarde (o nunca).** Si la validación va después del cálculo, ya has devuelto un resultado contaminado. Primero valida, luego calcula.
+- **Probar solo el caso feliz.** Sin las pruebas de `assert.throws`, un `throw` borrado pasaría inadvertido.
+
+## Fuentes
+
+- [Functions | MDN JavaScript Guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions) — consultado el 2026-10-21.
+- [throw | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/throw) — consultado el 2026-10-21.
+- [Assert | Node.js v24.22.0 Documentation](https://nodejs.org/docs/latest-v24.x/api/assert.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l06 «Objetos: modelar datos con registros»](/curriculo/n0/m2/l06-objetos-como-modelos/): cuando los parámetros se multiplican, el siguiente paso es agruparlos en un objeto validado y congelado.
+- El patrón validar → calcular → devolver ya lo has visto en `normalizar`, `eurosACents` y `dividir`; en l07 lo usarás como base del entregable del módulo.
