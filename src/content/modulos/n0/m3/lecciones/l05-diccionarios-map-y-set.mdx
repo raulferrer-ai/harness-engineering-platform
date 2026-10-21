@@ -1,0 +1,200 @@
+---
+titulo: "Diccionarios, Map y Set"
+resumen: "Cuando cada categoría aparece muchas veces, contar filtrando una y otra vez no escala. Aquí acumulas en un objeto con claves, evitas el NaN del primer conteo con Object.hasOwn, deduplicas con Set y añades un Map para clave→importe."
+nivel: "n0"
+modulo: "m3"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 45
+objetivos:
+  - "Contar apariciones en un objeto usado como diccionario clave→valor"
+  - "Distinguir claves propias de heredadas con Object.hasOwn"
+  - "Deduplicar valores con Set y devolverlos ordenados"
+  - "Acumular por clave en un Map con get y set"
+prerrequisitos:
+  - "n0/m3/l04-transformar-listas-map-filter-reduce"
+actualizado: "2026-10-21"
+tags:
+  - "objetos"
+  - "map"
+  - "set"
+fuentes:
+  - titulo: "Object.hasOwn() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwn"
+    fecha: "2026-10-21"
+  - titulo: "Map | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map"
+    fecha: "2026-10-21"
+  - titulo: "Set | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **objeto** usado como diccionario guarda `clave → valor` y se recorre con las mismas claves que ya conoces; `Object.hasOwn` distingue una clave **propia** de una heredada y evita el `NaN` del primer conteo. Un **`Set`** guarda valores **sin repetirlos** y un **`Map`** es la estructura hecha para `get`/`set` por clave. Los tres resuelven lo que `filter` una y otra vez no puede: responder «¿cuántas veces?» y «¿cuánto en total?» en **una sola pasada**.
+
+## Conceptos
+
+### Contar en un objeto: clave → recuento
+
+```js
+// resumen-categorias.js — conteos con objeto-diccionario y únicos con Set (lección l05)
+export function cuentaPorCategoria(gastos) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("cuentaPorCategoria espera una lista de gastos");
+  }
+  const cuentas = {};
+  for (const gasto of gastos) {
+    if (Object.hasOwn(cuentas, gasto.categoria)) {
+      cuentas[gasto.categoria] = cuentas[gasto.categoria] + 1;
+    } else {
+      cuentas[gasto.categoria] = 1;
+    }
+  }
+  return cuentas;
+}
+
+export function categoriasUnicas(gastos) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("categoriasUnicas espera una lista de gastos");
+  }
+  const unicas = new Set();
+  for (const gasto of gastos) {
+    unicas.add(gasto.categoria);
+  }
+  return [...unicas].sort();
+}
+
+export function importesPorCategoria(gastos) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("importesPorCategoria espera una lista de gastos");
+  }
+  const acumulados = new Map();
+  for (const gasto of gastos) {
+    const previo = acumulados.get(gasto.categoria) ?? 0;
+    acumulados.set(gasto.categoria, previo + gasto.importe);
+  }
+  return acumulados;
+}
+```
+
+`cuentaPorCategoria` recorre la lista **una vez** y va subiendo el contador de cada categoría: `{ comida: 2, ocio: 1 }`. El detalle que importa es `Object.hasOwn`: la primera vez que ves una clave no existe, y escribir `cuentas[cat] + 1` sin comprobar haría `undefined + 1`, que **no lanza** sino que produce `NaN` (verificable con `node -e "console.log(undefined + 1)"`). La rama `else` pone `1` en su lugar.
+
+### `Set`: valores únicos, sin repetir
+
+Para «categorías sin repetir» no hace falta ningún conteo: `unicas.add(...)` simplemente ignora lo que ya está dentro. El `Set` no devuelve una lista, así que la conviertes con `[...unicas]` (spread, l03) y encadenas `.sort()` para un orden estable: `categoriasUnicas(gastos)` → `["comida", "ocio"]`. Con la lista vacía, el `Set` arranca vacío y devuelves `[]`.
+
+Una advertencia sobre lo que **no** deduplica: el `Set` compara valores, y dos objetos nunca son el mismo valor aunque tengan los campos iguales — `new Set([{ a: 1 }, { a: 1 }]).size` es `2`. Para registros duplicados necesitas una clave (`id`, `descripcion`) y una comprobación propia.
+
+### `Map`: get/set con claves bien definidas
+
+`importesPorCategoria` acumula el importe por categoría en un `Map`: `get(clave)` devuelve el acumulado o `undefined` si no existe (y `?? 0` cubre esa primera vez), `set(clave, valor)` guarda, `.size` cuenta. Frente al objeto-diccionario, un `Map` no tiene problema con claves heredadas ni requiere `hasOwn`: si `get` devuelve `undefined`, es que la clave no estaba. Elegir uno u otro es de gustos aquí; el objeto es JSON y literales sencillos, el `Map` es API explícita (`get`/`set`/`has`/`delete`).
+
+## Ejercicio
+
+Crea `ejercicios/principal.js` con una función `categoriaPrincipal(cuentas)`.
+
+Contrato: `cuentas` es un diccionario de recuentos como el que devuelve `cuentaPorCategoria` (por ejemplo `{ comida: 4, ocio: 2 }`). Devuelve el **nombre** de la categoría con más gastos; **en empate, la primera alfabéticamente**.
+
+Esto se cumple cuando:
+
+- `categoriaPrincipal({ comida: 4, ocio: 2 })` devuelve `"comida"`;
+- `categoriaPrincipal({ ocio: 2, comida: 2 })` también devuelve `"comida"` (empate → alfabética);
+- un diccionario vacío lanza `RangeError` y una entrada que no es diccionario (texto o lista) lanza `TypeError`;
+- `node --test ejercicios/principal.test.js` termina en verde con las tres pruebas.
+
+Pista: `Object.keys(cuentas).sort()` te da las claves en orden alfabético; recórrelas y cambia de «mejor» solo si el recuento es **estrictamente mayor**.
+
+## Solución explicada
+
+```js
+// principal.js — el ejercicio resuelto (lección l05)
+export function categoriaPrincipal(cuentas) {
+  if (cuentas === null || typeof cuentas !== "object" || Array.isArray(cuentas)) {
+    throw new TypeError("categoriaPrincipal espera un diccionario de recuentos");
+  }
+  const claves = Object.keys(cuentas).sort();
+  if (claves.length === 0) {
+    throw new RangeError("categoriaPrincipal necesita al menos una categoría");
+  }
+  let mejor = claves[0];
+  for (const clave of claves) {
+    if (cuentas[clave] > cuentas[mejor]) {
+      mejor = clave;
+    }
+  }
+  return mejor;
+}
+```
+
+Salida real de `node --test principal.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ devuelve la categoría con más gastos (0.410167ms)
+✔ en empate gana la primera alfabéticamente (0.066375ms)
+✔ valida el diccionario y el vacío (0.245ms)
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+```
+
+La defensa triple descarta `null` (que `typeof` reporta como `"object"`, trampa de [l01 de m2](/curriculo/n0/m2/l01-valores-tipos-y-variables/)) y las listas, que también son `"object"`. El empate se resuelve **solo con el orden de partida**: como `claves` entra ordenada alfabéticamente y el cambio exige `>` estricto, dos claves empatadas mantienen la primera — sin lógica de desempate añadida.
+
+## Cómo verificarlo
+
+1. Ejecuta la suite del ejemplo:
+
+   ```sh
+   cd src/content/modulos/n0/m3/ejemplos
+   node --test resumen-categorias.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ cuentaPorCategoria devuelve un diccionario de recuentos (0.789542ms)
+   ✔ categoriasUnicas devuelve las categorías ordenadas y sin repetir (0.115917ms)
+   ✔ importesPorCategoria acumula los importes en un Map (0.642792ms)
+   ℹ tests 3
+   ℹ pass 3
+   ℹ fail 0
+   ```
+
+2. Verifica las dos trampas que la lección afirma:
+
+   ```sh
+   node -e "console.log(undefined + 1)"
+   node -e "const o = {}; console.log(typeof o.toString, Object.hasOwn(o, 'toString'))"
+   ```
+
+   Salida real: `NaN` en la primera línea y `function false` en la segunda: `toString` existe en el objeto pero **no** es una clave propia. Ese es el motivo de `Object.hasOwn`.
+
+3. Ejecuta tu ejercicio desde la raíz de tu proyecto:
+
+   ```sh
+   node --test ejercicios/principal.test.js
+   echo $?
+   ```
+
+   Deberías ver `pass 3 / fail 0` y código de salida `0`.
+
+## Errores comunes
+
+- **Contar sin comprobar la primera vez.** `cuentas[cat] + 1` con clave inexistente da `NaN` para siempre. Usa `Object.hasOwn` (o `?? 0`) antes de sumar.
+- **Leer claves heredadas como si fueran tuyas.** `cuentas["toString"]` devuelve una función heredada del prototipo; `Object.hasOwn` la descarta.
+- **Esperar que un `Set` deduplique objetos por contenido.** Compara referencias: dos registros iguales cuentan dos. Deduplica por una clave tuya.
+- **Acceder a un `Map` como si fuera un objeto.** `acumulados["comida"]` es `undefined` en un `Map`; el camino es `get` y `set`.
+- **Devolver el `Set` sin convertir.** Un `Set` no tiene `.sort()` ni índice: primero `[...set]`, después lo que necesites.
+
+## Fuentes
+
+- [Object.hasOwn() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwn) — consultado el 2026-10-21.
+- [Map | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) — consultado el 2026-10-21.
+- [Set | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l06 «Leer un fichero real con `node:fs`»](/curriculo/n0/m3/l06-leer-un-fichero-real/): hasta ahora los datos llegaban en la llamada; ahora se leen de un CSV de verdad, línea a línea, con su número de fila en los errores.
+- Los literales de objeto con los que trabajas aquí son los de [l06 de m2 «Objetos como modelos»](/curriculo/n0/m2/l06-objetos-como-modelos/).

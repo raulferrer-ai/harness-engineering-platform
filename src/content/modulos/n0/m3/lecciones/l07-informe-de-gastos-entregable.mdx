@@ -1,0 +1,225 @@
+---
+titulo: "El entregable: informe de gastos"
+resumen: "El cierre del módulo es un script que procesa un fichero real. Aquí compones las funciones de las seis lecciones en un generador de informes, lo ejecutas como script con node demo-informe.js y cierras con la suite completa: 28 pruebas en verde con node --test."
+nivel: "n0"
+modulo: "m3"
+orden: 7
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Componer las funciones del módulo en un generador de informes"
+  - "Presentar los agregados con toFixed sin tocar el cálculo"
+  - "Ejecutar el entregable como script que lee el fichero real"
+  - "Cerrar el módulo con la suite completa en verde y su nota de verificación"
+prerrequisitos:
+  - "n0/m3/l06-leer-un-fichero-real"
+actualizado: "2026-10-21"
+tags:
+  - "entregable"
+  - "composicion"
+  - "informe"
+fuentes:
+  - titulo: "Array.prototype.sort() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"
+    fecha: "2026-10-21"
+  - titulo: "Number.prototype.toFixed() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toFixed"
+    fecha: "2026-10-21"
+  - titulo: "Template literals | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable de `n0/m3` es **un script que procesa un fichero real**: lee `datos/gastos.csv`, lo convierte en registros, calcula totales, media, máximo y recuentos por categoría, y los imprime como texto. Composición, no reimplementación: `informe.js` importa de seis lecciones a la vez, la presentación usa `toFixed(2)` **solo al escribir**, y el módulo se cierra con `node --test` en verde — 28 pruebas, 0 en rojo.
+
+## Conceptos
+
+### El módulo compuesto en una función
+
+```js
+// informe.js — el entregable del módulo: informe de un fichero real (lección l07)
+import { maximoImporte } from "./acumular.js";
+import { importesDe, mediaImportes, totalImportes, filtrarPorCategoria } from "./estadisticas.js";
+import { leerGastos } from "./leer-gastos.js";
+import { cuentaPorCategoria } from "./resumen-categorias.js";
+
+export function generarInforme(ruta) {
+  const gastos = leerGastos(ruta);
+  const importes = importesDe(gastos);
+  const cuentas = cuentaPorCategoria(gastos);
+  const lineas = [
+    "Informe de gastos",
+    `gastos: ${gastos.length}`,
+    `total: ${totalImportes(importes).toFixed(2)} EUR`,
+    `media: ${mediaImportes(importes).toFixed(2)} EUR`,
+    `máximo: ${maximoImporte(importes).toFixed(2)} EUR`,
+    "por categoría:",
+  ];
+  for (const categoria of Object.keys(cuentas).sort()) {
+    const total = totalImportes(importesDe(filtrarPorCategoria(gastos, categoria)));
+    lineas.push(`  ${categoria}: ${cuentas[categoria]} gasto(s), ${total.toFixed(2)} EUR`);
+  }
+  return lineas.join("\n");
+}
+```
+
+Cada línea del array inicial es una plantilla con un dato calculado **en el momento** por la función que lo sabe hacer: `leerGastos` trae los datos, `importesDe` proyecta, `totalImportes`/`mediaImportes`/`maximoImporte` agregan, `cuentaPorCategoria` agrupa. El bucle final recorre las categorías **ordenadas alfabéticamente** (`Object.keys(cuentas).sort()`) para que el informe salga siempre con el mismo orden, y `filtrarPorCategoria` + `totalImportes` dan el total de cada una. `join("\n")` devuelve el texto completo: una función, un string.
+
+### Presentar es fijar decimales, no redondear el cálculo
+
+`totalImportes(importes)` devuelve el número crudo con su ruido decimal (la l04 de m2); `.toFixed(2)` actúa **en la plantilla**, al escribir: `83.69` se imprime como `83.69` y `42.3` como `42.30`. Por eso las pruebas comparan **el texto formateado** y no el número: el formato es el contrato visible del informe, y con él las aserciones no dependen de cuántos bits de ruido arrastra cada suma.
+
+### El script: `demo-informe.js`
+
+`generarInforme` es una función pura de entrada (una ruta) a salida (un texto). El script que la hace ejecutable es tres líneas:
+
+```js
+// demo-informe.js — el script del entregable: procesa el fichero real e imprime el informe (lección l07)
+import { fileURLToPath } from "node:url";
+
+import { generarInforme } from "./informe.js";
+
+const ruta = fileURLToPath(new URL("./datos/gastos.csv", import.meta.url));
+console.log(generarInforme(ruta));
+```
+
+`new URL("./datos/gastos.csv", import.meta.url)` resuelve la ruta **relativa al propio fichero**, así que funciona desde cualquier directorio desde el que lo ejecutes. Salida real de `node demo-informe.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+Informe de gastos
+gastos: 8
+total: 83.69 EUR
+media: 10.46 EUR
+máximo: 42.30 EUR
+por categoría:
+  comida: 4 gasto(s), 8.00 EUR
+  hogar: 1 gasto(s), 42.30 EUR
+  ocio: 2 gasto(s), 27.99 EUR
+  transporte: 1 gasto(s), 5.40 EUR
+código=0
+```
+
+Esos números los calcula el fichero CSV de ocho filas: total `83.69`, media `10.46`, máximo `42.30` (electricidad) y cuatro categorías ordenadas alfabéticamente.
+
+### La suite completa es el acta del módulo
+
+Los siete ficheros `.test.js` de `ejemplos/` suman **28 pruebas**. Sin listarlos:
+
+```sh
+node --test
+```
+
+Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+ℹ tests 28
+ℹ pass 28
+ℹ fail 0
+```
+
+Código de salida `0`. Ese resumen es lo que entregas: 28 afirmaciones verificadas sobre control de flujo, listas, diccionarios y fichero real, cero en rojo.
+
+## Ejercicio
+
+Crea en `ejercicios/` la función `topGastos(ruta, n)` (fichero `top.js`) y sus pruebas (`top.test.js`); copia junto a ellos `leer-gastos.js` y `datos/` de `ejemplos/` para poder leer el fichero real.
+
+Contrato: devuelve los **n gastos más caros** del fichero, en orden de importe descendente. `n` debe ser un entero mayor o igual que `1` o lanza `RangeError`.
+
+Esto se cumple cuando:
+
+- sobre `datos/gastos.csv`, `topGastos(ruta, 2)` devuelve 2 gastos cuyos importes son `42.3` y `18.99` en ese orden;
+- `topGastos(ruta, 99)` devuelve los 8 gastos (no falla por pasarse);
+- un `n` de `0` o `1.5` lanza `RangeError`, y una ruta inexistente propaga el `Error` del propio `leerGastos` (`/no existe el fichero/`);
+- `node --test ejercicios/top.test.js` termina en verde con las tres pruebas.
+
+Pista: ordena una **copia** con `[...gastos].sort((a, b) => b.importe - a.importe)` y corta con `.slice(0, n)`.
+
+## Solución explicada
+
+```js
+// top.js — el ejercicio resuelto (lección l07)
+import { leerGastos } from "./leer-gastos.js";
+
+export function topGastos(ruta, n) {
+  if (!Number.isInteger(n) || n < 1) {
+    throw new RangeError("topGastos espera un número entero mayor o igual a 1");
+  }
+  const gastos = leerGastos(ruta);
+  return [...gastos].sort((a, b) => b.importe - a.importe).slice(0, n);
+}
+```
+
+Salida real de `node --test top.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ devuelve los n gastos más caros en orden descendente (1.496ms)
+✔ n mayor que la lista devuelve la lista entera (0.227959ms)
+✔ valida n y propaga el error del fichero (1.030292ms)
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+```
+
+Tres decisiones: la validación de `n` va **antes** de leer el fichero (una ruta no se abre si el pedido es inválido); `[...gastos]` protege la lista del ordenamiento — `sort` **sí muta** la lista sobre la que se llama, así que el spread es obligatorio; y `slice(0, n)` con un `n` mayor que la lista devuelve lo que hay, sin error. El comparador `b.importe - a.importe` invierte el orden natural (de mayor a menor) y no necesita `return` adicional: `sort` ya lo interpreta. En la tercera prueba no hay `try/catch`: si `leerGastos` lanza su `Error`, sale intacto — composición de [l07 de m2](/curriculo/n0/m2/l07-componer-funciones-pequenas/) aplicada a ficheros.
+
+## Cómo verificarlo
+
+1. Ejecuta el script entregable desde `ejemplos/`:
+
+   ```sh
+   cd src/content/modulos/n0/m3/ejemplos
+   node demo-informe.js
+   echo $?
+   ```
+
+   Salida real: las diez líneas del informe de «Conceptos» (8 gastos, `total: 83.69 EUR`, `máximo: 42.30 EUR` y las cuatro categorías) y código de salida `0`.
+
+2. Ejecuta la suite del entregable:
+
+   ```sh
+   node --test informe.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ generarInforme resume el fichero real con sus agregados (0.634542ms)
+   ✔ generarInforme lista las categorías ordenadas con sus totales (0.148708ms)
+   ✔ generarInforme propaga el error del fichero inexistente (0.193584ms)
+   ℹ tests 3
+   ℹ pass 3
+   ℹ fail 0
+   ```
+
+3. Cierra el módulo con la suite completa:
+
+   ```sh
+   node --test
+   echo $?
+   ```
+
+   `tests 28 / pass 28 / fail 0` y código `0`. Con tu `top.test.js` incluido deberías ver `pass 31`.
+
+## Errores comunes
+
+- **Reimplementar en vez de componer.** Si `generarInforme` vuelve a leer el CSV o a sumar a mano, copias bugs de funciones ya probadas. Importa y ordena.
+- **Presentar sin fijar decimales.** Sin `toFixed(2)`, `42.3` sale «42.3» y `2.5 + 1.85 + 1.15` puede arrastrar ruido. Redondea al escribir, no al calcular.
+- **Ordenar la lista original.** `sort` muta; ordena sobre `[...lista]` o acabarás cambiando datos que otros conservan (l03).
+- **Comparar en las pruebas el número crudo con su ruido decimal.** Las pruebas del informe comparan el **texto ya formateado**: es lo visible y estable.
+- **Ejecutar `node --test` desde otra carpeta.** Descubre pruebas donde estás; si no ves `28`, revisa el `pwd` antes de buscar el bug.
+
+## Fuentes
+
+- [Array.prototype.sort() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort) — consultado el 2026-10-21.
+- [Number.prototype.toFixed() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toFixed) — consultado el 2026-10-21.
+- [Template literals | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- **Módulo completo.** Con l07 has recorrido `n0/m3` entero: decisiones (l01), bucles (l02), listas (l03), transformaciones (l04), diccionarios y conjuntos (l05), fichero real (l06) y el informe compuesto (l07).
+- **Entrega del módulo**: la carpeta `ejemplos/` con sus funciones, los siete ficheros de pruebas en verde con `node --test`, el CSV real y `demo-informe.js` con su informe. La nota de la entrega, escrita **después** de ejecutar: _verificado el 2026-10-21 con Node v24.22.0: 28 pruebas en verde. No puedo afirmar que el parser tolere campos entrecomillados ni ficheros con fin de línea CRLF, porque el CSV del módulo no los contiene y no los he probado._
+- Siguiente módulo del nivel: [n0/m4 «Estructura de proyectos y dependencias»](/curriculo/n0/m4/) — separar el código en módulos con imports/exports y gestionar dependencias con criterio.
+- Proyecto longitudinal: la fase `f1` del [proyecto](/) se cierra componiendo este mismo patrón a mayor escala.

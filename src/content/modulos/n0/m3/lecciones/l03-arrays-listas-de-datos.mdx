@@ -1,0 +1,194 @@
+---
+titulo: "Arrays: listas de datos"
+resumen: "Una lista es la estructura con la que el resto del módulo trabaja. Aquí creas arrays, llegas a cada elemento por su índice, descubres que leer fuera de rango no lanza sino que devuelve undefined, y aprendes a devolver listas nuevas en lugar de mutar la que entró."
+nivel: "n0"
+modulo: "m3"
+orden: 3
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Crear listas, leer por índice y usar length con índices que empiezan en 0"
+  - "Explicar por qué un acceso fuera de rango devuelve undefined y no lanza"
+  - "Devolver listas nuevas con spread en vez de mutar la lista de entrada"
+  - "Comprobar que la entrada es una lista con Array.isArray antes de recorrerla"
+prerrequisitos:
+  - "n0/m3/l02-bucles-for-while-y-control"
+actualizado: "2026-10-21"
+tags:
+  - "arrays"
+  - "listas"
+  - "inmutabilidad"
+fuentes:
+  - titulo: "Array | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array"
+    fecha: "2026-10-21"
+  - titulo: "Array.isArray() | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray"
+    fecha: "2026-10-21"
+  - titulo: "Spread syntax | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **array** es una lista ordenada de elementos con índice desde `0` y longitud en `.length`. Leer una posición que no existe **no falla**: devuelve `undefined`, y el `TypeError` llega después, cuando algo intenta usarlo. Por eso las funciones del módulo comprueban la entrada con `Array.isArray` y **devuelven listas nuevas** (`[...lista, elemento]`) en lugar de modificar la que recibieron.
+
+## Conceptos
+
+### Una lista, un índice
+
+```js
+// gastos.js — crear, ampliar y consultar listas sin mutarlas (lección l03)
+export function crearGasto(descripcion, categoria, importe) {
+  if (typeof descripcion !== "string" || descripcion.trim() === "") {
+    throw new TypeError("crearGasto espera una descripción no vacía");
+  }
+  if (typeof categoria !== "string" || categoria.trim() === "") {
+    throw new TypeError("crearGasto espera una categoría no vacía");
+  }
+  if (typeof importe !== "number" || Number.isNaN(importe) || importe < 0) {
+    throw new TypeError("crearGasto espera un importe numérico no negativo");
+  }
+  return Object.freeze({ descripcion: descripcion.trim(), categoria: categoria.trim(), importe });
+}
+
+export function agregarGasto(gastos, gasto) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("agregarGasto espera una lista de gastos");
+  }
+  if (gasto === null || typeof gasto !== "object" || !("importe" in gasto)) {
+    throw new TypeError("agregarGasto espera un gasto con sus campos");
+  }
+  return [...gastos, gasto];
+}
+
+export function gastoEn(gastos, posicion) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("gastoEn espera una lista de gastos");
+  }
+  if (!Number.isInteger(posicion) || posicion < 0 || posicion >= gastos.length) {
+    throw new RangeError(`posición ${posicion} fuera de la lista (0…${gastos.length - 1})`);
+  }
+  return gastos[posicion];
+}
+```
+
+Una lista se lee con `gastos[0]`, `gastos[1]`… y el último índice válido es `gastos.length - 1`. `gastoEn` defiende ese límite **antes** de leer: posición negativa, no entera o `>= length` son `RangeError`, con la ventana válida escrita en el mensaje. Fíjate en que `Array.isArray` es la guarda de lista (otras formas, como `typeof lista === "object"`, también dejan pasar objetos que no son listas).
+
+### Fuera de rango: `undefined`, no una excepción
+
+`gastos[7]` con una lista de un elemento **no lanza**: devuelve `undefined`, porque en JavaScript un array es un objeto y leer una clave inexistente devuelve «nada». El error llega en la línea siguiente, al usar ese `undefined`. El fichero de error del módulo lo demuestra:
+
+```js
+// errores/fuera-de-rango.js — acceder fuera de la lista devuelve undefined y revienta después (lección l03)
+const gastos = [{ descripcion: "café", importe: 2.5 }];
+const inexistente = gastos[7];
+console.log(inexistente.importe);
+```
+
+Salida real, ejecutada el 2026-10-21 con Node v24.22.0 (tras la cabecera con la ruta del fichero):
+
+```text
+TypeError: Cannot read properties of undefined (reading 'importe')
+código=1
+```
+
+Termina en rojo con código `1`. La defensa es comprobar el acceso como hace `gastoEn`, o comprobar el resultado con `=== undefined` antes de usarlo.
+
+### Listas nuevas en vez de mutar
+
+`agregarGasto` no hace `gastos.push(gasto)`: devuelve `[...gastos, gasto]`, una lista **nueva** con el mismo contenido más el gasto. `[...gastos]` copia los elementos (spread) y deja la original intacta. Dos razones: quien llama no espera que su lista cambie a sus espaldas, y una lista devuelta puede seguir siendo `const`. `crearGasto` va en la misma línea defensiva: `Object.freeze` sobre el registro, el patrón que ya usabas en [l06 de m2](/curriculo/n0/m2/l06-objetos-como-modelos/).
+
+## Ejercicio
+
+Crea `ejercicios/insertar.js` con una función `insertarAlPrincipio(gastos, gasto)`.
+
+Contrato: `gastos` es una lista y `gasto` es un registro (objeto). Devuelve una lista **nueva** con el gasto en la posición `0` y todos los anteriores detrás, sin tocar la lista original.
+
+Esto se cumple cuando:
+
+- dado `lista = [{ importe: 1 }]`, `insertarAlPrincipio(lista, { importe: 9 })` devuelve una lista de 2 cuyo primer elemento es el gasto nuevo, y `lista.length` sigue siendo `1`;
+- una lista que no es lista lanza `TypeError` y un `gasto` que no es objeto lanza `TypeError`;
+- `node --test ejercicios/insertar.test.js` termina en verde con las dos pruebas.
+
+Pista: la lista nueva es literalmente `[gasto, ...gastos]`.
+
+## Solución explicada
+
+```js
+// insertar.js — el ejercicio resuelto (lección l03)
+export function insertarAlPrincipio(gastos, gasto) {
+  if (!Array.isArray(gastos)) {
+    throw new TypeError("insertarAlPrincipio espera una lista de gastos");
+  }
+  if (gasto === null || typeof gasto !== "object") {
+    throw new TypeError("insertarAlPrincipio espera un gasto");
+  }
+  return [gasto, ...gastos];
+}
+```
+
+Salida real de `node --test insertar.test.js`, ejecutada el 2026-10-21 con Node v24.22.0:
+
+```text
+✔ coloca el gasto al principio sin mutar la lista (0.753666ms)
+✔ valida lista y gasto (0.243125ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+```
+
+La primera prueba es la que importa: mide la lista **de entrada** después de la llamada (`length` sigue en `1`) y la de **salida** (`length` 2). Si la solución hiciera `gastos.unshift(gasto)`, la aserción `lista.length === 1` recibiría `2` y el rojo te lo diría — es exactamente el fallo registrado en «Cómo verificarlo».
+
+## Cómo verificarlo
+
+1. Ejecuta la suite del ejemplo:
+
+   ```sh
+   cd src/content/modulos/n0/m3/ejemplos
+   node --test gastos.test.js
+   ```
+
+   Salida real, ejecutada el 2026-10-21 con Node v24.22.0:
+
+   ```text
+   ✔ crearGasto devuelve un registro validado y recortado (2.421625ms)
+   ✔ agregarGasto devuelve una lista nueva sin tocar la original (0.168166ms)
+   ✔ agregarGasto valida la lista y el gasto (0.09225ms)
+   ✔ gastoEn lee por posición y defiende los límites (0.136041ms)
+   ℹ tests 4
+   ℹ pass 4
+   ℹ fail 0
+   ```
+
+2. Ejecuta el ejemplo de error y observa la clase:
+
+   ```sh
+   node errores/fuera-de-rango.js
+   echo $?
+   ```
+
+   Termina en rojo con código `1` y `TypeError: Cannot read properties of undefined (reading 'importe')`.
+
+3. Registra el rojo deliberado: en `agregarGasto`, cambia `return [...gastos, gasto];` por `gastos.push(gasto);` y vuelve a `return gastos;`, y ejecuta de nuevo la suite. Salida real: `pass 3 / fail 1`, con `AssertionError` en «agregarGasto devuelve una lista nueva sin tocar la original» y el detalle `2 !== 1` — la lista original creció. Restaura el verde.
+
+## Errores comunes
+
+- **Confiar en que leer fuera de rango lanza.** Devuelve `undefined`; el `TypeError` aparece en otra línea, lejos del culpable. Comprueba el acceso o el resultado.
+- **Comparar listas con `===`.** Compara referencias, no contenido: dos literales idénticos (`[1] === [1]`) son `false`. Para contenido usa `assert.deepStrictEqual` en las pruebas.
+- **Mutar la lista de entrada «para simplificar».** `push`/`unshift` sobre la lista que entró cambia el estado de quien te la pasó; es el rojo del paso 3. Devuelve una lista nueva.
+- **Olvidar que `typeof []` es `"object"`.** No sirve para distinguir listas: usa `Array.isArray`.
+- **Escribir índices desde `1`.** Los arrays empiezan en `0`: `gastos[1]` es el segundo gasto, y el primero es `gastos[0]`.
+
+## Fuentes
+
+- [Array | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) — consultado el 2026-10-21.
+- [Array.isArray() | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray) — consultado el 2026-10-21.
+- [Spread syntax | MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Continúa con [l04 «Transformar listas: map, filter y reduce»](/curriculo/n0/m3/l04-transformar-listas-map-filter-reduce/): en lugar de bucles con índices, declaras qué transformas, qué seleccionas y qué acumulas.
+- Para repasar la validación de registros, vuelve a [l06 de m2 «Objetos como modelos»](/curriculo/n0/m2/l06-objetos-como-modelos/).

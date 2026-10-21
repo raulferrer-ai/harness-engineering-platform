@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
 
 /**
- * H3+H7: los ejemplos de los módulos se comprueban **ejecutándolos** (frente a
+ * H3+H7+H8: los ejemplos de los módulos se comprueban **ejecutándolos** (frente a
  * H2, donde solo se lintiaban). Convención del repositorio:
  *
  * - `ejemplos/*.js` deben terminar con código 0 (verde);
@@ -23,6 +31,10 @@ const dirEjemplos = fileURLToPath(
 
 const dirEjemplosM2 = fileURLToPath(
   new URL("../../src/content/modulos/n0/m2/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosM3 = fileURLToPath(
+  new URL("../../src/content/modulos/n0/m3/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -309,6 +321,117 @@ describe("ejemplos del módulo n0/m2: ejecución real", () => {
   });
 });
 
+/** Casos directos de m3: el script entregable y el error a propósito de l03. */
+const casosDirectosM3: CasoDirecto[] = [
+  {
+    ruta: "demo-informe.js",
+    codigo: 0,
+    stdoutContiene: "Informe de gastos",
+    descripcion: "l07: el script entregable imprime el informe del CSV real",
+  },
+  {
+    ruta: "errores/fuera-de-rango.js",
+    codigo: 1,
+    stderrContiene: "TypeError",
+    descripcion: "l03: TypeError al usar el undefined de un acceso fuera de rango",
+  },
+];
+
+describe("ejemplos del módulo n0/m3: ejecución real", () => {
+  it.each(casosDirectosM3)("$ruta → código $codigo ($descripcion)", (caso) => {
+    const resultado = ejecutarNode([caso.ruta], dirEjemplosM3);
+    expect(resultado.status, `${caso.ruta} → stderr: ${resultado.stderr}`).toBe(caso.codigo);
+    if (caso.stdoutContiene) expect(resultado.stdout).toContain(caso.stdoutContiene);
+    if (caso.stderrContiene) expect(resultado.stderr).toContain(caso.stderrContiene);
+  });
+
+  it("l07: la salida de demo-informe.js es exactamente la documentada (10 líneas)", () => {
+    const resultado = ejecutarNode(["demo-informe.js"], dirEjemplosM3);
+    expect(resultado.status).toBe(0);
+    expect(resultado.stdout).toBe(
+      "Informe de gastos\n" +
+        "gastos: 8\n" +
+        "total: 83.69 EUR\n" +
+        "media: 10.46 EUR\n" +
+        "máximo: 42.30 EUR\n" +
+        "por categoría:\n" +
+        "  comida: 4 gasto(s), 8.00 EUR\n" +
+        "  hogar: 1 gasto(s), 42.30 EUR\n" +
+        "  ocio: 2 gasto(s), 27.99 EUR\n" +
+        "  transporte: 1 gasto(s), 5.40 EUR\n",
+    );
+  });
+
+  const suites: Array<{ fichero: string; pruebas: number }> = [
+    { fichero: "clasificar.test.js", pruebas: 4 },
+    { fichero: "acumular.test.js", pruebas: 4 },
+    { fichero: "gastos.test.js", pruebas: 4 },
+    { fichero: "estadisticas.test.js", pruebas: 4 },
+    { fichero: "resumen-categorias.test.js", pruebas: 3 },
+    { fichero: "leer-gastos.test.js", pruebas: 6 },
+    { fichero: "informe.test.js", pruebas: 3 },
+  ];
+
+  it.each(suites)("l01–l07: las pruebas de $fichero pasan con node --test", (suite) => {
+    const resultado = ejecutarNode(["--test", suite.fichero], dirEjemplosM3);
+    expect(resultado.status, resultado.stdout).toBe(0);
+    expect(resultado.stdout).toContain(`pass ${suite.pruebas}`);
+    expect(resultado.stdout).toContain("fail 0");
+  });
+
+  it("l07: node --test sobre toda la carpeta ejecuta las 28 pruebas del módulo", () => {
+    const resultado = ejecutarNode(["--test"], dirEjemplosM3);
+    expect(resultado.status, resultado.stdout).toBe(0);
+    expect(resultado.stdout).toContain("tests 28");
+    expect(resultado.stdout).toContain("pass 28");
+    expect(resultado.stdout).toContain("fail 0");
+  });
+
+  it("l03: si agregarGasto muta la entrada con push falla 1 de 4 pruebas (caso registrado)", () => {
+    const carpeta = carpetaTemporal();
+    writeFileSync(
+      join(carpeta, "gastos.js"),
+      readFileSync(join(dirEjemplosM3, "gastos.js"), "utf8").replace(
+        "return [...gastos, gasto];",
+        "gastos.push(gasto);\n  return gastos;",
+      ),
+    );
+    writeFileSync(
+      join(carpeta, "gastos.test.js"),
+      readFileSync(join(dirEjemplosM3, "gastos.test.js"), "utf8"),
+    );
+
+    const rojo = ejecutarNode(["--test", "gastos.test.js"], carpeta);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("pass 3");
+    expect(rojo.stdout).toContain("fail 1");
+    expect(rojo.stdout).toContain("2 !== 1");
+  });
+
+  it("l06: sin saltar la cabecera del CSV fallan 4 de 6 pruebas (caso registrado)", () => {
+    const carpeta = carpetaTemporal();
+    writeFileSync(
+      join(carpeta, "leer-gastos.js"),
+      readFileSync(join(dirEjemplosM3, "leer-gastos.js"), "utf8").replace(
+        ".slice(1); // la primera es la cabecera",
+        ";",
+      ),
+    );
+    mkdirSync(join(carpeta, "datos"), { recursive: true });
+    copyFileSync(join(dirEjemplosM3, "datos", "gastos.csv"), join(carpeta, "datos", "gastos.csv"));
+    writeFileSync(
+      join(carpeta, "leer-gastos.test.js"),
+      readFileSync(join(dirEjemplosM3, "leer-gastos.test.js"), "utf8"),
+    );
+
+    const rojo = ejecutarNode(["--test", "leer-gastos.test.js"], carpeta);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("pass 2");
+    expect(rojo.stdout).toContain("fail 4");
+    expect(rojo.stdout).toContain("leerGastos lee el fichero real del módulo");
+  });
+});
+
 describe("l07: la demo de Git (requiere git instalado)", () => {
   const gitDisponible = spawnSync("git", ["--version"], { encoding: "utf8" }).status === 0;
 
@@ -375,5 +498,27 @@ describe("cobertura de ejemplos", () => {
     ];
 
     expect(archivosVerificables(dirEjemplosM2)).toEqual([...enManifiesto].sort());
+  });
+
+  it("m3: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    const enManifiesto = [
+      ...casosDirectosM3.map((caso) => caso.ruta),
+      "clasificar.js",
+      "clasificar.test.js",
+      "acumular.js",
+      "acumular.test.js",
+      "gastos.js",
+      "gastos.test.js",
+      "estadisticas.js",
+      "estadisticas.test.js",
+      "resumen-categorias.js",
+      "resumen-categorias.test.js",
+      "leer-gastos.js",
+      "leer-gastos.test.js",
+      "informe.js",
+      "informe.test.js",
+    ];
+
+    expect(archivosVerificables(dirEjemplosM3)).toEqual([...enManifiesto].sort());
   });
 });
