@@ -1,0 +1,168 @@
+---
+titulo: "Edición inline: el parche se aplica y se verifica"
+resumen: "La edición inline propone un parche sobre el archivo que editas; el editor lo enseña como dif y tú pulsas Keep o Undo. El módulo añade la regla que decide: la suite. `ejemplos/edicion-inline.js` aplica el parche de `total()` en una carpeta temporal — la suite pasa de `pass 0 · fail 3` a `pass 3 · fail 0` — y el rojo `errores/parche-roto.js` propone un `reduce` sin valor inicial que revienta con la lista vacía: `pass 2 · fail 1`, código 1. El editor no decide con el aspecto; la suite decide con los números."
+nivel: "n1"
+modulo: "m4"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Aplicar el parche del asistente en una carpeta temporal, nunca en el fixture"
+  - "Decidir Keep/Undo con la suite antes y después, no con el aspecto del dif"
+  - "Reconocer el fallo de frontera: un parche plausible que revienta con la lista vacía"
+prerrequisitos:
+  - "n1/m4/l02-el-chat-una-sesion-un-objetivo-contexto-minimo"
+actualizado: "2026-10-22"
+tags:
+  - "edicion-inline"
+  - "parches"
+  - "keep-undo"
+fuentes:
+  - titulo: "Visual Studio Code Docs — Inline chat and Quick Chat"
+    url: "https://code.visualstudio.com/docs/copilot/chat/inline-chat"
+    fecha: "2026-10-22"
+  - titulo: "Node.js Docs — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+En la superficie inline el asistente no conversa: **propone un parche** sobre el archivo que estás editando. VS Code lo muestra como un dif que aceptas con «Keep» o rechazas con «Undo» (fuente consultada el 2026-10-22); el módulo añade la única regla que decide sin subjetividad: **la suite manda**. `ejemplos/edicion-inline.js` aplica el parche de `total()` en una carpeta temporal y la suite pasa de `pass 0 · fail 3` a `pass 3 · fail 0` → Keep. El rojo `errores/parche-roto.js` propone un `reduce` sin valor inicial que revienta con la lista vacía: `pass 2 · fail 1` y código `1` → Undo.
+
+## Conceptos
+
+### El parche es la unidad, no la conversación
+
+En `n1/m3/l01` el diff era la unidad de revisión. La edición inline es ese mismo contrato en tiempo real: el asistente propone, el editor enseña el antes/después, tú decides. La diferencia con el chat es de grado, no de naturaleza: en el chat el parche llega pegado en un bloque de código; en inline llega aplicado al buffer con su dif. El riesgo también cambia de forma: el dif en pantalla invita a **mirar** — y el ojo humano aprueba parches que la suite desmonta en un milisegundo.
+
+### Verde o rojo: la suite decide el Keep
+
+La regla del módulo es binaria y no admite excepciones:
+
+- suite en verde → **Keep** (el parche se aplica y se registra la sesión);
+- suite en rojo → **Undo** (el parche se devuelve con su incidencia).
+
+La demo aplica el parche del asistente para `total()` — guarda de lista vacía y `Math.round` en vez de `toFixed` — en una carpeta temporal con su prueba:
+
+```sh
+node edicion-inline.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+propuesta de edición inline: reescribir total() con guarda y redondeo
+suite antes del parche: pass 0 · fail 3
+suite después del parche: pass 3 · fail 0
+✓ parche aplicado y verificado (Keep) — la sesión s2 del registro lo cubre
+```
+
+El par **antes/después** es el argumento completo: antes, la versión con `toFixed` no aprueba ninguna prueba; después, las tres. La suite se ejecuta con `node --test` — el runner incluido en Node, sin instalar nada (fuente consultada el 2026-10-22).
+
+### La frontera vacía: el fallo que el aspecto no enseña
+
+El rojo de la lección es un parche **plausible**: redondea bien, se lee limpio, y su `reduce` sin valor inicial revienta solo cuando la lista está vacía. `errores/parche-roto.js` lo pasa por la misma carpeta temporal:
+
+```text
+suite con el parche propuesto: pass 2 · fail 1
+✗ parche en rojo: no se aplica (Undo) — la suite, no el aspecto, manda
+```
+
+Código `1`. Dos de tres pruebas pasan — el parche «casi» funciona, que es la categoría más peligrosa de todas. En `n1/m3/l04` atacaste las entregas en sus fronteras; aquí la frontera (`total([])`) está escrita en la prueba, y el parche que la ignora se queda fuera.
+
+## Ejercicio
+
+Aplica el parche bueno, ejecuta el roto, y reparalo para que la suite lo apruebe.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/sesiones .
+cp ../ejemplos/edicion-inline.js .
+cp -R ../ejemplos/errores .
+node edicion-inline.js; echo "codigo=$?"
+node errores/parche-roto.js; echo "codigo=$?"
+perl -0pi -e 's/importes\.reduce\(\(acumulado, importe\) => acumulado \+ importe\);/importes.reduce((acumulado, importe) => acumulado + importe, 0);/' edicion-inline.js
+node errores/parche-roto.js; echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- `node edicion-inline.js` imprime el par `suite antes del parche: pass 0 · fail 3` / `suite después del parche: pass 3 · fail 0` y `codigo=0`;
+- el rojo imprime `suite con el parche propuesto: pass 2 · fail 1` y `codigo=1`;
+- tras añadir el valor inicial `0` al `reduce`, el mismo rojo imprime `pass 3 · fail 0` y `parche en verde: se podría aplicar (Keep)`, con `codigo=0`;
+- puedes explicar por qué `reduce` sin valor inicial revienta con la lista vacía.
+
+Pista: el `perl` edita la copia del taller; `PARCHE_ROTO` es la única constante del fichero cuyo `reduce` no lleva `, 0` — por eso el patrón es único.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+propuesta de edición inline: reescribir total() con guarda y redondeo
+suite antes del parche: pass 0 · fail 3
+suite después del parche: pass 3 · fail 0
+✓ parche aplicado y verificado (Keep) — la sesión s2 del registro lo cubre
+codigo=0
+suite con el parche propuesto: pass 2 · fail 1
+✗ parche en rojo: no se aplica (Undo) — la suite, no el aspecto, manda
+codigo=1
+suite con el parche propuesto: pass 3 · fail 0
+parche en verde: se podría aplicar (Keep)
+codigo=0
+```
+
+Tres decisiones de diseño:
+
+1. **Carpeta temporal, siempre**: `aplicarYVerificar` hace `mkdtemp`, escribe `total.js` y su prueba ahí, ejecuta `node --test` con `cwd` en esa carpeta y la borra en el `finally`. El fixture del curso (`sesiones/proyecto/`) queda intacto pase lo que pase — probar no debe ensuciar.
+2. **Par antes/después en la misma sesión**: la suite del «antes» justifica el cambio; la del «después» lo autoriza. Saltarse la primera produce el sesgo del parche bonito: no sabes si el cambio arregla algo o solo recorta líneas.
+3. **El fallo del parche roto es de frontera, no de sintaxis**: el código carga y se ejecuta; falla en `total([])`, donde `reduce` sin acumulador inicial lanza `TypeError: Reduce of empty array with no initial value`. Es el tipo de fallo que `n1/m3/l04` enseñó a buscar — y la razón por la que la prueba de frontera vive en la suite, no en la cabeza de nadie.
+
+Errores típicos al resolverlo:
+
+- **Aplicar el parche al fixture**: el `perl` del ejercicio actúa sobre `taller/edicion-inline.js`. Edita `ejemplos/` y rompes el ejemplo para todos.
+- **Decidir Keep con el ojo**: el dif puede ser de tres líneas y perfecto; si la suite no pasa, no hay Keep. El editor ofrece Keep/Undo; tú añades el veredicto de la suite entre los dos.
+- **Olvidar el «antes»**: sin la suite previa, un parche que pasa 3 de 3 no demuestra nada — quizá el código ya pasaba. El par es la evidencia del cambio.
+- **Arreglar el parche roto en vez de devolverlo**: en la práctica, un parche rojo se devuelve con la incidencia («revienta con lista vacía») para que la siguiente propuesta traiga el valor inicial. Aquí lo reparas tú para ver la frontera por dentro.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el proyecto, la demo y los rojos (comandos del ejercicio).
+
+2. Ejecuta la demo del parche bueno:
+
+   ```sh
+   node edicion-inline.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: el par `pass 0 · fail 3` → `pass 3 · fail 0`, la línea `✓ parche aplicado y verificado (Keep)` y `codigo=0`.
+
+3. Ejecuta la fase rota (paso 2 del ejercicio).
+
+   Esperado: `suite con el parche propuesto: pass 2 · fail 1`, la línea de Undo y `codigo=1`.
+
+4. Ejecuta la fase reparada (paso 4).
+
+   Esperado: `pass 3 · fail 0`, `parche en verde: se podría aplicar (Keep)` y `codigo=0`.
+
+5. Escribe un parche tuyo para `suma.js` — por ejemplo, que `sumaLista` rechace elementos no numéricos — y pásalo por el mismo molde: carpeta temporal, suite antes, suite después. Si el «después» no es `fail 0`, no es parche: es una intención.
+
+## Errores comunes
+
+- **Confiar en que «el dif se ve bien»**: el aspecto no ejecuta nada. El editor resalta sintaxis incluso en código que lanza en la primera llamada; la suite es la única que lo comprueba.
+- **Probar solo el caso feliz**: el parche rojo aprueba las dos pruebas de valores normales. Si tu suite no cubre la frontera (lista vacía, `undefined`, cero), cualquier parche que la ignore pasará por bueno.
+- **Mezclar parches en una sesión de chat**: la superficie inline es para cambios acotados en un archivo. Si el parche necesita tres archivos, ya no es inline — es una tarea de `n1/m2` con su entrega.
+- **No registrar la sesión**: el Keep sin registro es un parche anónimo. La sesión `s2` del registro del módulo cubre exactamente este parche con su comando y su código.
+
+## Fuentes
+
+- [Visual Studio Code Docs: Inline chat and Quick Chat](https://code.visualstudio.com/docs/copilot/chat/inline-chat) — consultado el 2026-10-22. El inline chat muestra la sugerencia como dif en el editor y se acepta o rechaza con Keep/Undo.
+- [Node.js Docs: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. `node:test` y el flag `--test` ejecutan suites con `describe`/`it` y resumen `pass`/`fail` sin dependencias externas.
+
+## Siguientes pasos
+
+- Siguiente lección: [l04 «Asistente de terminal: la lista permitida decide»](/curriculo/n1/m4/l04-asistente-de-terminal-la-lista-permitida-decide/) — el parche ya se aplica y se verifica; ahora la tercera superficie, donde lo que se delega son comandos ejecutados.
+- Proyecto longitudinal: el parche verificado de esta lección es la sesión `s2` de `ejemplos/sesiones/registro.json` — cada lección del módulo añade una sesión al registro.

@@ -1,0 +1,179 @@
+---
+titulo: "El chat: una sesión, un objetivo, contexto mínimo"
+resumen: "Una sesión de chat es texto, y el texto se analiza. `ejemplos/analizar-chat.js` exige una línea «objetivo:», un «contexto:» de hasta 12 palabras, un «$ node --test» ejecutado, «fail 0» en la salida y «codigo=0» al cierre. El transcripción de ejemplo cierra verificado; el chat que acaba con «listo, ya está hecho ✅» y sin comando sale con 3 incidencias y código 1. Tú rompes un chat, le añades la evidencia y lo vuelves a pasar por el analizador."
+nivel: "n1"
+modulo: "m4"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Cerrar una sesión de chat con comando ejecutado y código de salida, no con una promesa"
+  - "Acotar el contexto al mínimo necesario (regla de 12 palabras heredada de n1/m2)"
+  - "Analizar una transcripción de chat como texto verificable, no como conversación"
+prerrequisitos:
+  - "n1/m4/l01-tres-superficies-un-mismo-control"
+actualizado: "2026-10-22"
+tags:
+  - "chat"
+  - "contexto"
+  - "verificacion"
+fuentes:
+  - titulo: "OpenAI — Prompt engineering"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+  - titulo: "Anthropic Docs — Chain prompts"
+    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/chain-prompts"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El chat es la superficie más usada y la que más se descontrola: se pierde en prosa, acumula contexto de más y se cierra con «listo». La regla del módulo es de tres tiempos — **un objetivo por sesión, contexto mínimo, verificación ejecutada** — y como la transcripción es texto, se analiza como texto: `ejemplos/analizar-chat.js` exige la línea `objetivo:`, un `contexto:` de hasta 12 palabras, el comando `$ node --test` ejecutado, `ℹ fail 0` en la salida y `codigo=0` al cierre. La transcripción de ejemplo cierra verificado; un chat que acaba con «listo, ya está hecho ✅» sale con **3 incidencias** y código `1`.
+
+## Conceptos
+
+### Una sesión, un objetivo
+
+La tentación del chat es uno solo: «arregla el total y añade documentación y actualiza las dependencias». Cada objetivo extra multiplica las superficies de fallo y diluye la verificación. La guía de prompt engineering de OpenAI recomienda dar **instrucciones específicas** en vez de esperar que el modelo adivine (fuente consultada el 2026-10-22), y Anthropic documenta el encadenado de prompts — descomponer una tarea compleja en una **serie de prompts**, cada uno construido sobre el resultado del anterior (fuente consultada el 2026-10-22). Traducido a sesiones: la tarea grande se parte en sesiones encadenadas, no se ahoga en un solo chat largo.
+
+### Contexto mínimo: la regla de las 12 palabras
+
+En `n1/m2` aprendiste a pegar solo lo necesario. Este módulo lo vuelve criterio ejecutable: la línea `contexto:` de la sesión tiene **hasta 12 palabras**. Más de eso suele significar que estás pegando archivos enteros en vez de señalar el problema. El transcripción de ejemplo, `ejemplos/sesiones/chat-ejemplo.md`, lo cumple: `contexto: módulo nuevo sin piezas externas, solo librería estándar` — ocho palabras.
+
+### La transcripción se analiza
+
+`ejemplos/analizar-chat.js` toma la transcripción entera y devuelve `{ objetivo, comando, incidencias }`. Sus cinco exigencias, en orden:
+
+1. Línea `objetivo: …` que abre la sesión.
+2. Línea `contexto: …` con 12 palabras o menos.
+3. Línea `$ node --test …` — el comando ejecutado, con su prompt de terminal.
+4. `ℹ fail 0` en la salida registrada.
+5. `codigo=0` al cierre.
+
+La demo sobre el ejemplo:
+
+```sh
+node analizar-chat.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+chat válido: objetivo «crear la función suma con su prueba»
+verificación ejecutada: node --test suma.test.js → «fail 0» y codigo=0
+```
+
+Y el rojo de la lección, `ejemplos/errores/chat-listo-sin-comando.js`: la misma conversación con propuesta incluida, pero que acaba con «listo, ya está hecho ✅» y sin ejecutar nada:
+
+```text
+chat NO válido: 3 incidencia(s): sin comando de verificación ejecutado (node --test) | la salida registrada no muestra «fail 0» | sin «codigo=0» al cierre de la sesión
+```
+
+Código `1`. El analizador no discute la calidad del parche propuesto: la sesión no cerró con evidencia, y una promesa no es un veredicto — ya lo viste en `n1/m3/l02`, donde la descripción de la entrega mentía y la suite decía la verdad.
+
+## Ejercicio
+
+Analiza el chat bueno, escribe un chat rojo que acaba con «listo», y añádele la evidencia hasta que cierre.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/sesiones .
+cp ../ejemplos/analizar-chat.js .
+node analizar-chat.js; echo "codigo=$?"
+cat > chat-roto.md <<'EOF'
+objetivo: arreglar la función total
+
+contexto: devuelve texto y la lista vacía revienta
+
+listo, ya está hecho ✅
+EOF
+node analizar-chat.js chat-roto.md; echo "codigo=$?"
+cat >> chat-roto.md <<'EOF'
+
+$ node --test total.test.js
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+codigo=0
+EOF
+node analizar-chat.js chat-roto.md; echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- el chat de ejemplo cierra con `chat válido: objetivo «crear la función suma con su prueba»` y `codigo=0`;
+- el chat rojo devuelve `chat NO válido: 3 incidencia(s): sin comando de verificación ejecutado (node --test) | …` y `codigo=1`;
+- tras añadir el bloque de verificación, el mismo fichero cierra con `chat válido: objetivo «arreglar la función total»` y `codigo=0`;
+- puedes explicar por qué «listo» no cierra una sesión y el bloque `$ node --test` sí.
+
+Pista: el analizador no mira el orden del texto, solo la presencia de cada pieza — por eso el bloque añadido al final cierra la sesión aunque el «listo» siga ahí arriba.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+chat válido: objetivo «crear la función suma con su prueba»
+verificación ejecutada: node --test suma.test.js → «fail 0» y codigo=0
+codigo=0
+chat NO válido: 3 incidencia(s): sin comando de verificación ejecutado (node --test) | la salida registrada no muestra «fail 0» | sin «codigo=0» al cierre de la sesión
+codigo=1
+chat válido: objetivo «arreglar la función total»
+verificación ejecutada: node --test total.test.js → «fail 0» y codigo=0
+codigo=0
+```
+
+Por qué el chat rojo da exactamente tres incidencias y no cinco: el objetivo y el contexto sí estaban. El analizador separa las tres capas de cierre — **comando**, **salida** (`fail 0`) y **código** — porque son tres mentiras distintas: «lo ejecuté» (sin comando), «pasó» (sin salida) y «salió bien» (sin código). Un chat puede tener cualquiera de las tres medias verdades.
+
+Dos detalles de implementación:
+
+- Las expresiones regulares anclan con `m` (multilínea): `^objetivo:` y `^$ (node --test…)$` buscan líneas completas, no substrings en mitad de la prosa. Un «objetivo» citado dentro de un párrafo no vale.
+- El límite de 12 palabras se cuenta con `split(/\s+/)` sobre lo que sigue a `contexto:`. Es una regla del curso, no universal: el número importa menos que el hábito de acotar.
+
+Errores típicos al resolverlo:
+
+- **Pegar archivos enteros como contexto**: si tu línea `contexto:` necesita comas para caber, no es contexto — es un volcado. Señala el problema en una frase.
+- **Cerrar con «quedó listo»**: es la frase que más se parece a una verificación y menos la aporta. La sesión cierra cuando la terminal imprime `fail 0` y anotas su `codigo=0`.
+- **Varios objetivos en un solo chat**: el analizador asume uno; si pediste tres cosas, tendrías tres comandos y un solo `codigo=0` — ¿de cuál? Parte la tarea (chain prompts) y registra una sesión por objetivo.
+- **Falsificar el bloque de verificación**: pegar `fail 0` de otro comando no engaña al registro — l05 reejecuta el comando declarado y compara.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la transcripción y el analizador (comandos del ejercicio).
+
+2. Ejecuta el analizador sobre el ejemplo:
+
+   ```sh
+   node analizar-chat.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `chat válido: objetivo «crear la función suma con su prueba»`, la línea de verificación y `codigo=0`.
+
+3. Ejecuta la fase rota (pasos 3 a 4 del ejercicio).
+
+   Esperado: `chat NO válido: 3 incidencia(s)` con las tres incidencias de cierre y `codigo=1`.
+
+4. Ejecuta la fase reparada (paso 5).
+
+   Esperado: `chat válido: objetivo «arreglar la función total»` y `codigo=0`.
+
+5. Cierra tu próxima sesión real de chat con este formato — `objetivo:`, `contexto:`, `$ node --test …`, `ℹ fail 0`, `codigo=0` — y guarda la transcripción junto a tu registro de l01.
+
+## Errores comunes
+
+- **Regististrar la sesión al día siguiente**: la transcripción se pega en caliente, con el comando y la salida en pantalla. Reconstruirla después es como reimplementar un diff de memoria.
+- **Contar palabras del contexto como burocracia**: las 12 palabras no son el fin; el fin es que el asistente reciba el mínimo que resuelve la duda. Si no cabe, la tarea es grande — divídela.
+- **Confiar en «fail 0» sin mirar el comando**: el `fail 0` de un comando distinto al declarado no cierra nada. Comando y salida viajan juntos.
+- **Olvidar que el analizador no juzga el código**: valida el cierre de la sesión, no la calidad del parche. La revisión del cambio es `n1/m3`; el parche se aplica y se verifica en la l03 de este módulo.
+
+## Fuentes
+
+- [OpenAI: Prompt engineering](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Da instrucciones específicas en lugar de esperar inferencias; la precisión de la petición determina la precisión de la respuesta.
+- [Anthropic Docs: Chain prompts](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/chain-prompts) — consultado el 2026-10-22. Descompón tareas complejas en una serie de prompts encadenados, cada uno construido sobre el resultado del anterior.
+
+## Siguientes pasos
+
+- Siguiente lección: [l03 «Edición inline: el parche se aplica y se verifica»](/curriculo/n1/m4/l03-edicion-inline-el-parche-se-aplica-y-se-verifica/) — el chat ya cierra con evidencia; ahora la segunda superficie: el parche que el editor propone y que la suite decide.
+- Proyecto longitudinal: la sesión `s1` de `ejemplos/sesiones/registro.json` nace de esta transcripción — el chat cerrado es la mitad de la sesión registrada.

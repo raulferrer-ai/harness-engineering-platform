@@ -5,5 +5,24 @@ modulo: "m4"
 objetivos:
   - "Trabajar en chat, edición inline y asistente de terminal sin perder el control"
 entregable: "Registro de 5 sesiones con verificación"
-actualizado: "2026-10-19"
+actualizado: "2026-10-22"
 ---
+
+## Para quién es este módulo
+
+Tras `n1/m1` sabes qué es un modelo de lenguaje, tras `n1/m2` sabes pedirle tareas pequeñas y tras `n1/m3` sabes revisar lo que entrega. Pero falta dónde ocurre todo eso: el trabajo con asistente pasa por **tres superficies** — el chat, la edición inline del editor y el asistente de terminal — y cada una tiene su riesgo típico: la prosa que no cierra, el parche que no se verifica, el comando que nadie pidió. Este módulo enseña el control común a las tres: toda sesión se abre con un objetivo, se cierra con un comando ejecutado y su código de salida, y queda registrada en 7 campos que cualquiera puede reejecutar. Aprendes la anatomía de la sesión (l01), a cerrar un chat con evidencia (l02), a decidir Keep/Undo con la suite (l03), a filtrar comandos con una lista permitida (l04) y a verificar el registro reejecutándolo (l05), hasta componer en l06 el entregable: un registro de 5 sesiones con verificación. Público objetivo: quien cierra `n1/m3/l06` con su checklist aplicado. Duración estimada: unas 5 horas repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas el **registro de 5 sesiones con verificación**: cinco sesiones — chat, inline y terminal cubiertas — cada una con sus 7 campos y un comando `node --test` reejecutable, certificado por `ejemplos/verificar-sesiones.js` (código `0`). La carpeta `ejemplos/` reúne **6 scripts verdes** con solo librería estándar — el analizador de anatomía, el analizador de chat, el aplicador de parches, el filtro de lista permitida, el comprobador del registro y el veredicto del entregable — más **4 rojos deliberados**: el chat que acaba con «listo» sin comando, el parche que revienta con la lista vacía, el `git push --force` que no pasa la lista y el registro que declara «verificada» una sesión con código 1 (los cuatro con código `1`). El directorio `sesiones/` contiene el registro de referencia, una transcripción de chat y el mini-proyecto con sus suites (6 pruebas en verde) sobre el que la reejecución trabaja. Todo se ejecuta offline, sin dependencias, red ni claves: las sesiones del módulo son también un ejemplo de lo que enseñan.
+
+## Lecciones
+
+| #   | Lección                                                                                                                         | Tiempo |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [Tres superficies, un mismo control](/curriculo/n1/m4/l01-tres-superficies-un-mismo-control/)                                   | 45 min |
+| 2   | [El chat: una sesión, un objetivo, contexto mínimo](/curriculo/n1/m4/l02-el-chat-una-sesion-un-objetivo-contexto-minimo/)       | 45 min |
+| 3   | [Edición inline: el parche se aplica y se verifica](/curriculo/n1/m4/l03-edicion-inline-el-parche-se-aplica-y-se-verifica/)     | 50 min |
+| 4   | [Asistente de terminal: la lista permitida decide](/curriculo/n1/m4/l04-asistente-de-terminal-la-lista-permitida-decide/)       | 55 min |
+| 5   | [El registro de sesión: memoria verificable](/curriculo/n1/m4/l05-el-registro-de-sesion-memoria-verificable/)                   | 50 min |
+| 6   | [Entregable: registro de 5 sesiones con verificación](/curriculo/n1/m4/l06-entregable-registro-de-5-sesiones-con-verificacion/) | 60 min |

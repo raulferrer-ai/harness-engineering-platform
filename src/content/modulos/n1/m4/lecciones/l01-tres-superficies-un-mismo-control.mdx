@@ -1,0 +1,166 @@
+---
+titulo: "Tres superficies, un mismo control"
+resumen: "El asistente trabaja desde tres superficies — chat, edición inline y asistente de terminal — y cada una tiene su riesgo típico. El control, en las tres, es el mismo: toda sesión termina con un comando ejecutado y su código de salida. Ejecutas el registro de sesiones del módulo — 5 sesiones con sus 7 campos, superficies chat 2, inline 1, terminal 2 — y borras el campo «comando» de una sesión para verla devuelta con «falta el campo» y código 1."
+nivel: "n1"
+modulo: "m4"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Reconocer las tres superficies de trabajo (chat, edición inline, terminal) y su riesgo típico"
+  - "Definir la anatomía de una sesión registrada: 7 campos verificables, no prosa"
+  - "Aplicar el invariante del módulo: toda sesión cierra con comando ejecutado y código de salida"
+prerrequisitos:
+  - "n1/m3/l06-entregable-checklist-aplicado-a-3-entregas"
+actualizado: "2026-10-22"
+tags:
+  - "flujos-de-trabajo"
+  - "chat"
+  - "sesiones"
+fuentes:
+  - titulo: "Visual Studio Code Docs — Inline chat and Quick Chat"
+    url: "https://code.visualstudio.com/docs/copilot/chat/inline-chat"
+    fecha: "2026-10-22"
+  - titulo: "GitHub Docs — GitHub Copilot cloud agent"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/coding-agent"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El asistente trabaja desde **tres superficies**: el chat (conversación), la edición inline (un parche propuesto sobre el archivo que estás editando) y el asistente de terminal (comandos propuestos y ejecutados). Cada una tiene su riesgo típico — la prosa, el parche escondido, el comando no pedido — pero el control es idéntico en las tres: **toda sesión cierra con un comando ejecutado y su código de salida**, registrado en 7 campos. `ejemplos/sesiones.js` lee el registro del módulo y valida su anatomía: **5 sesiones con sus 7 campos · superficies: chat 2, inline 1, terminal 2**. Una sesión sin el campo «comando» se devuelve como incidencia con código `1`.
+
+## Conceptos
+
+### Las tres superficies y su riesgo
+
+En `n1/m2` pediste tareas pequeñas y en `n1/m3` revisaste lo entregado. Este módulo trata de **dónde** ocurre el trabajo. Hay tres superficies, y las tres son reales en cualquier stack actual:
+
+1. **El chat**: escribes un objetivo, el asistente responde con prosa y código. Documentación de VS Code lo describe como «conversación ligera con el contexto del editor» (fuente consultada el 2026-10-22). Riesgo típico: la sesión se pierde en párrafos amables y nadie ejecuta nada.
+2. **La edición inline**: el asistente propone un cambio sobre el archivo que estás editando; el editor lo muestra como un dif que aceptas con «Keep» o rechazas con «Undo» (fuente consultada el 2026-10-22). Riesgo típico: el parche pasa por el ojo del editor y llega al repo sin pasar por la suite.
+3. **El asistente de terminal**: el agente propone y ejecuta comandos — a veces en tu máquina, a veces en la nube. El coding agent de GitHub, por ejemplo, investiga un repositorio, planifica, hace cambios y **crea pull requests para que tú los revises** (fuente consultada el 2026-10-22). Riesgo típico: se ejecuta algo que nadie pidió, o se publica sin pasar por revisión.
+
+La tentación es tratarlas como tres procesos distintos con tres controles distintos. No lo son: las tres son sesiones, y una sesión se controla igual venga de donde venga.
+
+### La anatomía de una sesión: 7 campos, no prosa
+
+La unidad de control de este módulo es la **sesión registrada**. Cada sesión tiene exactamente siete campos:
+
+| Campo          | Pregunta que responde                                        |
+| -------------- | ------------------------------------------------------------ |
+| `id`           | ¿Qué sesión es? (`s1` … `s5`)                                |
+| `superficie`   | ¿Dónde ocurrió? `chat`, `inline` o `terminal`                |
+| `objetivo`     | ¿Qué se pedía, en una frase?                                 |
+| `cambio`       | ¿Qué cambió en el proyecto?                                  |
+| `comando`      | ¿Qué comando de verificación se ejecutó?                     |
+| `codigoSalida` | ¿Qué devolvió ese comando?                                   |
+| `veredicto`    | ¿Se declara `verificada` solo con código `0` y comando real? |
+
+Los tres primeros campos son intención; los cuatro últimos son evidencia. El registro completo del módulo vive en `ejemplos/sesiones/registro.json`, y `sesiones.js` lo analiza:
+
+```sh
+node sesiones.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+s1 (chat): Crear la función suma con su prueba → node --test suma.test.js → código 0 — verificada
+s2 (inline): Que total() devuelva número, no texto, con la lista vacía cubierta → node --test total.test.js → código 0 — verificada
+s3 (terminal): Ejecutar la suite completa tras la revisión de las dos sesiones previas → node --test → código 0 — verificada
+s4 (chat): Responder a la devolución de revisión: el caso límite de total() con lista vacía → node --test total.test.js → código 0 — verificada
+s5 (terminal): Verificación final de las cinco sesiones del registro → node --test → código 0 — verificada
+anatomía correcta: 5 sesiones con sus 7 campos · superficies: chat 2, inline 1, terminal 2
+```
+
+Cinco sesiones, dos de chat, una de inline, dos de terminal: el registro cubre las tres superficies y las tres decisiones del módulo (proponer, aplicar, ejecutar). Todas cierran con `node --test` y código `0`.
+
+### El invariante: lo que no se registra, no ocurrió
+
+El chat se olvida, el dif del editor se reemplaza con el siguiente edit y la terminal solo muestra la última pantalla. Por eso el registro es **JSON y no memororia**: una sesión que no dejó comando y código no es una sesión verificable — es una anécdota. La lógica de `sesiones.js` no avisa: si falta un campo, devuelve incidencia y código `1`. Esa dureza es el control del módulo; en l05 verás que además el registro se **reejecuta**, no se cree.
+
+## Ejercicio
+
+Analiza el registro intacto, borra el campo «comando» de la sesión `s1` y vuelve a analizarlo.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/sesiones .
+cp ../ejemplos/sesiones.js .
+node sesiones.js | tail -1
+perl -0pi -e 's/      "comando": "node --test suma\.test\.js",\n//' sesiones/registro.json
+node sesiones.js | head -1
+node sesiones.js | tail -1
+node sesiones.js; echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- el primer `tail -1` imprime `anatomía correcta: 5 sesiones con sus 7 campos · superficies: chat 2, inline 1, terminal 2`;
+- tras el `perl`, la línea de `s1` imprime `→ undefined →` en el sitio del comando;
+- el `tail -1` final imprime `anatomía rota: 1 incidencia(s): s1: falta el campo «comando»` y `codigo=1`;
+- puedes explicar por qué una sesión sin comando es intratable en cualquier superficie.
+
+Pista: el `perl -0pi -e` opera sobre el fichero entero (`-0`), edita en el sitio (`-i`) y borra la línea del comando de `s1` porque su valor (`suma.test.js`) solo aparece una vez.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+anatomía correcta: 5 sesiones con sus 7 campos · superficies: chat 2, inline 1, terminal 2
+s1 (chat): Crear la función suma con su prueba → undefined → código 0 — verificada
+...
+anatomía rota: 1 incidencia(s): s1: falta el campo «comando»
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **El `undefined` a la vista**: el bucle de impresión de `sesiones.js` muestra el campo tal cual está en el JSON. Un registro sin comando no falla al leerse — falla al analizarse. Los datos rotos casi nunca revientan: se muestran mal.
+2. **Dónde se decide**: `anatomia()` recorre `CAMPOS = ["id", "superficie", "objetivo", "cambio", "comando", "codigoSalida", "veredicto"]` y acumula incidencias en vez de lanzar excepciones. Devuelve `{ total, conteo, incidencias }` para que quien llama decida: la demo imprime y sale con `1` si hay incidencias.
+3. **Por qué `superficie` también se valida**: no basta con que el campo exista; tiene que pertenecer a `{chat, inline, terminal}`. Una superficie inventada (`"reunion"`) rompería el conteo del entregable de l06, que exige las tres cubiertas.
+
+Errores típicos al resolverlo:
+
+- **Registrar la sesión en prosa**: «Hablé con el asistente y arreglé el total» no tiene comando ni código. El analizador no distingue una mentira de una omisión: las dos son incidencia.
+- **Dejar el «comando» para al final**: es el campo que más se olvida y el único que convierte la sesión en evidencia. Ciérralo mientras la terminal está abierta.
+- **Contar superficies a mano**: el `conteo` del resumen existe para no fiarse de la memoria. Si tu registro no cubre las tres superficies, el entregable de l06 lo dirá con números.
+- **Tratar las tres superficies con reglas distintas**: el chat no es «más libre» que la terminal. La anatomía es la misma; cambia el riesgo, no el control.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el registro y el analizador (comandos del ejercicio).
+
+2. Ejecuta el analizador sobre el registro intacto:
+
+   ```sh
+   node sesiones.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: las cinco líneas de sesión, `anatomía correcta: 5 sesiones con sus 7 campos · superficies: chat 2, inline 1, terminal 2` y `codigo=0`.
+
+3. Ejecuta la fase rota (pasos 3 a 5 del ejercicio).
+
+   Esperado: `s1 (chat): … → undefined → …`, `anatomía rota: 1 incidencia(s): s1: falta el campo «comando»` y `codigo=1`.
+
+4. Abre tu propio registro de trabajo de esta semana (una sesión real por día) y anótale los 7 campos mientras ocurren. Si al final del día un campo queda vacío, esa sesión no cuenta: vuelve a ejecutarla.
+
+## Errores comunes
+
+- **Pensar que «chat» es el único flujo con asistente**: la edición inline y el terminal son superficies con el mismo peso. El registro de este módulo las cubre las tres (2/1/2) porque el entregable de l06 las exige.
+- **Registrar el objetivo después, de memoria**: el objetivo se escribe al abrir la sesión, no al cerrarla. Reconstruirlo después suele producir el objetivo que salió, no el que se pidió.
+- **Aceptar «verificada» sin comando**: el veredicto no es una opinión. En esta lección lo comprueba la anatomía; en l05 lo comprará la reejecución — y un registro con veredicto vacío o inconsistente no cierra.
+- **Confundir superficie con herramienta**: chat, inline y terminal son categorías; VS Code, un CLI o un agente en la nube son herramientas. La anatomía sobrevive a los cambios de herramienta — esa es la idea.
+
+## Fuentes
+
+- [Visual Studio Code Docs: Inline chat and Quick Chat](https://code.visualstudio.com/docs/copilot/chat/inline-chat) — consultado el 2026-10-22. El inline chat es una conversación ligera acotada al código del editor activo, con propuesta en dif y decisión Keep/Undo.
+- [GitHub Docs: GitHub Copilot cloud agent](https://docs.github.com/en/copilot/using-github-copilot/coding-agent) — consultado el 2026-10-22. El agente investiga el repositorio, planifica, hace cambios y crea pull requests para que tú los revises.
+
+## Siguientes pasos
+
+- Siguiente lección: [l02 «El chat: una sesión, un objetivo, contexto mínimo»](/curriculo/n1/m4/l02-el-chat-una-sesion-un-objetivo-contexto-minimo/) — la anatomía ya la defines; ahora la primera superficie: cómo abrir, acotar y cerrar una sesión de chat con evidencia.
+- Proyecto longitudinal: el registro de 5 sesiones que empieza aquí es el entregable del módulo; las lecciones l02 a l05 añaden una sesión cada una, y l06 lo verifica entero.
