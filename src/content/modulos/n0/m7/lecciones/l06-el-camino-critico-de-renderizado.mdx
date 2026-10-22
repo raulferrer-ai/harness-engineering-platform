@@ -1,0 +1,159 @@
+---
+titulo: "El camino crítico de renderizado"
+resumen: "Del texto al píxel: DOM + hoja de estilos → estilos calculados → árbol de render, descartando display: none, y qué de verdad simula (y qué no) nuestro ejemplo de solo librería estándar."
+nivel: "n0"
+modulo: "m7"
+orden: 6
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Describir las etapas del camino crítico: parseo → DOM → CSSOM → árbol de render → layout → paint"
+  - "Resolver los estilos finales de cada elemento combinando hoja del agente y reglas de autor"
+  - "Construir un árbol de render que excluya los elementos con display: none"
+prerrequisitos:
+  - "n0/m7/l05-servir-una-pagina-estatica-del-archivo-al-navegador"
+actualizado: "2026-10-21"
+tags:
+  - "render"
+  - "cascada"
+  - "rendimiento"
+fuentes:
+  - titulo: "Critical rendering path | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/Performance/Critical_rendering_path"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Para pintar, el navegador encadena: **parsea HTML → DOM**, **parsea CSS → hoja de estilos**, los combina en un **árbol de render** — cada nodo con sus estilos ya resueltos, la cascada de `l03` aplicada y los `display: none` **fuera** — y sobre ese árbol hace layout (medidas) y paint (píxeles). El [camino crítico de render | MDN](https://developer.mozilla.org/en-US/docs/Web/Performance/Critical_rendering_path) es esta cadena: cualquier eslabón parado frena el primer píxel. Nuestro ejemplo simula la primera mitad — recorremos el DOM y resolvemos estilos—, y dice claramente que **no** simula geometría ni dibujo: honestidad sobre el alcance, que es una de las reglas de esta plataforma.
+
+## Conceptos
+
+### La cadena completa
+
+```text
+HTML ──parseo──▶ DOM ───┐
+                        ├──▶ árbol de render ──▶ layout ──▶ paint
+CSS  ──parseo──▶ hoja ──┘        (estilos resueltos,        (medidas)   (píxeles)
+                                  display: none fuera)
+```
+
+Dos árboles, una fusión. El DOM dice **qué hay**; la hoja de estilos dice **cómo se ve**; el árbol de render contiene solo los nodos que se van a pintar, ya con su cascada resuelta por elemento. `display: none` no es «invisible»: el elemento **no entra** en el árbol de render — no ocupa espacio, no se mide, no se pinta.
+
+### La cascada, ahora completa
+
+Cada elemento recibe su estilo final en tres pasos, en este orden:
+
+1. **Hoja del agente** — los `display: block`, `color` y `font-size` que trae el navegador.
+2. **Reglas de autor** — las de tu CSS que casan con el elemento (el matcher descendiente de `web.js`: tipo, `.clase`, `#id` y ancestros).
+3. **Desempate** — especificidad `(a,b,c)` y, si empatan, orden de la hoja: la cascada literal de `l03`.
+
+`ejemplos/ruta-critica.js` ejecuta exactamente esto sobre la página del módulo (Node v24.22.0, 2026-10-21):
+
+```text
+body                   display: block ← hoja del agente · color: #222 ← body (orden 1)
+header.cabecera        display: block ← hoja del agente · background: #f4f4f4 ← .cabecera (orden 6) · padding: 1rem ← .cabecera (orden 6)
+h1                     display: block ← hoja del agente · color: #111 ← h1 (orden 2) · font-size: 2rem ← h1 (orden 2)
+a                      display: inline ← hoja del agente · color: #1a4fa0 ← nav a (orden 9) · text-decoration: none ← nav a (orden 9)
+p.destacado            display: block ← hoja del agente · color: #b3261e ← .destacado (orden 4) · font-size: 1rem ← p (orden 3) · font-weight: 600 ← p.destacado (orden 5)
+footer#pie p           display: block ← hoja del agente · color: #444 ← p (orden 3) · font-size: 0.875rem ← #pie p (orden 7)
+
+9 elementos con reglas de autor y 21 solo con la hoja del agente: la cascada ha resuelto todo el documento
+```
+
+código de salida: `0`. Cada propiedad lleva **su fuente al lado**: `p.destacado` tiene `font-size` de `p` (orden 3) y `color` de `.destacado` (orden 4) — la cascada es **por propiedad**, no por elemento. Y `display` sale siempre de la hoja del agente: nadie lo escribió en el CSS del módulo.
+
+### Qué simula y qué no
+
+Este ejemplo construye **estilos calculados por elemento**; no calcula tamaños ni posiciones — eso es layout, y requiere métricas de fuentes y texto que no entran en solo librería estándar de forma honesta. Tampoco ejecuta JavaScript. El valor didáctico está en la mitad verificable: si tu cascada resuelve mal aquí, un navegador real la resolverá igual de mal.
+
+## Ejercicio
+
+Crea tres ficheros en `ejercicios/`: `lienzo.html` —una página con `h1`, `p`, un `span.oculto` de clase `oculto` y un `nav` con enlace—, `estilos.css` —`.oculto { display: none; }` y `nav { display: flex; }`— y `pintar.js`, que usando `parsearHtml`, `parsearCss` y `estilosCalculados` desde `ejemplos/web.js` recorra los elementos y **separe** los `display: none` del resto, imprimiendo el origen de cada `display`.
+
+Esto se cumple cuando:
+
+- la salida lista `fuera del render: span.oculto    display: none ← .oculto (orden 1)` — con el elemento, el valor **y** la fuente—;
+- `nav` aparece en el render con `display: flex ← nav (orden 2)`, es decir, la regla de autor ha ganado a la hoja del agente;
+- la última línea dice `árbol de render: 10 elementos pintados, 1 fuera por display: none` y el programa sale con código `0`;
+- explicas en tu nota por qué `span.oculto` no está «encima» sino **fuera**: no se le asignan medidas ni se dibuja, y por qué eso lo distingue de un `color: transparent` — ese sí se pinta, y sigue en el árbol.
+
+Pista: `estilosCalculados` te devuelve `estilos` **y** `fuentes`; el `display: none` puede venir de la hoja del agente (el mapa de `web.js` no lo pone) o de tu CSS — distínguelos mirando `fuentes.display`.
+
+## Solución explicada
+
+La separación es un `if` sobre el estilo ya resuelto, pero **después** de la cascada — si miraras solo el CSS, perderías los `display` del agente:
+
+```js
+const calculados = estilosCalculados(parsearHtml(html), parsearCss(css));
+let pintados = 0;
+let ocultos = 0;
+for (const { elemento, estilos, fuentes } of calculados) {
+  if (estilos.display === "none") {
+    ocultos += 1;
+    console.log(`fuera del render: ${nombre} display: none ← ${fuentes.display}`);
+    continue;
+  }
+  pintados += 1;
+  console.log(`en el render:    ${nombre} display: ${estilos.display} ← ${origen}`);
+}
+```
+
+Dos detalles que hacen la demo creíble: `fuentes.display` distingue `hoja del agente (usuario)` de `.oculto (orden 1)` — cada atribución es comprobable, no un «así lo puso el navegador»; y el `continue` reproduce la semántica real de `display: none`: el nodo **no se recorre como renderizado**, no que se le añada un atributo mágico de no-pintar.
+
+Salida real medida el 2026-10-21 con Node v24.22.0 (el `código de salida` es lo que devuelve `echo $?`):
+
+```text
+$ node ejercicios/pintar.js
+en el render:    html           display: block ← hoja del agente
+en el render:    head           display: inline ← hoja del agente
+en el render:    meta           display: inline ← hoja del agente
+en el render:    title          display: inline ← hoja del agente
+en el render:    link           display: inline ← hoja del agente
+en el render:    body           display: block ← hoja del agente
+en el render:    h1             display: block ← hoja del agente
+en el render:    p              display: block ← hoja del agente
+fuera del render: span.oculto    display: none ← .oculto (orden 1)
+en el render:    nav            display: flex ← nav (orden 2)
+en el render:    a              display: inline ← hoja del agente
+árbol de render: 10 elementos pintados, 1 fuera por display: none
+código de salida: 0
+```
+
+Errores típicos al resolverlo: (1) filtrar `display: none` **antes** de calcular estilos — el `display: none` de tu CSS sería invisible para el filtro y `span.oculto` entraría; (2) contar `head`, `meta`, `link` como «errores de la demo»: son elementos reales del DOM y se resuelven como los demás; (3) creer que `display: none` es lo mismo que quitar el elemento del HTML — sigue en el DOM, sigue siendo accesible por script, solo sale del árbol de render.
+
+## Cómo verificarlo
+
+1. La demo del módulo:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/ruta-critica.js; echo $?
+   ```
+
+   Nueve líneas con `←` indicando fuente y `9 elementos con reglas de autor y 21 solo con la hoja del agente…`, código `0`.
+
+2. Tu ejercicio:
+
+   ```sh
+   node ejercicios/pintar.js; echo $?
+   ```
+
+   `fuera del render: span.oculto … ← .oculto (orden 1)`, `nav … display: flex ← nav (orden 2)`, `árbol de render: 10 elementos pintados, 1 fuera por display: none` y código `0`.
+
+Continúa con [l07 «Entregable: página estática validada y publicada en local»](/curriculo/n0/m7/l07-entregable-pagina-estatica-validada-y-publicada-en-local/) — HTML, CSS, HTTP y render ya están en pie; ahora se cierra el módulo con la página completa, su suite rojo→verde y su servidor local.
+
+## Errores comunes
+
+- **Mezclar render con layout.** «`flex` cambia el ancho de los hijos» es layout; aquí resolvemos **qué estilos lleva cada nodo**. Pintar sin medir es el primer tramo, no el completo.
+- **Filtrar antes de la cascada.** Verificar `display` en el CSS crudo ignora la hoja del agente y las reglas posteriores: el resultado depende de leer un archivo, no de resolver el documento.
+- **Dar por bueno `display` sin fuente.** Si no sabes de dónde salió una propiedad, no puedes explicar la página — y menos en un entregable. Imprime `fuentes`, siempre.
+- **`display: none` en elementos de contenido clave.** Quitar del render también quita de la vista: un `h1` oculto con `display: none` existe en el DOM pero no se pinta ni se lee — la accesibilidad y el diseño se rompen juntos.
+
+## Fuentes
+
+- [Critical rendering path | MDN](https://developer.mozilla.org/en-US/docs/Web/Performance/Critical_rendering_path) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: el árbol de render con fuentes es la última pieza técnica que faltaba; el entregable de `l07` lo integra con el validador de `l01` y el servidor de `l05`.

@@ -1,0 +1,177 @@
+---
+titulo: "El DOM: el árbol que construye el navegador"
+resumen: "Cómo el navegador convierte el texto HTML en un árbol de nodos (el DOM), por qué CSS y JavaScript solo trabajan sobre ese árbol y qué ocurre cuando las etiquetas no están balanceadas."
+nivel: "n0"
+modulo: "m7"
+orden: 2
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Describir el proceso de texto → árbol y los tipos de nodo (elemento y texto)"
+  - "Imprimir un árbol DOM y contar sus nodos"
+  - "Provocar y leer el error de un parser ante una etiqueta sin cerrar"
+prerrequisitos:
+  - "n0/m7/l01-anatomia-de-una-pagina-html-semantico"
+actualizado: "2026-10-21"
+tags:
+  - "dom"
+  - "parser"
+  - "estructura"
+fuentes:
+  - titulo: "Document Object Model | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El navegador no pinta texto HTML: lo **analiza** y construye un árbol de nodos — el **DOM** (modelo de objetos del documento). Cada etiqueta abre y cierra un nodo **elemento**; el texto entre ellas, un nodo **texto**. Sobre ese árbol se aplica después CSS y se cuelgan los scripts, así que su estructura es la base de todo. Construirlo es mecánico —abrir empuja, cerrar saca—, y un parser serio **falla en cuanto hay desequilibrio**: `Error: etiqueta sin cerrar: <p>` con código `1`, no una página a medias.
+
+## Conceptos
+
+### De texto plano a árbol
+
+El archivo es una línea larga tras otra:
+
+```text
+<body><header class="cabecera"><h1>Ejemplo de página estática</h1>…
+```
+
+El analizador recorre los tokens y mantiene una **pila**: `<header>` empuja un nodo nuevo como hijo del actual; `</header>` lo saca. El resultado es un árbol donde cada nodo sabe quién es su padre y qué hijos tiene — la [DOM | MDN](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) lo define exactamente así: una interfaz de árbol constrida a partir del documento parseado.
+
+`ejemplos/arbol-dom.js` analiza la página del módulo con Node v24.22.0 (2026-10-21) y la imprime:
+
+```text
+(raíz)
+  html
+    head
+      meta
+      meta
+      title
+        "Cómo se sirve una página · Ejemplo n0/m7"
+      link
+    body
+      header.cabecera
+        h1
+          "Ejemplo de página estática"
+        nav
+          ul
+            li
+              a
+                "La petición"
+      …
+árbol construido: 30 elementos y 12 nodos de texto
+```
+
+código de salida: `0`. Dos tipos de nodo a la vista: **elementos** —`h1`, `a`, `p`— con sus atributos, y **textos** —entre comillas—. Nada más: los espacios y saltos de línea no son nodos, el parser los colapsa.
+
+### Por qué importa el árbol
+
+Todo lo que viene en este módulo opera sobre esta estructura, no sobre el texto crudo:
+
+- **CSS** — un selector como `nav a` se resuelve subiendo por ancestros del árbol (l03 y l06).
+- **El render** — el árbol DOM se combina con los estilos para formar el árbol de render (l06).
+- **El validador de l01** — lee el texto, pero las reglas que aplica (jerarquía, landmarks) describen posiciones del árbol.
+
+Un parser que falla al construir el árbol detiene todo lo demás. Y falla **en voz alta**, que es como deben fallar las herramientas: `parsearHtml` lanza un `Error` con el nombre de la pila pendiente.
+
+### El error de balance, leído de verdad
+
+Con el fragmento roto del ejercicio —`<article><p>Este párrafo nunca se cierra`—, la pila al llegar al final contiene `article` y `p`: hay etiquetas abiertas que nadie cerró. Salida real medida el 2026-10-21 (Node v24.22.0):
+
+```text
+Error: etiqueta sin cerrar: <p>
+    at parsearHtml (…/n0/m7/ejemplos/web.js:88:11)
+    at …/ejercicios/arbol.js:9:17
+código de salida: 1
+```
+
+Lee la traza como en `n0/m6/l05`: el **primer frame de tu código** es el `arbol.js:9` — el `parsearHtml` de la implementación está en `web.js:88` — y el mensaje te dice exactamente qué etiqueta quedó abierta. El caso contrario —un `</article>` que llega con `p` todavía arriba— produce `cierre desbalanceado: </article>`. Ambos terminan en `1`: la herramienta prefiere pararse a entregar un árbol que no representa el documento.
+
+> Nota honesta sobre el alcance: este parser es **didáctico** —expresiones regulares y pila—, no el analizador de un navegador real. No coge comentarios como nodos ni intenta recuperarse de errores: falla, y eso es justamente lo que este ejercicio te enseña a leer.
+
+## Ejercicio
+
+Crea `ejercicios/arbol.js` que reciba `roto` como argumento opcional y use `parsearHtml` + `lineasDelArbol` desde `ejemplos/web.js` para analizar uno de dos fragmentos:
+
+- sin argumento: `"<article><h2>Título</h2><p>Párrafo corto</p></article>"`;
+- con `roto`: `"<article><p>Este párrafo nunca se cierra"`.
+
+Esto se cumple cuando:
+
+- la ejecución normal imprime el árbol indentado, termina con `árbol construido: 3 elementos` y sale con código `0`;
+- la ejecución `roto` termina en stderr con `Error: etiqueta sin cerrar: <p>` y código `1` — sin mensaje inventado por ti, el del propio parser;
+- nombras en tu nota los **tres** nodos del árbol bueno — `article`, `h2` con su texto y `p` con su texto — y explicas cuál es elemento y cuál es texto;
+- explicas por qué el fallo del parser es preferible a «arreglar solo» imprimiendo lo que se pudo: un árbol incompleto hace que CSS casen selectores que no deberían casar y que el validador de l01 apruebe una página que no existe tal cual.
+
+Pista: `lineasDelArbol` te devuelve líneas; el texto aparece entre comillas — puedes contar elementos filtrando las líneas que no llevan comillas y restando la raíz.
+
+## Solución explicada
+
+La selección de fragmento por argumento es todo el truco de bifurcación:
+
+```js
+const fragmento =
+  process.argv[2] === "roto"
+    ? "<article><p>Este párrafo nunca se cierra"
+    : "<article><h2>Título</h2><p>Párrafo corto</p></article>";
+```
+
+La buena termina balanceada: `</p>` saca al `p`, `</article>` saca al `article` y la pila vuelve a la raíz. La mala llega al fin del texto con dos nodos pendientes, y `parsearHtml` lanza antes de devolver nada. Salidas reales medidas el 2026-10-21 con Node v24.22.0 (el `código de salida` es lo que devuelve `echo $?`):
+
+```text
+$ node ejercicios/arbol.js
+(raíz)
+  article
+    h2
+      "Título"
+    p
+      "Párrafo corto"
+árbol construido: 3 elementos
+código de salida: 0
+```
+
+```text
+$ node ejercicios/arbol.js roto
+Error: etiqueta sin cerrar: <p>
+código de salida: 1
+```
+
+Errores típicos al resolverlo: (1) capturar el `Error` con `try/catch` y devolver `0` «para que no parezca fallo» — pierdes la señal; (2) contar `<` en lugar de nodos y salir «7 elementos» con el texto metido; (3) editar `web.js` para que el fragmento roto entre — **no toques la implementación**: el ejercicio consiste en que la herramienta prefiere fallar.
+
+## Cómo verificarlo
+
+1. El ejemplo del módulo sobre la página completa:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/arbol-dom.js; echo $?
+   ```
+
+   Imprime el árbol completo y `árbol construido: 30 elementos y 12 nodos de texto`, código `0`.
+
+2. Tu ejercicio, en sus dos variantes:
+
+   ```sh
+   node ejercicios/arbol.js; echo $?
+   node ejercicios/arbol.js roto; echo $?
+   ```
+
+   `árbol construido: 3 elementos` con código `0`, y `Error: etiqueta sin cerrar: <p>` con código `1`.
+
+Continúa con [l03 «CSS: reglas, cascada y especificidad»](/curriculo/n0/m7/l03-css-reglas-cascada-y-especificidad/) — ya tienes el árbol; ahora las reglas de estilo que se aplicarán sobre él y quién gana cuando dos se contradicen.
+
+## Errores comunes
+
+- **Contar líneas en vez de nodos.** El árbol no tiene por qué corresponderse uno a uno con las líneas del archivo: indentación y nodos son cosas distintas; cuenta con `lineasDelArbol`.
+- **Tratar el texto como ruido.** Los nodos de texto son nodos: son los que lee quien navega con un lector de pantalla, y sin ellos el árbol diría que un párrafo no tiene contenido. Descartarlos «por simplificar» cambia el modelo.
+- **Parser a medida en cada ejercicio.** Analizar HTML con `split("<")` en un script y con pila en otro produce dos árbles distintos para la misma página — usa la misma implementación y céntrate en lo que estudias.
+- **Disimular el desequilibrio.** Si el parser «remata» sin error, el validador de l01 pasará páginas que no son las reales: la fiabilidad de la cadena depende de que cada eslabón falle alto.
+
+## Fuentes
+
+- [Document Object Model | MDN](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: el árbol DOM que has impreso es la estructura que recorrerá tu comprobador de recursos en el entregable de `l07`.

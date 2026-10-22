@@ -1,0 +1,194 @@
+---
+titulo: "CSS: reglas, cascada y especificidad"
+resumen: "La anatomía de una regla CSS, la hoja del agente frente a la del autor, y cómo la cascada resuelve las contradicciones: especificidad (ids, clases, elementos) y orden de las reglas."
+nivel: "n0"
+modulo: "m7"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Descomponer una regla CSS en selector y declaraciones"
+  - "Calcular la especificidad de un selector y resolver quién gana en un empate"
+  - "Provocar y leer un error de sintaxis CSS con su línea"
+prerrequisitos:
+  - "n0/m7/l02-el-dom-el-arbol-que-construye-el-navegador"
+actualizado: "2026-10-21"
+tags:
+  - "css"
+  - "cascada"
+  - "especificidad"
+fuentes:
+  - titulo: "Cascade | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/CSS/Cascade"
+    fecha: "2026-10-21"
+  - titulo: "Specificity | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/CSS/Specificity"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una regla CSS es **selector + declaraciones** —`p.destacado { color: #b3261e; }`— y cuando dos reglas discuten por una propiedad, la [cascada](https://developer.mozilla.org/en-US/docs/Web/CSS/Cascade) decide: primero gana la **especificidad** —ids > clases > elementos, la terna `(a, b, c)`— y si hay empate, **la última en el archivo**. El navegador aporta además su propia hoja por defecto (`display: block` en los bloques), la «hoja del agente». El analizador del módulo convierte la hoja en reglas numerales, calcula quién gana y **se para con su línea** si la sintaxis se rompe: `CSS inválido en la línea 3: declaración sin «:»`.
+
+## Conceptos
+
+### Anatomía de una regla
+
+```text
+p.destacado {
+  color: #b3261e;
+  font-weight: 600;
+}
+```
+
+Selector a la izquierda —**qué elementos**—, declaraciones a la derecha —**qué cambiar**—. `parsearCss` devuelve reglas numeradas en orden de aparición: la posición de cada una es su «peso de desempate».
+
+### La terna de especificidad
+
+La [especificidad | MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/Specificity) puntúa cada selector con tres números `(a, b, c)`: ids, clases —y atributos y pseudo-clases—, elementos —y pseudo-elementos—. `ejemplos/especificidad.js` analiza la hoja del módulo (Node v24.22.0, 2026-10-21):
+
+```text
+reglas y especificidad (ids, clases, elementos):
+   1. body           → (0, 0, 1)
+   2. h1             → (0, 0, 1)
+   3. p              → (0, 0, 1)
+   4. .destacado     → (0, 1, 0)
+   5. p.destacado    → (0, 1, 1)
+   6. .cabecera      → (0, 1, 0)
+   7. #pie p         → (1, 0, 1)
+   8. nav a          → (0, 0, 2)
+   9. nav a          → (0, 0, 2)
+```
+
+Y la cascada resuelta en tres casos reales:
+
+```text
+color de p.destacado → #b3261e ← .destacado (orden 4)
+  gana .destacado (0,1,0) sobre p (0,0,1): la clase pesa más que la etiqueta
+color de nav a → #1a4fa0 ← nav a (orden 9)
+  empate exacto entre las dos reglas nav a (0,0,2): gana la última, que es la posterior
+font-size del p del pie → 0.875rem ← #pie p (orden 7)
+  gana #pie p (1,0,1) sobre p (0,0,1): un id decide la cascada
+```
+
+Tres reglas del juego, cada una en un caso: **clase > elemento**, **empate → orden** —las reglas 8 y 9 son idénticas en selector, solo gana la posterior—, **id > todo lo demás**. Código de salida: `0`.
+
+### La hoja del agente
+
+No todo lo que ves viene de tu CSS: el navegador trae la suya —`body` en bloque, los títulos en bloque, los enlaces en línea—, y la cascada la coloca **por debajo** de cualquier regla de autor. Por eso `p` se pinta sin que tú escribas `display: block`. En `l06` veremos esa hoja explicitada; aquí basta con que sepas que la cascada es **hoja del agente → reglas de autor → especificidad → orden**.
+
+### Cuando la sintaxis se rompe
+
+El rojo deliberado `ejemplos/errores/css-roto.js` pasa a `parsearCss` una declaración sin los dos puntos. Salida real medida el 2026-10-21 (Node v24.22.0), en stderr:
+
+```text
+Error: CSS inválido en la línea 3: declaración sin «:» — «color red»
+    at parsearCss (…/n0/m7/ejemplos/web.js:166:9)
+código de salida: 1
+```
+
+La **línea 3** es la de la declaración rota —no la del selector—: un error de sintaxis sin ubicación te obliga a releer la hoja entera; con ubicación, miras una línea. Igual que con las trazas de `n0/m6/l05`: el mensaje tiene que darte lo que necesitas para actuar.
+
+## Ejercicio
+
+Crea `ejercicios/hoja.css` con seis reglas —`p`, `.destacado`, `p.destacado`, `a`, `nav a` y **otra** `nav a`— y `ejercicios/ganador.js` que, usando `parsearCss` y `especificidad` desde `ejemplos/web.js`, imprima la tabla de especificidad de la hoja y diga qué selector gana el `font-weight` de un elemento `p.destacado`.
+
+Esto se cumple cuando:
+
+- la tabla imprime las seis reglas con su terna `(a, b, c)` — cuida la alineación para que se lea de un vistazo—;
+- el programa termina con `font-weight de p.destacado → p.destacado (orden 3)` y código `0`;
+- explicas en tu nota **por qué** gana `p.destacado` sobre `.destacado` — `(0,1,1)` frente a `(0,1,0)`, la etiqueta extra le da el segundo punto de la terna—;
+- añades a la nota el desempate de tus dos `nav a`: si les asignaras el mismo `color`, ¿cuál se aplicaría y por qué — y ejecutas el caso para comprobarlo en vez de afirmarlo.
+
+Pista: ordenar candidatas por la terna y, al final, por `orden` reproduce exactamente la cascada; es el mismo `sort` que hace `estilosCalculados`.
+
+## Solución explicada
+
+La terna se calcula con tres recuentos — aquí la versión didáctica, para selectores con ids, clases y elementos (la de `web.js` suma además atributos y pseudo-clases):
+
+```js
+export function especificidad(selector) {
+  const s = selector.trim();
+  const a = (s.match(/#[\w-]+/g) ?? []).length;
+  const b = (s.match(/\.[\w-]+/g) ?? []).length;
+  const sinClasesNiIds = s.replace(/#[\w-]+/g, " ").replace(/\.[\w-]+/g, " ");
+  const c = (sinClasesNiIds.match(/(^|[\s>+~,])([a-z][\w-]*)/gi) ?? []).length;
+  return [a, b, c];
+}
+```
+
+Y el ganador se obtiene ordenando y tomando el último — primero por terna, después por orden, que es la cascada literal:
+
+```js
+const ganadora = [...candidatas].sort(
+  (x, y) =>
+    x.especificidad[0] - y.especificidad[0] ||
+    x.especificidad[1] - y.especificidad[1] ||
+    x.especificidad[2] - y.especificidad[2] ||
+    x.orden - y.orden,
+)[candidatas.length - 1];
+```
+
+Salida real medida el 2026-10-21 con Node v24.22.0 (el `código de salida` es lo que devuelve `echo $?`):
+
+```text
+$ node ejercicios/ganador.js
+tabla de especificidad (ids, clases, elementos):
+   1. p            → (0, 0, 1)
+   2. .destacado   → (0, 1, 0)
+   3. p.destacado  → (0, 1, 1)
+   4. a            → (0, 0, 1)
+   5. nav a        → (0, 0, 2)
+   6. nav a        → (0, 0, 2)
+
+font-weight de p.destacado → p.destacado (orden 3)
+especificidad de p.destacado (por si empata): (0, 1, 1)
+código de salida: 0
+```
+
+Errores típicos al resolverlo: (1) contar las clases del selector **y** sus etiquetas sumando todo en una cifra — la terna es posicional, `(0,2,0)` gana a `(0,1,3)`; (2) «resolver» el empate eligiendo la primera regla; es la última la que gana, y cambiarlo produce páginas donde tu CSS parece ignorado; (3) probar con `console.log` delante de la hoja del navegador en vez de ejecutar tu propio `ganador.js` — si tu programa no lo demuestra, no lo has verificado.
+
+## Cómo verificarlo
+
+1. La demo del módulo:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/especificidad.js; echo $?
+   ```
+
+   Tabla de nueve reglas y las tres resoluciones con sus explicaciones, código `0`.
+
+2. El rojo de sintaxis:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/errores/css-roto.js; echo $?
+   ```
+
+   `Error: CSS inválido en la línea 3: declaración sin «:» — «color red»` en stderr y código `1`.
+
+3. Tu ejercicio:
+
+   ```sh
+   node ejercicios/ganador.js; echo $?
+   ```
+
+   Tabla de seis reglas, `font-weight de p.destacado → p.destacado (orden 3)` y código `0`.
+
+Continúa con [l04 «La petición HTTP: método, ruta y cabeceras»](/curriculo/n0/m7/l04-la-peticion-http-metodo-ruta-y-cabeceras/) — la página y sus estilos ya se analizan; falta lo que los transporta: el diálogo petición-respuesta.
+
+## Errores comunes
+
+- **Subir de golpe de nivel.** «Como `p.destacado` es más específico, gana» es correcto; «como tiene más letras, gana» no — la terna compara posiciones, no longitudes.
+- **Olvidar la hoja del agente.** Un `display` que no escribiste aparece en la página: no es magia, es la hoja del navegador debajo de la tuya; desconocerla lleva a reglas redundantes.
+- **Empates «resueltos a mano».** Reordenar el CSS para que algo gane cambia el orden de desempate de toda la hoja; si necesitas que una regla gane siempre, hazla más específica o restringe su selector.
+- **Sintaxis rota ignorada.** Un `:` ausente no hace que el navegador «ignore esa línea con elegancia»: nuestro analizador se detiene en ella — y con línea—. Revisa el error en cuanto aparece.
+
+## Fuentes
+
+- [Cascade | MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/Cascade) — consultado el 2026-10-21.
+- [Specificity | MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/Specificity) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: la terna que has calculado a mano es la misma que usará el comprobador de conflicto de estilos del entregable de `l07`.

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" role="img" aria-label="Navegador y servidor intercambian una petición y una respuesta">
+  <rect x="8" y="34" width="120" height="52" rx="8" fill="#f4f4f4" stroke="#444" />
+  <text x="68" y="64" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#222">Navegador</text>
+  <rect x="192" y="34" width="120" height="52" rx="8" fill="#f4f4f4" stroke="#444" />
+  <text x="252" y="64" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#222">Servidor</text>
+  <path d="M132 50 H188" stroke="#0b57d0" stroke-width="2" marker-end="url(#flecha)" />
+  <path d="M188 70 H132" stroke="#b3261e" stroke-width="2" marker-end="url(#flecha2)" />
+  <defs>
+    <marker id="flecha" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#0b57d0" /></marker>
+    <marker id="flecha2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#b3261e" /></marker>
+  </defs>
+</svg>
