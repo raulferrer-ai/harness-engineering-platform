@@ -1,0 +1,181 @@
+---
+titulo: "El detector: la colección se ejecuta y decide"
+resumen: "La colección sólo vale si alguien la ejecuta entera y se atreve a decir no. La lección construye la pasada única del runner: 10 fallos, tres familias, y dos códigos de salida — 0 si todos están confirmados, 1 si alguno sólo existe en papel o su comprobación ya lo desmiente. Ejecutas `detectar.js` intacto, después cambias la comprobación de `f02` a un símbolo real y ves caer la certificación con `9 fallos detectados, 1 sin detectar` y `codigo=1`."
+nivel: "n1"
+modulo: "m6"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Ejecutar los detectores de la colección con un runner que decide con 0 o 1"
+  - "Distinguir las incidencias: sin comprobación, sin detector y ya desmentida"
+  - "Leer el código de salida del runner desde la terminal y desde otro proceso"
+prerrequisitos:
+  - "n1/m6/l04-dependencias-inventadas-package-json-contra-lock"
+actualizado: "2026-10-22"
+tags:
+  - "detector"
+  - "runner"
+  - "codigos-de-salida"
+fuentes:
+  - titulo: "Node.js — Process"
+    url: "https://nodejs.org/api/process.html"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Child process"
+    url: "https://nodejs.org/api/child_process.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`detectar.js` es el runner de la colección: recorre las 10 entradas de `fallos/fallos.json`, aplica el detector de su `tipo` y **decide** con el código de salida — `0` si todos están confirmados, `1` si hay una sola incidencia. La colección intacta cierra con **`10 fallos detectados, 0 sin detectar — la colección queda certificada`**. En el ejercicio apuntas la comprobación de `f02` a un símbolo que sí existe (`createHash`): la entrada deja de ser un fallo, el runner lo nota y sale con **`9 fallos detectados, 1 sin detectar — el runner no da la colección por buena`**, `codigo=1`.
+
+## Conceptos
+
+### Una sola pasada por las tres familias
+
+`detectarColeccion()` no sabe de lecciones ni de módulos: lee la colección, manda cada entrada a `DETECTORES[fallo.tipo]` y acumula líneas e incidencias. La salida intacta, real (Node v24.22.0, 2026-10-22):
+
+```text
+ejecutando detectores de …/fallos/fallos.json:
+ ✓ f01 — api-inexistente — node:fs no exporta readFileAsync — la que existe es fs.promises.readFile
+ ✓ f02 — api-inexistente — node:crypto no exporta md5 — la que existe es crypto.createHash('sha256')
+ ✓ f03 — api-inexistente — node:path no exporta toPosix — la que existe es path.normalize
+ ✓ f04 — api-inexistente — node:os no exporta tmpFolder — la que existe es os.tmpdir
+ ✓ f05 — codigo-erroneo — descuento(19.99, 10) devuelve 18, el caso pedía 17.99
+ ✓ f06 — codigo-erroneo — ordenarFechas(["2026-9-30","2026-10-05"]) devuelve ["2026-10-05","2026-9-30"], el caso pedía ["2026-9-30","2026-10-05"]
+ ✓ f07 — codigo-erroneo — media([]) lanza TypeError: el caso pedía null
+ ✓ f08 — dependencia-inventada — fecha-hora-es declarada en package.json, ausente del lock — inventada
+ ✓ f09 — dependencia-inventada — json-con-comentarios declarada en package.json, ausente del lock — inventada
+ ✓ f10 — dependencia-inventada — tabla-markdown-lite declarada en package.json, ausente del lock — inventada
+10 fallos detectados, 0 sin detectar — la colección queda certificada
+```
+
+Ojo al «✓» de cada línea: en este módulo **verde significa «el fallo está confirmado»**, no «el código es correcto». El runner certifica la colección, no el software del asistente.
+
+### Tres formas de no detectar
+
+Un fallo no se detecta por tres razones distintas, y la incidencia lo dice (`fallos.js:112`):
+
+| Situación         | Condición                        | Incidencia que imprime el runner                                   |
+| ----------------- | -------------------------------- | ------------------------------------------------------------------ |
+| Sin comprobación  | `!fallo.comprobacion`            | `fNN: fallo declarado sin comprobación — «…» sólo existe en papel` |
+| Tipo sin detector | `!DETECTORES[fallo.tipo]`        | `fNN: tipo «…» sin detector — «…» no es comprobable`               |
+| Ya desmentida     | el detector devuelve `ok: false` | `fNN: la comprobación no confirma el fallo — …`                    |
+
+La tercera es la más rica: significa que el mundo cambió por debajo de la entrada — la API resultó existir, la función se arregló, el paquete se resolvió. La entrada **está caducada**, y el runner se niega a certificarla. El rojo `errores/fallo-sin-deteccion.js` muestra la primera forma, con salida `1`:
+
+```text
+✗ f11: fallo declarado sin comprobación — «sin comprobación asociada» sólo existe en papel
+el runner no da por buena una colección con fallos que nadie sabe detectar
+```
+
+### El código de salida es la decisión
+
+Node documenta `process.exitCode` como la forma de fijar el resultado del proceso sin `process.exit()` (fuente consultada el 2026-10-22). `detectar.js:26` lo pone a `1` sólo si hay incidencias — el texto es para quien lee, el `1` es para quien lo automatice (el `pre-commit` de `n1/m5`, una prueba, un hook de CI). Ese `1` también se lee **desde otro proceso**: con `spawnSync` de `node:child_process` recibes el `status` sin parsear una sola línea (fuente consultada el 2026-10-22):
+
+```text
+colección intacta → salida=0
+comprobación cambiada → salida=1
+```
+
+## Ejercicio
+
+Ejecuta el runner sobre la colección intacta, después «arregla» `f02` apuntando su comprobación a un símbolo real y mira caer la certificación. Al final, lee el código de salida desde otro proceso. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/fallos" "$TALLER/"
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/fallos.js" "$ORIG/detectar.js" "$TALLER/"
+cd "$TALLER"
+node detectar.js fallos/fallos.json > salida1.txt; echo "codigo=$?"
+tail -1 salida1.txt
+perl -0pi -e 's/"simbolo": "md5"/"simbolo": "createHash"/' fallos/fallos.json
+node detectar.js fallos/fallos.json > salida2.txt; echo "codigo=$?"
+grep -E "f02|sin detectar" salida2.txt
+node --input-type=module -e 'import { spawnSync } from "node:child_process"; const r = spawnSync(process.execPath, ["detectar.js"], { encoding: "utf8" }); console.log("comprobación cambiada → salida=" + r.status);'
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución da `codigo=0` y `10 fallos detectados, 0 sin detectar — la colección queda certificada`;
+- tras el `perl`, la segunda da `codigo=1` con ` ✗ f02: la comprobación no confirma el fallo — node:crypto sí exporta createHash: esta entrada ya no es un fallo` y `9 fallos detectados, 1 sin detectar — el runner no da la colección por buena`;
+- el `spawnSync` imprime `comprobación cambiada → salida=1` — mismo proceso visto desde fuera;
+- puedes explicar por qué `f02` con `createHash` «ya no es un fallo» y qué tendría que hacer alguien con esa incidencia (retirar la entrada o corregir su título).
+
+Pista: `detectar.js` necesita `proyecto/` en la copia — los detectores de dependencias leen `package.json` y su lock. Sin esa carpeta, la pasada entera muere con `ENOENT: … proyecto/package.json`.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+codigo=0
+10 fallos detectados, 0 sin detectar — la colección queda certificada
+codigo=1
+ ✗ f02: la comprobación no confirma el fallo — node:crypto sí exporta createHash: esta entrada ya no es un fallo
+9 fallos detectados, 1 sin detectar — el runner no da la colección por buena
+comprobación cambiada → salida=1
+```
+
+Tres cosas a mirar:
+
+1. **Nada se rompió y aun así es rojo**: no hay traza ni excepción — el runner ejecutó los 10 detectores y uno dijo «esto ya no es cierto». Esa es la incidencia más difícil de ver sin runner: en una revisión a ojo, `createHash` _es_ el símbolo real y la entrada pasaría desapercibida como «ya resuelto».
+2. **`9 fallos detectados, 1 sin detectar` cuenta lo que hay, no lo que falló**: `f02` sigue declarado en la colección (10 entradas), pero 0 de la 1 se confirma. El desfase entre el total y los detectados **es** el estado de la entrada: caducada.
+3. **El `1` es un contrato, no un castigo**: el mismo `process.exitCode` que `n1/m4` usaba para cerrar sesiones y `n1/m5` para vetar commits. Aquí certifica colecciones: `0` = «los N fallos declarados están confirmados», `1` = «la colección no está lista». Y ese contrato se lee igual desde `echo codigo=$?` que desde `spawnSync`.
+
+Errores típicos al resolverlo:
+
+- **Copiar la colección sin `proyecto/`**: los tres detectores de dependencias leen el manifiesto con `readFileSync`; sin él, `ENOENT` y traza — la misma pieza que en l04, ahora con toda la colección encima.
+- **Considerar la segunda incidencia un bug del detector**: «`createHash` sí existe, el detector está raro» — no; el detector está avisando de que **cambió el mundo, no el detector**. Es la misma voz que en l03: `ok: false` es «este fallo ya no aplica».
+- **Responder al rojo editando el `esperado` o el `simbolo` de vuelta sin decidir**: el runner no quiere que le maquilles la entrada — quiere que decidas: ¿se retira `f02` (ya no es un fallo) o se reescribe el título (ahora es «el asistente proponía md5, la alternativa es createHash»)?
+- **Mirar sólo las líneas y no el código**: `grep` de las ✓ te deja tranquilo y no te dice si el proceso salió en verde. En automación, la primera pregunta es siempre el código de salida.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la colección, `proyecto/`, la librería y el runner (comandos del ejercicio).
+
+2. Certifica la colección intacta:
+
+   ```sh
+   node detectar.js fallos/fallos.json > salida1.txt; echo "codigo=$?"
+   tail -1 salida1.txt
+   ```
+
+   Esperado: `codigo=0` y `10 fallos detectados, 0 sin detectar — la colección queda certificada`.
+
+3. Cambia la comprobación de `f02` (el `perl`) y vuelve a ejecutar:
+
+   Esperado: `codigo=1`, ` ✗ f02: la comprobación no confirma el fallo — node:crypto sí exporta createHash: esta entrada ya no es un fallo` y `9 fallos detectados, 1 sin detectar — el runner no da la colección por buena`.
+
+4. Lee el código desde otro proceso:
+
+   ```sh
+   node --input-type=module -e 'import { spawnSync } from "node:child_process"; const r = spawnSync(process.execPath, ["detectar.js"], { encoding: "utf8" }); console.log("comprobación cambiada → salida=" + r.status);'
+   ```
+
+   Esperado: `comprobación cambiada → salida=1`.
+
+5. Ejecuta el runner del módulo desde su carpeta real: `node detectar.js; echo "codigo=$?"` debe decir `10 fallos detectados, 0 sin detectar …` y `codigo=0`. Si no lo hace, no sigas: la colección tiene trabajo pendiente y es exactamente lo que el runner estaba para decirte.
+
+## Errores comunes
+
+- **Tratar la salida bonita como certificación**: las 10 líneas `✓` son el informe; el `0` es la decisión. Automatiza la decisión — el informe ya lo lee alguien.
+- **Confundir «runner decide 1» con «el runner falla»**: un `1` sin traza es el caso feliz del diseño: no se rompió nada, se detectó algo. La traza, en cambio, sí es un bug (fichero ausente, JSON mal formado).
+- **Certificar sólo las familias nuevas**: `detectar.js` pasa la colección **entera**; ejecutar un solo demo de familia te deja las otras nueve sin vigilar. El runner existe para que esa pregunta no se pueda plantear.
+- **Dejar entradas caducadas «para después»**: cada incidencia abierta es una colección que ya nadie ejecuta con confianza — y una semana después, nadie la ejecuta en absoluto.
+- **Olvidar que los detectores también se prueban**: el rojo `errores/fallo-sin-deteccion.js` y la batería de l06 existen porque el detector es código con fallos propios; un runner que siempre dijera `0` sería el peor bug del módulo.
+
+## Fuentes
+
+- [Node.js: Process](https://nodejs.org/api/process.html) — consultado el 2026-10-22. Documenta `process.exitCode` y el código de salida del proceso: el contrato `0`/`1` con el que `detectar.js` certifica la colección.
+- [Node.js: Child process](https://nodejs.org/api/child_process.html) — consultado el 2026-10-22. `spawnSync` ejecuta un programa hijo y devuelve su `status`: la forma programática de leer la decisión del runner sin interpretar su texto.
+
+## Siguientes pasos
+
+- Siguiente lección: [l06 «Entregable: colección personal de fallos típicos con detección»](/curriculo/n1/m6/l06-entregable-coleccion-personal-de-fallos/) — el runner ya decide; ahora las condiciones que certifican el entregable completo y su batería de verdes y rojos.
+- Proyecto longitudinal: `detectar.js` es el corazón del entregable — «colección personal de 10 fallos con detección» —; l06 lo envuelve en el certificador y lo pasa junto con las demos y los rojos.

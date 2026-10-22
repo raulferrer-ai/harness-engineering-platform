@@ -1,0 +1,97 @@
+{
+  "titulo": "Colección personal de fallos típicos de los asistentes",
+  "fallos": [
+    {
+      "id": "f01",
+      "tipo": "api-inexistente",
+      "titulo": "fs.readFileAsync no existe",
+      "ejemplo": "const texto = await fs.readFileAsync(ruta);",
+      "deteccion": "importar node:fs y comprobar que readFileAsync es undefined",
+      "comprobacion": {
+        "modulo": "node:fs",
+        "simbolo": "readFileAsync",
+        "real": "fs.promises.readFile"
+      }
+    },
+    {
+      "id": "f02",
+      "tipo": "api-inexistente",
+      "titulo": "crypto.md5 no existe",
+      "ejemplo": "const huella = crypto.md5(texto);",
+      "deteccion": "importar node:crypto y comprobar que md5 es undefined",
+      "comprobacion": {
+        "modulo": "node:crypto",
+        "simbolo": "md5",
+        "real": "crypto.createHash('sha256')"
+      }
+    },
+    {
+      "id": "f03",
+      "tipo": "api-inexistente",
+      "titulo": "path.toPosix no existe",
+      "ejemplo": "const rutaLimpia = path.toPosix(ruta);",
+      "deteccion": "importar node:path y comprobar que toPosix es undefined",
+      "comprobacion": { "modulo": "node:path", "simbolo": "toPosix", "real": "path.normalize" }
+    },
+    {
+      "id": "f04",
+      "tipo": "api-inexistente",
+      "titulo": "os.tmpFolder no existe",
+      "ejemplo": "const dir = os.tmpFolder();",
+      "deteccion": "importar node:os y comprobar que tmpFolder es undefined",
+      "comprobacion": { "modulo": "node:os", "simbolo": "tmpFolder", "real": "os.tmpdir" }
+    },
+    {
+      "id": "f05",
+      "tipo": "codigo-erroneo",
+      "titulo": "descuento redondeado pierde los céntimos",
+      "ejemplo": "return Math.round(precio * (1 - pct / 100));",
+      "deteccion": "ejecutar descuento(19.99, 10) y comparar con 17.99",
+      "comprobacion": { "funcion": "descuento", "entrada": [19.99, 10], "esperado": 17.99 }
+    },
+    {
+      "id": "f06",
+      "tipo": "codigo-erroneo",
+      "titulo": "sort por defecto compara fechas como texto",
+      "ejemplo": "return [...fechas].sort();",
+      "deteccion": "ejecutar ordenarFechas con fechas ISO y comparar con el orden cronológico",
+      "comprobacion": {
+        "funcion": "ordenarFechas",
+        "entrada": [["2026-9-30", "2026-10-05"]],
+        "esperado": ["2026-9-30", "2026-10-05"]
+      }
+    },
+    {
+      "id": "f07",
+      "tipo": "codigo-erroneo",
+      "titulo": "media de lista vacía lanza TypeError",
+      "ejemplo": "return valores.reduce((a, b) => a + b) / valores.length;",
+      "deteccion": "ejecutar media([]) y comprobar que el contrato devuelve null, no una excepción",
+      "comprobacion": { "funcion": "media", "entrada": [[]], "esperado": null }
+    },
+    {
+      "id": "f08",
+      "tipo": "dependencia-inventada",
+      "titulo": "fecha-hora-es declarada pero no resuelta",
+      "ejemplo": "import { haceCuanto } from \"fecha-hora-es\";",
+      "deteccion": "comparar package.json con package-lock.json: declarada sin resolver",
+      "comprobacion": { "paquete": "fecha-hora-es" }
+    },
+    {
+      "id": "f09",
+      "tipo": "dependencia-inventada",
+      "titulo": "json-con-comentarios declarada pero no resuelta",
+      "ejemplo": "import { parsear } from \"json-con-comentarios\";",
+      "deteccion": "comparar package.json con package-lock.json: declarada sin resolver",
+      "comprobacion": { "paquete": "json-con-comentarios" }
+    },
+    {
+      "id": "f10",
+      "tipo": "dependencia-inventada",
+      "titulo": "tabla-markdown-lite declarada pero no resuelta",
+      "ejemplo": "import { tabla } from \"tabla-markdown-lite\";",
+      "deteccion": "comparar package.json con package-lock.json: declarada sin resolver",
+      "comprobacion": { "paquete": "tabla-markdown-lite" }
+    }
+  ]
+}

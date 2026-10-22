@@ -59,6 +59,16 @@ import { afterAll, describe, expect, it } from "vitest";
  *   certificador del entregable— más 4 rojos deliberados (proyecto infractor
  *   ante el runner, commit bloqueado por el hook, regla declarada sin
  *   comprobación y comprobación sin regla declarada);
+ * - H18 añade `n1/m6` (fallos típicos de los asistentes): el fixture `fallos/`
+ *   con la colección de 10 fallos en 3 tipos y `proyecto/` con 5 dependencias
+ *   declaradas (2 resueltas en el lock), la librería con los tres detectores y
+ *   demos que certifican la colección — presentador de patrones, verificador
+ *   de APIs offline, ejecutor de casos límites, comparador manifiesto/lock,
+ *   runner 0/1 y certificador del entregable— más 4 rojos deliberados (TypeError
+ *   por API aprobada sin verificar, AssertionError de caso límite,
+ *   ERR_MODULE_NOT_FOUND de paquete inventado y fallo declarado sin
+ *   comprobación con runner en 1); los 6 ejercicios de las lecciones se
+ *   replican en talleres temporales;
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -108,6 +118,10 @@ const dirEjemplosN1M4 = fileURLToPath(
 
 const dirEjemplosN1M5 = fileURLToPath(
   new URL("../../src/content/modulos/n1/m5/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosN1M6 = fileURLToPath(
+  new URL("../../src/content/modulos/n1/m6/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -1840,6 +1854,378 @@ describe("ejemplos del módulo n1/m5: automatizar lo repetible (reglas + pre-com
   );
 });
 
+describe("ejemplos del módulo n1/m6: fallos típicos de los asistentes (colección con detección)", () => {
+  interface EntradaFallo {
+    id: string;
+    tipo: string;
+    titulo: string;
+    ejemplo?: string;
+    deteccion?: string;
+    comprobacion?: { simbolo?: string; [campo: string]: unknown };
+  }
+
+  interface Coleccion {
+    fallos: EntradaFallo[];
+    [clave: string]: unknown;
+  }
+
+  interface DemoN1M6 {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  /** Taller temporal con las piezas indicadas (carpetas recursivas y ficheros sueltos). */
+  function tallerM6(carpetas: string[], ficheros: string[]): string {
+    const carpeta = carpetaTemporal();
+    for (const subcarpeta of carpetas) {
+      cpSync(join(dirEjemplosN1M6, subcarpeta), join(carpeta, subcarpeta), { recursive: true });
+    }
+    for (const fichero of ficheros) {
+      copyFileSync(join(dirEjemplosN1M6, fichero), join(carpeta, fichero));
+    }
+    return carpeta;
+  }
+
+  /** Ejecuta un script de la copia con `process.execPath` y devuelve su resultado. */
+  function ejecutarEn(carpeta: string, argumentos: string[]): Resultado {
+    const resultado = spawnSync(process.execPath, argumentos, {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    return {
+      status: resultado.status,
+      stdout: resultado.stdout ?? "",
+      stderr: resultado.stderr ?? "",
+    };
+  }
+
+  function rutaColeccion(carpeta: string): string {
+    return join(carpeta, "fallos", "fallos.json");
+  }
+
+  function leerColeccion(carpeta: string): Coleccion {
+    return JSON.parse(readFileSync(rutaColeccion(carpeta), "utf8")) as Coleccion;
+  }
+
+  function escribirColeccion(carpeta: string, datos: Coleccion): void {
+    writeFileSync(rutaColeccion(carpeta), `${JSON.stringify(datos, null, 2)}\n`);
+  }
+
+  // H18: el fixture `fallos/` (10 entradas en 3 tipos con su comprobación) y
+  // `proyecto/` (5 dependencias declaradas, 2 resueltas en el lock), la librería
+  // con los tres detectores, 6 demos verdes — una por lección — y 4 rojos
+  // deliberados que demuestran que los detectores detectan.
+  const demos: DemoN1M6[] = [
+    {
+      fichero: "patrones.js",
+      marcas: [
+        "10 fallos de 10 con detección — tipos: api-inexistente 4, codigo-erroneo 3, dependencia-inventada 3",
+      ],
+      descripcion: "l01: la colección presentada con sus comprobaciones",
+    },
+    {
+      fichero: "comprobar-api.js",
+      marcas: [
+        "4 APIs inventadas, 2 reales — la verificación es offline y no depende de la memoria del asistente",
+      ],
+      descripcion: "l02: las APIs verificadas offline con controles reales",
+    },
+    {
+      fichero: "plausible-erroneo.js",
+      marcas: [
+        "3 funciones plausibles con fallo en casos límite — 3 de 3 confirmados por ejecución",
+      ],
+      descripcion: "l03: los tres casos límites confirmados por ejecución",
+    },
+    {
+      fichero: "paquetes-inventados.js",
+      marcas: ["3 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable"],
+      descripcion: "l04: manifiesto y lock comparados sin desfase",
+    },
+    {
+      fichero: "detectar.js",
+      marcas: ["10 fallos detectados, 0 sin detectar — la colección queda certificada"],
+      descripcion: "l05: el runner certifica la colección entera",
+    },
+    {
+      fichero: "entregable.js",
+      marcas: ["entregable válido: colección personal de 10 fallos con detección"],
+      descripcion: "l06: las cuatro condiciones del entregable",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero], {
+        cwd: dirEjemplosN1M6,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  interface RojoN1M6 {
+    ruta: string;
+    claves: string[];
+    descripcion: string;
+  }
+
+  const rojos: RojoN1M6[] = [
+    {
+      ruta: "errores/api-aprobada.js",
+      claves: ["TypeError: fs.readFileAsync is not a function"],
+      descripcion: "l02: la API aprobada sin verificar revienta al ejecutarla",
+    },
+    {
+      ruta: "errores/logica-plausible.js",
+      claves: ["AssertionError", "18 !== 17.99"],
+      descripcion: "l03: el caso límite que la revisión no vio",
+    },
+    {
+      ruta: "errores/dependencia-no-resoluble.js",
+      claves: ["ERR_MODULE_NOT_FOUND", "fecha-hora-es"],
+      descripcion: "l04: el import del paquete inventado",
+    },
+  ];
+
+  it.each(rojos)(
+    "$ruta termina en 1 con su clase de error ($descripcion)",
+    (rojo) => {
+      const resultado = ejecutarNode([rojo.ruta], dirEjemplosN1M6);
+      expect(resultado.status).toBe(1);
+      for (const clave of rojo.claves) {
+        expect(resultado.stderr, `${rojo.ruta} → falta «${clave}»`).toContain(clave);
+      }
+    },
+    30_000,
+  );
+
+  it("errores/fallo-sin-deteccion.js termina en 1 con la incidencia del runner (rojo de l05)", () => {
+    const rojo = ejecutarNode(["errores/fallo-sin-deteccion.js"], dirEjemplosN1M6);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "✗ f11: fallo declarado sin comprobación — «sin comprobación asociada» sólo existe en papel",
+    );
+    expect(rojo.stdout).toContain(
+      "el runner no da por buena una colección con fallos que nadie sabe detectar",
+    );
+  });
+
+  it("l01: el ejercicio añade f11 sin comprobación (papel mojado, salida 1) y después con ella (salida 0)", () => {
+    const carpeta = tallerM6(["fallos"], ["fallos.js", "patrones.js"]);
+
+    const intacta = ejecutarEn(carpeta, ["patrones.js"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain(
+      "10 fallos de 10 con detección — tipos: api-inexistente 4, codigo-erroneo 3, dependencia-inventada 3",
+    );
+
+    const datos = leerColeccion(carpeta);
+    datos.fallos.push({
+      id: "f11",
+      tipo: "api-inexistente",
+      titulo: "fs.readJson no existe",
+      ejemplo: "const datos = await fs.readJson(ruta);",
+      deteccion: "importar node:fs y comprobar que readJson es undefined",
+    });
+    escribirColeccion(carpeta, datos);
+
+    const rojo = ejecutarEn(carpeta, ["patrones.js"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("f11 · api-inexistente — fs.readJson no existe");
+    expect(rojo.stdout).toContain("comprobación: ✗ sólo en papel");
+    expect(rojo.stdout).toContain(
+      "10 fallos de 11 con detección — tipos: api-inexistente 5, codigo-erroneo 3, dependencia-inventada 3",
+    );
+    expect(rojo.stdout).toContain(
+      "la colección declara fallos sin comprobación: no son detectables todavía",
+    );
+
+    const conComprobacion = leerColeccion(carpeta);
+    const f11 = conComprobacion.fallos.find((fallo) => fallo.id === "f11");
+    if (!f11) throw new Error("f11 no está en la colección de la copia");
+    f11.comprobacion = {
+      modulo: "node:fs",
+      simbolo: "readJson",
+      real: "JSON.parse(await fs.readFile(ruta))",
+    };
+    escribirColeccion(carpeta, conComprobacion);
+
+    const verde = ejecutarEn(carpeta, ["patrones.js"]);
+    expect(verde.status, verde.stderr).toBe(0);
+    expect(verde.stdout).toContain("f11 · api-inexistente — fs.readJson no existe");
+    expect(verde.stdout).toContain(
+      "11 fallos de 11 con detección — tipos: api-inexistente 5, codigo-erroneo 3, dependencia-inventada 3",
+    );
+  }, 60_000);
+
+  it("l02: la entrada f12 declarada pasa el verificador a 5 APIs inventadas con salida 0", () => {
+    const carpeta = tallerM6(["fallos"], ["fallos.js", "comprobar-api.js"]);
+
+    const intacta = ejecutarEn(carpeta, ["comprobar-api.js", "fallos/fallos.json"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain("verificando 4 APIs propuestas contra la librería estándar");
+    expect(intacta.stdout).toContain("4 APIs inventadas, 2 reales");
+
+    const datos = leerColeccion(carpeta);
+    datos.fallos.push({
+      id: "f12",
+      tipo: "api-inexistente",
+      titulo: "crypto.digest no existe",
+      ejemplo: 'const huella = crypto.digest("sha256", texto);',
+      deteccion: "importar node:crypto y comprobar que digest es undefined",
+      comprobacion: {
+        modulo: "node:crypto",
+        simbolo: "digest",
+        real: 'crypto.createHash("sha256").update(texto).digest("hex")',
+      },
+    });
+    escribirColeccion(carpeta, datos);
+
+    const conF12 = ejecutarEn(carpeta, ["comprobar-api.js", "fallos/fallos.json"]);
+    expect(conF12.status, conF12.stderr).toBe(0);
+    expect(conF12.stdout).toContain(
+      ' ✗ f12 — crypto.digest no existe — node:crypto no exporta digest — la que existe es crypto.createHash("sha256").update(texto).digest("hex")',
+    );
+    expect(conF12.stdout).toContain(
+      "5 APIs inventadas, 2 reales — la verificación es offline y no depende de la memoria del asistente",
+    );
+  }, 60_000);
+
+  it("l03: la función maximo añadida a la copia se confirma con su -Infinity y salida 0", () => {
+    const carpeta = tallerM6(["fallos"], ["fallos.js", "plausible-erroneo.js"]);
+
+    const casosPath = join(carpeta, "fallos", "casos.js");
+    writeFileSync(
+      casosPath,
+      `${readFileSync(casosPath, "utf8")}\n// f13 propuesta: parece correcta; con la lista vacía devuelve -Infinity.\nexport function maximo(valores) {\n  return Math.max(...valores);\n}\n`,
+    );
+
+    const datos = leerColeccion(carpeta);
+    datos.fallos.push({
+      id: "f13",
+      tipo: "codigo-erroneo",
+      titulo: "maximo de lista vacía devuelve -Infinity",
+      ejemplo: "return Math.max(...valores);",
+      deteccion: "ejecutar maximo([]) y comparar con null",
+      comprobacion: { funcion: "maximo", entrada: [[]], esperado: null },
+    });
+    escribirColeccion(carpeta, datos);
+
+    const conF13 = ejecutarEn(carpeta, ["plausible-erroneo.js", "fallos/fallos.json"]);
+    expect(conF13.status, conF13.stderr).toBe(0);
+    expect(conF13.stdout).toContain(
+      " ✗ f13 — maximo de lista vacía devuelve -Infinity — maximo([]) devuelve -Infinity, el caso pedía null",
+    );
+    expect(conF13.stdout).toContain(
+      "4 funciones plausibles con fallo en casos límite — 4 de 4 confirmados por ejecución",
+    );
+  }, 60_000);
+
+  it("l04: markdown-estilos declarada en los dos ficheros es inventada; el desfase sale con 1", () => {
+    const carpeta = tallerM6(["fallos", "proyecto"], ["fallos.js", "paquetes-inventados.js"]);
+    const pkgPath = join(carpeta, "proyecto", "package.json");
+    const lockPath = join(carpeta, "proyecto", "package-lock.json");
+    const ejecutar = () =>
+      ejecutarEn(carpeta, ["paquetes-inventados.js", join(carpeta, "proyecto")]);
+
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+      dependencies: Record<string, string>;
+    };
+    const lock = JSON.parse(readFileSync(lockPath, "utf8")) as {
+      packages: Record<string, { dependencies: Record<string, string> }>;
+    };
+    pkg.dependencies["markdown-estilos"] = "3.1.0";
+    lock.packages[""].dependencies["markdown-estilos"] = "3.1.0";
+    writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+    writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+
+    const declarada = ejecutar();
+    expect(declarada.status, declarada.stderr).toBe(0);
+    expect(declarada.stdout).toContain(
+      "✗ markdown-estilos — declarada, ausente del lock — nunca se instaló",
+    );
+    expect(declarada.stdout).toContain(
+      "4 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable",
+    );
+    expect(declarada.stdout).not.toContain("no coinciden");
+
+    delete pkg.dependencies["markdown-estilos"];
+    writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+
+    const desfase = ejecutar();
+    expect(desfase.status).toBe(1);
+    expect(desfase.stdout).toContain(
+      " ✗ package.json y el lock no coinciden — sobra en la raíz del lock: markdown-estilos",
+    );
+    expect(desfase.stdout).toContain(
+      "el manifiesto se editó a mano: sólo npm install actualiza el lock",
+    );
+    expect(desfase.stdout).toContain(
+      "3 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable",
+    );
+  }, 60_000);
+
+  it("l05: apuntar f02 a un símbolo real hace salir al runner con 1 y 9 detectados", () => {
+    const carpeta = tallerM6(["fallos", "proyecto"], ["fallos.js", "detectar.js"]);
+
+    const intacta = ejecutarEn(carpeta, ["detectar.js", "fallos/fallos.json"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain(
+      "10 fallos detectados, 0 sin detectar — la colección queda certificada",
+    );
+
+    const datos = leerColeccion(carpeta);
+    const f02 = datos.fallos.find((fallo) => fallo.id === "f02");
+    if (!f02?.comprobacion) throw new Error("f02 sin comprobación en la colección de la copia");
+    f02.comprobacion.simbolo = "createHash";
+    escribirColeccion(carpeta, datos);
+
+    const rojo = ejecutarEn(carpeta, ["detectar.js", "fallos/fallos.json"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "✗ f02: la comprobación no confirma el fallo — node:crypto sí exporta createHash: esta entrada ya no es un fallo",
+    );
+    expect(rojo.stdout).toContain(
+      "9 fallos detectados, 1 sin detectar — el runner no da la colección por buena",
+    );
+  }, 60_000);
+
+  it("l06: borrar la comprobación de f10 cae el certificador con 2 incidencias", () => {
+    const carpeta = tallerM6(["fallos", "proyecto"], ["fallos.js", "entregable.js"]);
+
+    const intacta = ejecutarEn(carpeta, ["entregable.js", "fallos/fallos.json"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain("colección: 10 entradas bien formadas");
+    expect(intacta.stdout).toContain("runner: 10 fallos de 10 confirmados (exit 0)");
+    expect(intacta.stdout).toContain(
+      "entregable válido: colección personal de 10 fallos con detección",
+    );
+
+    const datos = leerColeccion(carpeta);
+    const f10 = datos.fallos.find((fallo) => fallo.id === "f10");
+    if (!f10) throw new Error("f10 no está en la colección de la copia");
+    delete f10.comprobacion;
+    escribirColeccion(carpeta, datos);
+
+    const rojo = ejecutarEn(carpeta, ["entregable.js", "fallos/fallos.json"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("1 fallo sin comprobación: f10");
+    expect(rojo.stdout).toContain(
+      "f10: fallo declarado sin comprobación — «tabla-markdown-lite declarada pero no resuelta» sólo existe en papel",
+    );
+    expect(rojo.stdout).toContain("entregable NO válido: 2 incidencias");
+  }, 60_000);
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -2116,6 +2502,38 @@ describe("cobertura de ejemplos", () => {
         dirEjemplosN1M5,
         ["proyecto/src", "proyecto/test"],
         ["proyecto/reglas.json"],
+      ),
+    ).toEqual([...enManifiesto].sort());
+  });
+
+  it("n1/m6: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // `fallos/casos.js` son las funciones que ejecutan los detectores de casos
+    // límite; `fallos/fallos.json` es la colección que leen los seis demos, y
+    // `proyecto/` el manifiesto y su lock que comparan los detectores de
+    // dependencias. Todo se verifica ejecutando los demos y los cuatro rojos.
+    const enManifiesto = [
+      "patrones.js",
+      "comprobar-api.js",
+      "plausible-erroneo.js",
+      "paquetes-inventados.js",
+      "detectar.js",
+      "entregable.js",
+      "fallos.js",
+      "errores/api-aprobada.js",
+      "errores/logica-plausible.js",
+      "errores/dependencia-no-resoluble.js",
+      "errores/fallo-sin-deteccion.js",
+      "fallos/casos.js",
+      "fallos/fallos.json",
+      "proyecto/package.json",
+      "proyecto/package-lock.json",
+    ];
+
+    expect(
+      archivosVerificables(
+        dirEjemplosN1M6,
+        ["fallos", "proyecto"],
+        ["fallos/fallos.json", "proyecto/package.json", "proyecto/package-lock.json"],
       ),
     ).toEqual([...enManifiesto].sort());
   });

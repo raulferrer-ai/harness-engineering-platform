@@ -1,0 +1,169 @@
+---
+titulo: "APIs inexistentes: verificar el símbolo, no la anécdota"
+resumen: "El asistente cita `fs.readFileAsync` con total soltura y el símbolo no existe. La lección convierte la duda en una comprobación de tres segundos: import dinámico del módulo, `typeof` del símbolo y alternativa real declarada en la entrada. Ejecutas `comprobar-api.js` sobre las 4 APIs inventadas de la colección con sus 2 controles reales y añades `crypto.digest` para verla confirmada sin red y sin depender de la memoria de nadie."
+nivel: "n1"
+modulo: "m6"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 50
+objetivos:
+  - "Verificar un símbolo propuesto de la librería estándar con import dinámico y typeof"
+  - "Declarar una API inventada en la colección con su alternativa real"
+  - "Ejecutar el verificador offline y distinguir acusaciones de controles reales"
+prerrequisitos:
+  - "n1/m6/l01-anatomia-de-un-fallo"
+actualizado: "2026-10-22"
+tags:
+  - "apis"
+  - "verificacion-offline"
+  - "libreria-estandar"
+fuentes:
+  - titulo: "Node.js — File system"
+    url: "https://nodejs.org/api/fs.html"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — ECMAScript modules"
+    url: "https://nodejs.org/api/esm.html"
+    fecha: "2026-10-22"
+  - titulo: "MDN — JavaScript import declarations"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`fs.readFileAsync`, `crypto.md5`, `path.toPosix`, `os.tmpFolder`: cuatro APIs que el asistente propone como si las hubiera usado siempre, y ninguna está exportada por su módulo. La respuesta no es discutir de memoria — es **verificar el símbolo offline**: `await import(modulo)` y mirar su `typeof`. `comprobar-api.js` hace exactamente eso sobre la colección y cierra con **`4 APIs inventadas, 2 reales — la verificación es offline y no depende de la memoria del asistente`**. En el ejercicio declaras `crypto.digest` como undécima API inventada y la verificas: `crypto.digest: undefined — crypto.createHash: function`.
+
+## Conceptos
+
+### La memoria del asistente no es una fuente
+
+La documentación oficial de Node.js enumera lo que `node:fs` exporta (fuente consultada el 2026-10-22), pero nadie se lee la referencia antes de cada propuesta — y el asistente, tampoco. La buena noticia es que el módulo cargado **es su propia documentación**: si el símbolo está exportado, aparece en el namespace; si no, no. No hace falta red, registro ni clave: `import()` de un módulo de la librería estándar es inmediato. Node documenta el import dinámico y sus exportaciones con nombre (fuentes consultadas el 2026-10-22), y MDN describe el mismo mecanismo (fuente consultada el 2026-10-22). El detector del módulo se apoya en eso:
+
+```js
+"api-inexistente": async ({ modulo, simbolo, real }) => {
+  const moduloReal = await import(modulo);
+  const existe = typeof moduloReal[simbolo] !== "undefined";
+  return existe
+    ? { ok: false, detalle: `${modulo} sí exporta ${simbolo}: esta entrada ya no es un fallo` }
+    : { ok: true, detalle: `${modulo} no exporta ${simbolo} — la que existe es ${real}` };
+},
+```
+
+Dos detalles que importan:
+
+- **No hay excepción que capturar**: acceder a una propiedad ausente de un namespace devuelve `undefined`, no lanza. Por eso basta `typeof … !== "undefined"` y el detector no necesita `try/catch`.
+- **Comprobar el módulo no sirve**: `node:crypto` existe y eso no dice nada sobre `crypto.md5`. La unidad de verificación es el **símbolo**, no el paquete.
+
+### La comprobación lleva la alternativa real
+
+Una API inventada declarada a medias sólo sirve para quejarse. La `comprobacion` de esta familia tiene tres campos y el tercero (`real`) es el que convierte la queja en arreglo: `real: "fs.promises.readFile"` dice qué usar en su lugar. Ese campo viaja en el detalle del detector — `node:fs no exporta readFileAsync — la que existe es fs.promises.readFile` — así quien lee la incidencia se lleva la corrección sin abrir otra pestaña.
+
+### Los controles reales evitan el falso positivo
+
+Un verificador que acusa todo sería tan inútil como un asistente que inventa. Por eso `comprobar-api.js` declara dos **controles reales** — `node:fs.promises` y `node:crypto.createHash`, las alternativas de f01 y f02 — que tienen que salir `✓` en cada ejecución, y sólo sale con `0` si `inventadas === entradas` y `reales === controles` (`comprobar-api.js:41`). La salida intacta, real (Node v24.22.0, 2026-10-22):
+
+```text
+verificando 4 APIs propuestas contra la librería estándar (…/fallos/fallos.json):
+ ✗ f01 — fs.readFileAsync no existe — node:fs no exporta readFileAsync — la que existe es fs.promises.readFile
+ ✗ f02 — crypto.md5 no existe — node:crypto no exporta md5 — la que existe es crypto.createHash('sha256')
+ ✗ f03 — path.toPosix no existe — node:path no exporta toPosix — la que existe es path.normalize
+ ✗ f04 — os.tmpFolder no existe — node:os no exporta tmpFolder — la que existe es os.tmpdir
+controles reales (2):
+ ✓ node:fs.promises existe — control real (la alternativa a readFileAsync)
+ ✓ node:crypto.createHash existe — control real (la alternativa a md5)
+4 APIs inventadas, 2 reales — la verificación es offline y no depende de la memoria del asistente
+```
+
+## Ejercicio
+
+Verifica una propuesta nueva (`crypto.digest`), declárala en una copia de la colección con su alternativa real y deja que el verificador la confirme. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/fallos" "$TALLER/"
+cp "$ORIG/fallos.js" "$ORIG/comprobar-api.js" "$TALLER/"
+cd "$TALLER"
+node --input-type=module -e 'import * as crypto from "node:crypto"; console.log("crypto.digest:", typeof crypto.digest, "— crypto.createHash:", typeof crypto.createHash);'
+perl -0pi -e 's/\n  \]\n\}$/, \n    {\n      "id": "f12",\n      "tipo": "api-inexistente",\n      "titulo": "crypto.digest no existe",\n      "ejemplo": "const huella = crypto.digest(\\\"sha256\\\", texto);",\n      "deteccion": "importar node:crypto y comprobar que digest es undefined",\n      "comprobacion": { "modulo": "node:crypto", "simbolo": "digest", "real": "crypto.createHash(\\\"sha256\\\").update(texto).digest(\\\"hex\\\")" }\n    }\n  ]\n}/s' fallos/fallos.json
+node comprobar-api.js fallos/fallos.json > salida.txt; echo "codigo=$?"
+grep -E "f12|inventadas" salida.txt
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- el primer comando imprime `crypto.digest: undefined — crypto.createHash: function` — la propuesta no existe, su alternativa sí;
+- tras el `perl`, `node comprobar-api.js` cierra con `codigo=0`;
+- la línea de `f12` dice `✗ f12 — crypto.digest no existe — node:crypto no exporta digest — la que existe es crypto.createHash("sha256").update(texto).digest("hex")`;
+- el resumen cuenta `5 APIs inventadas, 2 reales — la verificación es offline y no depende de la memoria del asistente`;
+- puedes explicar por qué el detector no lanza excepción con un símbolo inexistente y por qué los 2 controles siguen en `✓`.
+
+Pista: las comillas internas del JSON (`\"sha256\"`) van escapadas dentro del `perl` — si el fichero quedara mal, `JSON.parse` se quejaría en `leerColeccion` antes de llegar al detector.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+crypto.digest: undefined — crypto.createHash: function
+ ✗ f12 — crypto.digest no existe — node:crypto no exporta digest — la que existe es crypto.createHash("sha256").update(texto).digest("hex")
+5 APIs inventadas, 2 reales — la verificación es offline y no depende de la memoria del asistente
+codigo=0
+```
+
+Tres cosas a mirar:
+
+1. **La verificación es una consulta al propio proceso**: `typeof crypto.digest` se resuelve en el módulo ya cargado; no hay red, caché ni interpretación. Es el mismo gesto que harías en un REPL, convertido en paso automatizable.
+2. **`real` es parte de la comprobación, no adornos**: el detector imprime la alternativa dentro de la incidencia. Sin ella, `f12` sería «`digest` no existe» a secas; con ella, la frase ya contiene el arreglo.
+3. **`5 APIs inventadas, 2 reales` es la firma del verificador honesto**: las 5 inventadas son las entradas `ok=true` de la colección más `f12`; las 2 reales son los controles que el detector no acusa. Si un control cayera, `codigo` sería `1` aunque las 5 siguieran confirmadas.
+
+Errores típicos al resolverlo:
+
+- **Declarar `f12` sin su `comprobacion`**: `comprobar-api.js` sólo recorre entradas con detector aplicable; una entrada a medias rompe la ejecución en la destructuración. La misma regla de l01 — sin comprobación, no vive en la colección.
+- **Escapar mal las comillas internas del JSON**: el error se ve enseguida — `SyntaxError: Expected ',' or '}' after property value` desde `leerColeccion`. El fichero temporal es desechable: arréglalo y vuelve a intentarlo.
+- **Poner en `real` otro símbolo inventado**: la alternativa se verifica igual que la propuesta — si dudas de `real`, pásale el mismo `typeof` antes de guardar la entrada.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la colección, la librería y el verificador (comandos del ejercicio).
+
+2. Verifica el símbolo propuesto antes de declararlo:
+
+   ```sh
+   node --input-type=module -e 'import * as crypto from "node:crypto"; console.log("crypto.digest:", typeof crypto.digest, "— crypto.createHash:", typeof crypto.createHash);'
+   ```
+
+   Esperado: `crypto.digest: undefined — crypto.createHash: function`.
+
+3. Declara `f12` (el `perl`) y ejecuta el verificador:
+
+   ```sh
+   node comprobar-api.js fallos/fallos.json; echo "codigo=$?"
+   ```
+
+   Esperado: `codigo=0`, la línea `✗ f12 — crypto.digest no existe — …` y el resumen `5 APIs inventadas, 2 reales`.
+
+4. Comprueba el efecto en el total: `grep -c "✗ f" salida.txt` debe dar `5` y los dos controles deben seguir en `✓` — el verificador acusa inventadas y respeta reales.
+
+5. Aplica el criterio a tu material: la próxima vez que un asistente te proponga un símbolo de la librería estándar, ejecútale un `typeof` antes de discutir. Si tarda más que la discusión, no era la comprobación.
+
+## Errores comunes
+
+- **Comprobar el módulo en vez del símbolo**: «`node:crypto` está, no va a ser falso» confunde el contenedor con el contenido. El detector siempre baja al `simbolo`.
+- **Jurar por la costumbre**: `crypto.md5` «lo he visto en sitios» no es evidencia; en Node, `md5` no se exporta. La única fuente que manda es el módulo cargado.
+- **Verificar con red cuando el alcance es offline**: `n1` exige ejemplos sin red ni claves. Un `npm view` o una búsqueda web resuelven otra pregunta y no caben aquí — la comprobación tiene que correr en la misma terminal que tu código.
+- **Acusar sin control**: un detector que no declara símbolos reales nunca demostraría que sabe distinguir. Los controles de `comprobar-api.js` son la parte de «sé que existen» del argumento.
+- **Rellenar `real` con «usa otra»**: la alternativa concreta (`fs.promises.readFile`) es lo que hace útil la incidencia. «La que existe es otra» no corrige a nadie.
+
+## Fuentes
+
+- [Node.js: File system](https://nodejs.org/api/fs.html) — consultado el 2026-10-22. La referencia de `node:fs` lista sus exportaciones (`fs.promises`, `fs.readFile`, …); de ahí salen `readFileAsync` (ausente) y `fs.promises.readFile` (control real de f01).
+- [Node.js: ECMAScript modules](https://nodejs.org/api/esm.html) — consultado el 2026-10-22. Documenta `import()`, los namespaces y las exportaciones con nombre: el detector carga el módulo y pregunta por el símbolo sobre ese namespace.
+- [MDN: JavaScript import declarations](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import) — consultado el 2026-10-22. Describe el mismo modelo de módulos y exportaciones que se usa aquí, independientemente del entorno.
+
+## Siguientes pasos
+
+- Siguiente lección: [l03 «Código plausible pero erróneo: el caso límite manda»](/curriculo/n1/m6/l03-codigo-plausible-pero-erroneo/) — la API ya está verificada sin red; ahora la familia donde el código **sí compila** y falla igual: se confirma ejecutando el borde, no leyéndolo.
+- Proyecto longitudinal: las entradas `api-inexistente` (f01–f04) ya tienen detector y verificador propios; l03 le añade lo mismo a las funciones de `fallos/casos.js`.
