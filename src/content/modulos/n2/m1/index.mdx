@@ -5,5 +5,24 @@ modulo: "m1"
 objetivos:
   - "Ejecutar un ciclo completo sobre una funcionalidad real"
 entregable: "Funcionalidad entregada con su spec y sus tests"
-actualizado: "2026-10-19"
+actualizado: "2026-10-22"
 ---
+
+## Para quién es este módulo
+
+Tras `n1` sabes pedir tareas pequeñas, revisar lo entregado, registrar sesiones, automatizar reglas y detectar fallos típicos. Este módulo junta esas piezas en el método que las ordena: el **ciclo AI-native** — plan, especificación, implementación y verificación — ejecutado de principio a fin sobre una funcionalidad real. El mini-proyecto es «total de factura»: una función `totalFactura(lineas)` con descuento e impuesto por línea y redondeo a dos decimales, que se construye sin saltarse ninguna etapa. Cada etapa deja un artefacto con forma comprobable: el plan tiene sus secciones, la spec sus criterios ejecutables (entrada y esperado), la implementación su contrato y la suite su verde. Aprendes a acotar lo que se pide (l01), a convertir la idea en criterios que se ejecutan (l02), a pedir el código que la spec pide y juzgarlo por sus golden cases (l03), a cerrar el contrato con criterios y suite (l04), a iterar sin romper lo ya acordado (l05) y a certificar la entrega entera (l06). Público objetivo: quien cierra `n1/m6/l06` con su colección de fallos. Duración estimada: unas 5 horas repartidas. Solo librería estándar, sin red ni claves: el ciclo completo se ejecuta en local con `node --test`.
+
+## Cómo se cierra el módulo
+
+Entregas **la funcionalidad entregada con su spec y sus tests**: `proyecto/` con `PLAN.md` (las 4 secciones del plan), `spec.md` (el contrato `totalFactura` y sus criterios ejecutables), `presupuesto.js` (la implementación) y `test/presupuesto.test.js` (la suite con `node:test`). La carpeta `ejemplos/` reúne la librería `ciclo.js` — que lee el plan, parsea la spec, ejecuta los criterios contra la implementación, corre la suite con `node --test` y certifica el conjunto — y **6 demos verdes**, una por lección: el validador del plan, el lector de specs, el comprobador de golden cases, el verificador de contrato, el demostrador del ciclo rojo→verde y el certificador del entregable. Los **4 rojos deliberados** demuestran que el ciclo no se salta: una spec sin «esperado» (Error de `leerSpec`), una función inventada fuera de la spec (salida `1`), un criterio sin cumplir (salida `1`) y una entrega sin spec (ENOENT). Todo se ejecuta offline: los talleres temporales de los ejercicios se crean y se borran en cada ejecución.
+
+## Lecciones
+
+| #   | Lección                                                                                                                                             | Tiempo |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [El plan: decidir qué se construye antes de pedirlo](/curriculo/n2/m1/l01-el-plan-decidir-que-se-construye-antes-de-pedirlo/)                       | 45 min |
+| 2   | [La especificación: convertir la idea en criterios ejecutables](/curriculo/n2/m1/l02-la-especificacion-convertir-la-idea-en-criterios-ejecutables/) | 50 min |
+| 3   | [La implementación: pedir el código que la spec pide](/curriculo/n2/m1/l03-la-implementacion-pedir-el-codigo-que-la-spec-pide/)                     | 50 min |
+| 4   | [La verificación: la suite y los criterios deciden](/curriculo/n2/m1/l04-la-verificacion-la-suite-y-los-criterios-deciden/)                         | 50 min |
+| 5   | [El ciclo completo: iterar sin romper el contrato](/curriculo/n2/m1/l05-el-ciclo-completo-iterar-sin-romper-el-contrato/)                           | 55 min |
+| 6   | [Entregable: funcionalidad entregada con su spec y sus tests](/curriculo/n2/m1/l06-entregable-funcionalidad-entregada-con-su-spec-y-sus-tests/)     | 60 min |

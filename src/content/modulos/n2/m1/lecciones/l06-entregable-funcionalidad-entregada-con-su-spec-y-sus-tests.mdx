@@ -1,0 +1,179 @@
+---
+titulo: "Entregable: funcionalidad entregada con su spec y sus tests"
+resumen: "El entregable del módulo no es el código: es el ciclo certificado. `entregable.js` exige cinco condiciones — plan con sus 4 secciones, spec con criterios ejecutables, todos los criterios cumplidos, ninguna función exportada fuera de la spec y suite en verde — y cierra con `entregable válido: funcionalidad entregada con su spec y sus tests`, código 0. En el ejercicio añades al proyecto una `formatoMoneda` que nadie pidió y el certificador la señala: `✗ funciones no declaradas en la spec: formatoMoneda`, `entregable NO válido: 1 incidencias`. La batería del módulo — 6 verdes y 4 rojos — demuestra que cada detector detecta."
+nivel: "n2"
+modulo: "m1"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Certificar la funcionalidad contra las cinco condiciones del entregable"
+  - "Diagnosticar la incidencia del certificador y reparar la entrega señalada"
+  - "Ejecutar la batería del módulo y leer sus diez códigos de salida"
+prerrequisitos:
+  - "n2/m1/l05-el-ciclo-completo-iterar-sin-romper-el-contrato"
+actualizado: "2026-10-22"
+tags:
+  - "entregable"
+  - "certificacion"
+  - "bateria"
+fuentes:
+  - titulo: "Wikipedia — Definition of done"
+    url: "https://en.wikipedia.org/wiki/Definition_of_done"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable de `n2/m1` es **la funcionalidad entregada con su spec y sus tests**: `proyecto/` con su `PLAN.md`, su `spec.md`, su implementación y su suite — y el certificador que lo demuestra. `entregable.js` exige cinco condiciones de «hecho» que se comprueban ejecutando (la noción de _definition of done_ como lista verificable, no como impresión: fuente consultada el 2026-10-22) y cierra con **`entregable válido: funcionalidad entregada con su spec y sus tests`** y `codigo=0`. En el ejercicio le añades al proyecto una `formatoMoneda` que nadie pidió: las otras cuatro condiciones siguen verdes, el certificador señala **`✗ funciones no declaradas en la spec: formatoMoneda`** y el veredicto cae a **`entregable NO válido: 1 incidencias`** con `codigo=1` — el contrato no admite comportamiento inventado.
+
+## Conceptos
+
+### Las cinco condiciones del certificador
+
+`certificar(dir)` de `ciclo.js` junta las piezas de las lecciones anteriores en un veredicto — plan, spec, criterios, contrato y suite — y devuelve condiciones cumplidas e incidencias (salida real, Node v24.22.0, 2026-10-22):
+
+```text
+ ✓ plan: 4 secciones declaradas
+ ✓ spec: 4 criterios ejecutables (contrato totalFactura)
+ ✓ criterios: 4 de 4 cumplidos
+ ✓ contrato: ninguna función exportada fuera de la spec
+ ✓ suite: 4 pruebas en verde
+entregable válido: funcionalidad entregada con su spec y sus tests
+```
+
+| Condición | Qué protege                                      | Cómo falla                                             |
+| --------- | ------------------------------------------------ | ------------------------------------------------------ |
+| Plan      | La funcionalidad estaba acotada antes de pedirla | Traza de `leerPlan` (sección faltante)                 |
+| Spec      | El acuerdo es ejecutable, no prosa               | Traza de `leerSpec` (criterio sin entrada/esperado)    |
+| Criterios | Lo acordado se cumple hoy                        | `criterio sin cumplir — C5 … devolvió -5`              |
+| Contrato  | No hay comportamiento inventado                  | `funciones no declaradas en la spec: formatoMoneda`    |
+| Suite     | Lo verificado queda escrito para siempre         | `suite: N pruebas en rojo (node --test terminó con 1)` |
+
+Las dos primeras son de **forma** (el fichero tiene lo que debe tener); las tres siguientes, de **ejecución**. Todas se comprueban en cada entrega: el certificador no memoriza iteraciones.
+
+### La batería: 6 verdes y 4 rojos
+
+Un módulo que enseña a certificar tiene que enseñar que sus detectores detectan. Los **4 rojos deliberados** del módulo, con su error real (salidas verificadas el 2026-10-22):
+
+| Rojo                            | Error o salida real                                                    | Demuestra                                      |
+| ------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------- |
+| `errores/spec-sin-criterios.js` | `Error: … el criterio debe declarar «entrada» y «esperado» parseables` | Una spec sin criterios ejecutables no se lee   |
+| `errores/impl-sin-spec.js`      | `✗ funciones no declaradas en la spec: formatoMoneda` + salida `1`     | El comportamiento inventado no se certifica    |
+| `errores/criterio-sin-test.js`  | `✗ C5 esperaba RangeError, la función devolvió -1` + salida `1`        | La spec crecida sin seguir se ve al ejecutar   |
+| `errores/ciclo-saltado.js`      | `Error: ENOENT: no such file or directory, … spec.md`                  | Entregar sin spec no tiene nada que certificar |
+
+Y los **6 verdes**, uno por lección, cada uno con la marca que la enseña: `plan.js` (`plan: 4 secciones — …`), `spec.js` (`spec: 4 criterios ejecutables …`), `golden.js` (`4 de 4 golden cases cumplidos`), `verificar.js` (`el contrato está cerrado`), `iterar.js` (`ciclo completo: rojo → verde …`) y `entregable.js` (`entregable válido: …`). Todos corren sobre `ciclo.js`, la librería del módulo: leer plan, leer spec, ejecutar criterios, correr la suite y certificar.
+
+## Ejercicio
+
+Certifica la entrega intacta, después añádele al proyecto la `formatoMoneda` inventada y mira caer el certificador. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/ciclo.js" "$ORIG/entregable.js" "$TALLER/"
+cd "$TALLER"
+node entregable.js proyecto; echo "codigo=$?"
+cat >> proyecto/presupuesto.js <<'EOF'
+
+// Comportamiento inventado: nadie lo pidió en la spec.
+export function formatoMoneda(total) {
+  return `$${total.toFixed(2)}`;
+}
+EOF
+node entregable.js proyecto; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución lista las 5 condiciones con `✓` y cierra con `entregable válido: funcionalidad entregada con su spec y sus tests` y `codigo=0`;
+- tras el `cat`, la segunda sigue listando cuatro `✓` — plan, spec, criterios y suite no se resienten — y añade ` ✗ funciones no declaradas en la spec: formatoMoneda`, cerrando con `entregable NO válido: 1 incidencias` y `codigo=1`;
+- ejecutas después la batería entera y lees sus diez códigos (ver «Cómo verificarlo»): los 6 verdes en `0` y los 4 rojos en `1`.
+
+Pista: el certificador cuenta incidencias, no las oculta — `1 incidencias` es el número que hay que bajar a cero. La reparación no es borrar la función en silencio: es decidir (l01/l02) si `formatoMoneda` entra en el contrato o no entra en la entrega.
+
+## Solución explicada
+
+Salida real del ejercicio (2026-10-22), intacto y con la función inventada:
+
+```text
+ ✓ plan: 4 secciones declaradas
+ ✓ spec: 4 criterios ejecutables (contrato totalFactura)
+ ✓ criterios: 4 de 4 cumplidos
+ ✓ contrato: ninguna función exportada fuera de la spec
+ ✓ suite: 4 pruebas en verde
+entregable válido: funcionalidad entregada con su spec y sus tests
+codigo=0
+```
+
+```text
+ ✓ plan: 4 secciones declaradas
+ ✓ spec: 4 criterios ejecutables (contrato totalFactura)
+ ✓ criterios: 4 de 4 cumplidos
+ ✗ funciones no declaradas en la spec: formatoMoneda
+ ✓ suite: 4 pruebas en verde
+entregable NO válido: 1 incidencias
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **Las cuatro condiciones verdes siguen imprimiéndose**: el diagnóstico no es «todo mal»: es «esto y sólo esto». `formatoMoneda` no rompe criterios (nadie la llama) ni la suite (ningún test la prueba) — por eso una revisión a ojo la habría aprobado, y el contrato, no.
+2. **`1 incidencias` es una cuenta**: como en los módulos anteriores, el veredicto entrega un número comparable entre ejecuciones. Cero es la única cifra certificable.
+3. **El orden de salida sigue el ciclo**: plan, spec, criterios, contrato, suite — el certificador lee la entrega en el mismo orden en que se construyó. La incidencia aparece en su etapa (contrato), no agrupada al final.
+
+Errores típicos al resolverlo:
+
+- **Borrar la función para que el certificador calle**: técnicamente cierra el ciclo, pero la decisión correcta es de contrato: si `formatoMoneda` se quiere, se especifica (spec y criterio) y se implementa; si no, no se escribe. El arreglo es la decisión, no el borrado.
+- **Certificar sin la carpeta `proyecto/` completa**: `certificar` necesita `PLAN.md`, `spec.md`, el módulo y el test; si falta la spec, muere con ENOENT (el rojo `errores/ciclo-saltado.js`) en vez de dar veredicto.
+- **Creer que el entregable certifica «código bueno»**: certifica el **ciclo**: que la funcionalidad se acordó, se especificó, se implementó y se verificó. La calidad de las decisiones (¿era esa la función a construir?) la discute el plan — y ese debate no se automatiza.
+- **Saltarse la batería al documentar**: los 6 verdes y 4 rojos son la demostración de que todo lo anterior funciona. Ejecutar sólo `entregable.js` es certificar el certificador sin sus contrapruebas.
+
+## Cómo verificarlo
+
+1. Ejecuta el certificador sobre el proyecto real del módulo (desde la carpeta `ejemplos/`):
+
+   ```sh
+   node entregable.js; echo "codigo=$?"
+   ```
+
+   Esperado: las 5 condiciones con `✓`, `entregable válido: funcionalidad entregada con su spec y sus tests` y `codigo=0`.
+
+2. Repite el ejercicio en tu taller (comandos del ejercicio): intacto `codigo=0`; con `formatoMoneda`, `✗ funciones no declaradas en la spec: formatoMoneda`, `entregable NO válido: 1 incidencias` y `codigo=1`.
+
+3. Ejecuta la batería entera del módulo y lee sus códigos:
+
+   ```sh
+   for f in plan.js spec.js golden.js verificar.js iterar.js entregable.js; do node "$f" >/dev/null 2>&1; echo "$f → codigo=$?"; done
+   for f in spec-sin-criterios.js impl-sin-spec.js criterio-sin-test.js ciclo-saltado.js; do node "errores/$f" >/dev/null 2>&1; echo "errores/$f → codigo=$?"; done
+   ```
+
+   Esperado: los 6 verdes con `codigo=0` y los 4 rojos con `codigo=1` — diez ejecuciones, diez resultados que ya sabes de antemano.
+
+4. Ejecuta la suite del proyecto con el runner de Node, a mano:
+
+   ```sh
+   cd proyecto && node --test
+   ```
+
+   Esperado: `ℹ tests 4`, `ℹ pass 4`, `ℹ fail 0`. Esa suite es la segunda luz de `verificar.js` y la quinta condición del certificador.
+
+## Errores comunes
+
+- **Confundir «entregable válido» con «función terminada»**: el certificado es sobre el ciclo — acordado, especificado, implementado y verificado. Una funcionalidad puede ser trivial y tener el ciclo impecable; ése es el punto del módulo.
+- **Entregar sin ejecutar la batería**: los rojos del módulo son las contrapruebas de sus detectores; si mañana cambias `ciclo.js`, la batería es lo que te dice qué se rompió y en qué etapa.
+- **Cerrar la entrega «sin iterar»**: el plan de l01 dejó la validación de entradas para la iteración de l05; una entrega que no itera deja el acuerdo a medias. El ciclo se completa, o el plan se enmienda — no se esquiva.
+- **Inventar criterios de relleno para «cubrir» la spec**: un criterio que no discute una decisión real es relleno ejecutable; el certificador lo contaría como cumplido y el proyecto, como más largo. La spec buena es la que discute (l02), no la que llena.
+
+## Fuentes
+
+- [Wikipedia: Definition of done](https://en.wikipedia.org/wiki/Definition_of_done) — consultado el 2026-10-22. La idea que estructura el certificador: la entrega está «hecha» cuando cumple una lista de condiciones comprobables acordadas de antemano — aquí, las cinco de `certificar`, ninguna de ellas una opinión.
+
+## Siguientes pasos
+
+- Cierra el módulo: `node entregable.js; echo "codigo=$?"` sobre `proyecto/` intacto y guarda el `0` — «funcionalidad entregada con su spec y sus tests» es el entregable de `n2/m1`.
+- Siguiente módulo del currículo: `n2/m2` «Pruebas primero con asistente» — el ciclo ya está montado; ahora las pruebas se escriben antes que el código para dirigir y limitar lo que la IA genera.

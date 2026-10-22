@@ -69,6 +69,16 @@ import { afterAll, describe, expect, it } from "vitest";
  *   ERR_MODULE_NOT_FOUND de paquete inventado y fallo declarado sin
  *   comprobación con runner en 1); los 6 ejercicios de las lecciones se
  *   replican en talleres temporales;
+ * - H19 añade `n2/m1` (el ciclo AI-native: plan → especificación →
+ *   implementación → verificación): el fixture `proyecto/` — PLAN.md con sus
+ *   4 secciones, spec.md con contrato y 4 criterios ejecutables, la
+ *   implementación `presupuesto.js` y su suite `node:test`— y la librería
+ *   `ciclo.js` (leer plan, leer spec, ejecutar criterios, correr la suite y
+ *   certificar), con 6 demos verdes — una por lección: plan, spec, golden
+ *   cases, verificación, ciclo rojo→verde y certificador— más 4 rojos
+ *   deliberados (spec sin «esperado», función inventada fuera de la spec,
+ *   criterio sin cumplir y entrega sin spec con ENOENT); los 6 ejercicios de
+ *   las lecciones se replican en talleres temporales;
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -122,6 +132,10 @@ const dirEjemplosN1M5 = fileURLToPath(
 
 const dirEjemplosN1M6 = fileURLToPath(
   new URL("../../src/content/modulos/n1/m6/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosN2M1 = fileURLToPath(
+  new URL("../../src/content/modulos/n2/m1/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -2226,6 +2240,317 @@ describe("ejemplos del módulo n1/m6: fallos típicos de los asistentes (colecci
   }, 60_000);
 });
 
+describe("ejemplos del módulo n2/m1: el ciclo AI-native (plan → spec → verificación)", () => {
+  interface DemoN2M1 {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  /** Taller temporal con `proyecto/` y `ciclo.js` (la base de todos los ejercicios). */
+  function tallerCiclo(): string {
+    const carpeta = carpetaTemporal();
+    cpSync(join(dirEjemplosN2M1, "proyecto"), join(carpeta, "proyecto"), { recursive: true });
+    copyFileSync(join(dirEjemplosN2M1, "ciclo.js"), join(carpeta, "ciclo.js"));
+    return carpeta;
+  }
+
+  /** Ejecuta un script de la copia con `process.execPath` y devuelve su resultado. */
+  function ejecutarEn(carpeta: string, argumentos: string[]): Resultado {
+    const resultado = spawnSync(process.execPath, argumentos, {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 60_000,
+    });
+    return {
+      status: resultado.status,
+      stdout: resultado.stdout ?? "",
+      stderr: resultado.stderr ?? "",
+    };
+  }
+
+  /** Reemplaza exacto en un fichero del taller (el mismo texto que usan las lecciones). */
+  function parchear(carpeta: string, rel: string, antes: string, despues: string): void {
+    const ruta = join(carpeta, rel);
+    const original = readFileSync(ruta, "utf8");
+    const cambiado = original.replace(antes, despues);
+    expect(cambiado, `${rel}: el patrón del parche no casó`).not.toBe(original);
+    writeFileSync(ruta, cambiado);
+  }
+
+  // H19: el fixture `proyecto/` (PLAN.md, spec.md con 4 criterios ejecutables,
+  // presupuesto.js y su suite) y la librería `ciclo.js`, con 6 demos verdes —
+  // una por lección — y 4 rojos deliberados que demuestran que el ciclo no se
+  // salta ninguna etapa.
+  const demos: DemoN2M1[] = [
+    {
+      fichero: "plan.js",
+      marcas: ["plan: 4 secciones — objetivo, alcance, fuera de alcance y criterios de entrega"],
+      descripcion: "l01: el plan del mini-proyecto con sus 4 secciones",
+    },
+    {
+      fichero: "spec.js",
+      marcas: ["spec: 4 criterios ejecutables — cada uno con entrada y esperado"],
+      descripcion: "l02: la spec convertida en C1…C4 parseables",
+    },
+    {
+      fichero: "golden.js",
+      marcas: ["implementación conforme: totalFactura exportada; 4 de 4 golden cases cumplidos"],
+      descripcion: "l03: la implementación contra los golden cases de la spec",
+    },
+    {
+      fichero: "verificar.js",
+      marcas: [
+        "verificación: 4 criterios cumplidos, 4 pruebas en verde — el contrato está cerrado",
+      ],
+      descripcion: "l04: criterios y suite en verde, contrato cerrado",
+    },
+    {
+      fichero: "iterar.js",
+      marcas: [
+        "iteración 1: C5 declarado en la spec → rojo (la implementación no lo cumple aún)",
+        " ✗ C5 esperaba RangeError, la función devolvió -1",
+        "criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos",
+        "ciclo completo: rojo → verde — la spec creció y la implementación la siguió sin romper lo anterior",
+      ],
+      descripcion: "l05: el ciclo rojo → verde con C5 (importe negativo)",
+    },
+    {
+      fichero: "entregable.js",
+      marcas: ["entregable válido: funcionalidad entregada con su spec y sus tests"],
+      descripcion: "l06: las cinco condiciones del certificador",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero], {
+        cwd: dirEjemplosN2M1,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    60_000,
+  );
+
+  it("errores/spec-sin-criterios.js termina en 1 con el Error de leerSpec (rojo de l02)", () => {
+    const rojo = ejecutarNode(["errores/spec-sin-criterios.js"], dirEjemplosN2M1);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("Error");
+    expect(rojo.stderr).toContain("el criterio debe declarar «entrada» y «esperado» parseables");
+  });
+
+  it("errores/impl-sin-spec.js termina en 1 con la función inventada (rojo de l03)", () => {
+    const rojo = ejecutarNode(["errores/impl-sin-spec.js"], dirEjemplosN2M1);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ funciones no declaradas en la spec: formatoMoneda");
+    expect(rojo.stdout).toContain("o se especifica, o no se entrega");
+  });
+
+  it("errores/criterio-sin-test.js termina en 1 con el criterio incumplido (rojo de l04/l05)", () => {
+    const rojo = ejecutarNode(["errores/criterio-sin-test.js"], dirEjemplosN2M1);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ C5 esperaba RangeError, la función devolvió -1");
+    expect(rojo.stdout).toContain(
+      "la spec creció a 5 criterios y la implementación no la siguió: 1 sin cumplir",
+    );
+  });
+
+  it("errores/ciclo-saltado.js termina en 1 con ENOENT sobre spec.md (rojo de l06)", () => {
+    const rojo = ejecutarNode(["errores/ciclo-saltado.js"], dirEjemplosN2M1);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("ENOENT");
+    expect(rojo.stderr).toContain("spec.md");
+  });
+
+  it("el mini-proyecto ejecuta sus 4 pruebas con node --test", () => {
+    const verde = ejecutarNode(["--test"], join(dirEjemplosN2M1, "proyecto"));
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("tests 4");
+    expect(verde.stdout).toContain("pass 4");
+    expect(verde.stdout).toContain("fail 0");
+  });
+
+  it("l01: sin la sección «Fuera de alcance» el plan no se certifica (ejercicio real)", () => {
+    const carpeta = tallerCiclo();
+    copyFileSync(join(dirEjemplosN2M1, "plan.js"), join(carpeta, "plan.js"));
+
+    const intacta = ejecutarEn(carpeta, ["plan.js", "proyecto/PLAN.md"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain(
+      "plan: 4 secciones — objetivo, alcance, fuera de alcance y criterios de entrega",
+    );
+
+    parchear(
+      carpeta,
+      join("proyecto", "PLAN.md"),
+      "## Fuera de alcance\n\n- Múltiples monedas, fechas de vencimiento e impuestos especiales.\n- Almacenamiento, interfaz de usuario y red.\n- Validación de entradas inválidas (la iteración de l05 decide si entra al alcance).\n\n",
+      "",
+    );
+    const rojo = ejecutarEn(carpeta, ["plan.js", "proyecto/PLAN.md"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("faltan secciones del plan — Fuera de alcance");
+  }, 60_000);
+
+  it("l02: el C5 declarado se lista y sin «esperado» leerSpec lanza (ejercicio real)", () => {
+    const carpeta = tallerCiclo();
+    copyFileSync(join(dirEjemplosN2M1, "spec.js"), join(carpeta, "spec.js"));
+    const rutaSpec = join(carpeta, "proyecto", "spec.md");
+    writeFileSync(
+      rutaSpec,
+      `${readFileSync(rutaSpec, "utf8")}
+### C5 · el importe negativo se rechaza
+entrada: [[{"importe": -1, "impuesto": 0, "descuento": 0}]]
+esperado: {"error": "RangeError"}
+`,
+    );
+
+    const conC5 = ejecutarEn(carpeta, ["spec.js", "proyecto/spec.md"]);
+    expect(conC5.status, conC5.stderr).toBe(0);
+    expect(conC5.stdout).toContain("C5 · el importe negativo se rechaza");
+    expect(conC5.stdout).toContain(
+      "spec: 5 criterios ejecutables — cada uno con entrada y esperado",
+    );
+
+    parchear(carpeta, join("proyecto", "spec.md"), 'esperado: {"error": "RangeError"}\n', "");
+    const rojo = ejecutarEn(carpeta, ["spec.js", "proyecto/spec.md"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("el criterio debe declarar «entrada» y «esperado» parseables");
+  }, 60_000);
+
+  it("l03: olvidar el descuento hace caer C2 en los golden cases (ejercicio real)", () => {
+    const carpeta = tallerCiclo();
+    copyFileSync(join(dirEjemplosN2M1, "golden.js"), join(carpeta, "golden.js"));
+
+    const intacta = ejecutarEn(carpeta, ["golden.js", "proyecto"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain(
+      "implementación conforme: totalFactura exportada; 4 de 4 golden cases cumplidos",
+    );
+
+    parchear(
+      carpeta,
+      join("proyecto", "presupuesto.js"),
+      "const base = importe - (importe * descuento) / 100;",
+      "const base = importe;",
+    );
+    const rojo = ejecutarEn(carpeta, ["golden.js", "proyecto"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "✗ C2 — el descuento se aplica antes que el impuesto: esperaba 108.9, devolvió 121",
+    );
+    expect(rojo.stdout).toContain("3 de 4 golden cases cumplidos");
+  }, 60_000);
+
+  it("l04: con la spec crecida sin parchear el contrato queda abierto (ejercicio real)", () => {
+    const carpeta = tallerCiclo();
+    copyFileSync(join(dirEjemplosN2M1, "verificar.js"), join(carpeta, "verificar.js"));
+
+    const intacta = ejecutarEn(carpeta, ["verificar.js", "proyecto"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain("el contrato está cerrado");
+
+    const rutaSpec = join(carpeta, "proyecto", "spec.md");
+    writeFileSync(
+      rutaSpec,
+      `${readFileSync(rutaSpec, "utf8")}
+### C5 · el importe negativo se rechaza
+entrada: [[{"importe": -1, "impuesto": 0, "descuento": 0}]]
+esperado: {"error": "RangeError"}
+`,
+    );
+    const rojo = ejecutarEn(carpeta, ["verificar.js", "proyecto"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ C5 esperaba RangeError, la función devolvió -1");
+    expect(rojo.stdout).toContain("verificación: 1 criterios sin cumplir y 0 pruebas en rojo");
+    expect(rojo.stdout).toContain("el contrato está abierto");
+  }, 60_000);
+
+  it("l05: la iteración con C5 (descuento imposible) cierra rojo → verde (ejercicio real)", () => {
+    const carpeta = tallerCiclo();
+    const rutaSpec = join(carpeta, "proyecto", "spec.md");
+    writeFileSync(
+      rutaSpec,
+      `${readFileSync(rutaSpec, "utf8")}
+### C5 · el descuento imposible se rechaza
+entrada: [[{"importe": 10, "impuesto": 0, "descuento": 150}]]
+esperado: {"error": "RangeError"}
+`,
+    );
+
+    // La verificación corre en proceso hijo (misma técnica que iterar.js):
+    // cada mitad importa la implementación desde su propio estado del disco.
+    const verificar = (extra: string): Resultado => {
+      const script = [
+        'import { ejecutarCriterios, ejecutarSuite, leerSpec } from "./ciclo.js";',
+        'const spec = leerSpec("proyecto/spec.md");',
+        'const resultados = await ejecutarCriterios(spec, "proyecto");',
+        "const incumplidos = resultados.filter((r) => !r.ok);",
+        extra,
+        'const suite = ejecutarSuite("proyecto");',
+        "console.log(`criterios: ${resultados.length - incumplidos.length}/${resultados.length} cumplidos — suite: ${suite.pruebas} pruebas, ${suite.fallos} fallos`);",
+        "process.exitCode = incumplidos.length === 0 && suite.status === 0 ? 0 : 1;",
+      ].join("\n");
+      return ejecutarEn(carpeta, ["--input-type=module", "-e", script]);
+    };
+
+    const rojo = verificar("for (const i of incumplidos) console.log(` ✗ ${i.detalle}`);");
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ C5 esperaba RangeError, la función devolvió -5");
+    expect(rojo.stdout).toContain("criterios: 4/5 cumplidos — suite: 4 pruebas, 0 fallos");
+
+    parchear(
+      carpeta,
+      join("proyecto", "presupuesto.js"),
+      "  for (const { importe, impuesto = 0, descuento = 0 } of lineas) {",
+      "  for (const { importe, impuesto = 0, descuento = 0 } of lineas) {\n    if (descuento > 100) throw new RangeError(`descuento imposible: ${descuento}`);",
+    );
+    const rutaTest = join(carpeta, "proyecto", "test", "presupuesto.test.js");
+    writeFileSync(
+      rutaTest,
+      `${readFileSync(rutaTest, "utf8")}
+test("C5 · el descuento imposible se rechaza", () => {
+  assert.throws(() => totalFactura([{ importe: 10, impuesto: 0, descuento: 150 }]), RangeError);
+});
+`,
+    );
+    const verde = verificar("");
+    expect(verde.status, verde.stderr).toBe(0);
+    expect(verde.stdout).toContain("criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos");
+  }, 60_000);
+
+  it("l06: la función inventada hace caer el certificador con 1 incidencia (ejercicio real)", () => {
+    const carpeta = tallerCiclo();
+    copyFileSync(join(dirEjemplosN2M1, "entregable.js"), join(carpeta, "entregable.js"));
+
+    const intacta = ejecutarEn(carpeta, ["entregable.js", "proyecto"]);
+    expect(intacta.status, intacta.stderr).toBe(0);
+    expect(intacta.stdout).toContain(
+      "entregable válido: funcionalidad entregada con su spec y sus tests",
+    );
+
+    const rutaImpl = join(carpeta, "proyecto", "presupuesto.js");
+    writeFileSync(
+      rutaImpl,
+      `${readFileSync(rutaImpl, "utf8")}
+// Comportamiento inventado: nadie lo pidió en la spec.
+export function formatoMoneda(total) {
+  return \`$\${total.toFixed(2)}\`;
+}
+`,
+    );
+    const rojo = ejecutarEn(carpeta, ["entregable.js", "proyecto"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ funciones no declaradas en la spec: formatoMoneda");
+    expect(rojo.stdout).toContain("entregable NO válido: 1 incidencias");
+  }, 60_000);
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -2534,6 +2859,39 @@ describe("cobertura de ejemplos", () => {
         dirEjemplosN1M6,
         ["fallos", "proyecto"],
         ["fallos/fallos.json", "proyecto/package.json", "proyecto/package-lock.json"],
+      ),
+    ).toEqual([...enManifiesto].sort());
+  });
+
+  it("n2/m1: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // El mini-proyecto `proyecto/` es el objeto del ciclo: su PLAN.md y su
+    // spec.md son los artefactos que leen plan.js, spec.js y el certificador;
+    // `presupuesto.js` es la implementación que juzgan los golden cases, los
+    // criterios y la suite `test/presupuesto.test.js`. Todo se verifica
+    // ejecutando los 6 demos, la suite y los 4 rojos.
+    const enManifiesto = [
+      "ciclo.js",
+      "plan.js",
+      "spec.js",
+      "golden.js",
+      "verificar.js",
+      "iterar.js",
+      "entregable.js",
+      "errores/spec-sin-criterios.js",
+      "errores/impl-sin-spec.js",
+      "errores/criterio-sin-test.js",
+      "errores/ciclo-saltado.js",
+      "proyecto/presupuesto.js",
+      "proyecto/test/presupuesto.test.js",
+      "proyecto/PLAN.md",
+      "proyecto/spec.md",
+    ];
+
+    expect(
+      archivosVerificables(
+        dirEjemplosN2M1,
+        ["proyecto", "proyecto/test"],
+        ["proyecto/PLAN.md", "proyecto/spec.md"],
       ),
     ).toEqual([...enManifiesto].sort());
   });

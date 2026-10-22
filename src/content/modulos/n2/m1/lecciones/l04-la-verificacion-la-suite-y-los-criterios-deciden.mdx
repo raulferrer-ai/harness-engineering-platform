@@ -1,0 +1,160 @@
+---
+titulo: "La verificación: la suite y los criterios deciden"
+resumen: "El contrato se cierra con dos luces que tienen que estar en verde: los criterios de la spec ejecutados contra la implementación y la suite del proyecto con `node --test`. La lección ejecuta `verificar.js` — `verificación: 4 criterios cumplidos, 4 pruebas en verde — el contrato está cerrado`, código 0 — y después añade un C5 a la spec sin tocar el código: los criterios se quedan en 4/5 mientras la suite sigue «verde» en 4 pruebas, y el veredicto pasa a `el contrato está abierto` con `codigo=1`."
+nivel: "n2"
+modulo: "m1"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Cerrar el contrato ejecutando criterios y suite como dos comprobaciones independientes"
+  - "Interpretar un veredicto mixto: criterios incumplidos con la suite en verde"
+  - "Ejecutar la suite del proyecto con `node --test` y leer sus cifras"
+prerrequisitos:
+  - "n2/m1/l03-la-implementacion-pedir-el-codigo-que-la-spec-pide"
+actualizado: "2026-10-22"
+tags:
+  - "verificacion"
+  - "suite"
+  - "node-test"
+fuentes:
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La **verificación** del ciclo no es una opinión ni una revisión manual: son dos comprobaciones que se ejecutan. `verificar.js` corre los criterios de la spec contra la implementación y la suite con el test runner de Node (`node:test` y `node --test`, fuente consultada el 2026-10-22), y sólo cierra en verde si las dos luces lo están: **`verificación: 4 criterios cumplidos, 4 pruebas en verde — el contrato está cerrado`**, `codigo=0`. En el ejercicio añades un C5 a la spec sin parchear el código: los criterios caen a 4/5 mientras la suite sigue «verde» en 4 pruebas — nadie escribió el test que falta — y el veredicto se vuelve **`1 criterios sin cumplir y 0 pruebas en rojo — el contrato está abierto`**, `codigo=1`. La suite no se entera de la spec crecida; el verificador sí.
+
+## Conceptos
+
+### Dos luces, dos preguntas
+
+La suite y los criterios responden preguntas distintas, y el módulo las trata como independientes a propósito:
+
+| Luz                 | Pregunta que responde                                     | Fuente de verdad               |
+| ------------------- | --------------------------------------------------------- | ------------------------------ |
+| Criterios de spec   | ¿La implementación cumple lo acordado con quien la pidió? | `spec.md` (entrada y esperado) |
+| Suite (`node:test`) | ¿Cómo se prueba queda escrito y en verde para siempre?    | `test/presupuesto.test.js`     |
+
+La suite del proyecto es un test por criterio, con la misma numeración — `C1 · …`, `C2 · …` — para que un fallo se rastree sin traducir (el test runner de Node ejecuta los casos y decide con código de salida: fuente consultada el 2026-10-22). La salida de `verificar.js` sobre el proyecto intacto (salida real, Node v24.22.0, 2026-10-22):
+
+```text
+verificando proyecto (criterios de spec.md + node --test):
+ ✓ C1 — total de una línea sin impuesto ni descuento: 100
+ ✓ C2 — el descuento se aplica antes que el impuesto: 108.9
+ ✓ C3 — la lista vacía totaliza cero: 0
+ ✓ C4 — una línea a cero no aporta nada: 0
+ suite: 4 pruebas, 0 fallos (node --test terminó con 0)
+verificación: 4 criterios cumplidos, 4 pruebas en verde — el contrato está cerrado
+```
+
+`ejecutarSuite(dir)` lanza `node --test` en un proceso hijo con `spawnSync` y parsea sus cifras (`tests`, `fail`) — el mismo patrón de códigos de salida que `n1/m5` ya automatizó en el pre-commit.
+
+### El veredicto mixto
+
+Lo que el ejercicio provoca es el estado que más confunde y más enseña: **criterios en rojo, suite en verde**. La spec creció a 5; nadie tocó el código (el criterio nuevo incumple) ni escribió su test (la suite sigue con 4 pruebas, todas pasando). `verificar.js` no se deja engañar por la mitad verde: `cerrado` exige `cumplidos === resultados.length && suite.status === 0`, y el veredicto nombra las dos cifras por separado — `1 criterios sin cumplir y 0 pruebas en rojo` — porque el arreglo no es el mismo para cada una: al criterio le falta implementación; a la suite, le falta escritura.
+
+## Ejercicio
+
+Verifica el proyecto intacto, después añade un C5 a la spec sin parchear nada y mira el veredicto abrirse. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/ciclo.js" "$ORIG/verificar.js" "$TALLER/"
+cd "$TALLER"
+node verificar.js proyecto; echo "codigo=$?"
+cat >> proyecto/spec.md <<'EOF'
+
+### C5 · el importe negativo se rechaza
+entrada: [[{"importe": -1, "impuesto": 0, "descuento": 0}]]
+esperado: {"error": "RangeError"}
+EOF
+node verificar.js proyecto; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución cierra con `verificación: 4 criterios cumplidos, 4 pruebas en verde — el contrato está cerrado` y `codigo=0`;
+- tras el `cat`, la segunda marca `✗ C5 esperaba RangeError, la función devolvió -1` y cierra con `verificación: 1 criterios sin cumplir y 0 pruebas en rojo — el contrato está abierto` y `codigo=1`;
+- puedes explicar por qué la suite sigue «verde»: sus 4 pruebas pasan porque sigue habiendo 4; el criterio nuevo no tiene test — y el verificador no acepta ese silencio como verde.
+
+Pista: `-1` no es un error: es lo que la función devuelve cuando se le pasa una línea negativa (impuesto y descuento a 0 dan `-1 × 1`). El criterio pide `RangeError`; el código devuelve un número incorrecto — esa diferencia es toda la incidencia.
+
+## Solución explicada
+
+Salida real del ejercicio (2026-10-22), intacto y después del `cat`:
+
+```text
+verificando proyecto (criterios de spec.md + node --test):
+ ✓ C1 — total de una línea sin impuesto ni descuento: 100
+ ✓ C2 — el descuento se aplica antes que el impuesto: 108.9
+ ✓ C3 — la lista vacía totaliza cero: 0
+ ✓ C4 — una línea a cero no aporta nada: 0
+ suite: 4 pruebas, 0 fallos (node --test terminó con 0)
+verificación: 4 criterios cumplidos, 4 pruebas en verde — el contrato está cerrado
+codigo=0
+```
+
+```text
+verificando proyecto (criterios de spec.md + node --test):
+ ✓ C1 — total de una línea sin impuesto ni descuento: 100
+ ✓ C2 — el descuento se aplica antes que el impuesto: 108.9
+ ✓ C3 — la lista vacía totaliza cero: 0
+ ✓ C4 — una línea a cero no aporta nada: 0
+ ✗ C5 esperaba RangeError, la función devolvió -1
+ suite: 4 pruebas, 0 fallos (node --test terminó con 0)
+verificación: 1 criterios sin cumplir y 0 pruebas en rojo — el contrato está abierto
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **La suite en verde no absuelve**: `4 pruebas, 0 fallos` convive con el contrato abierto. La suite prueba lo que alguien escribió; los criterios, lo que se acordó. El veredicto «abierto» sale de la conjunción, no de la suite.
+2. **El detalle de C5 dice `-1`**: el ejecutor de criterios soporta errores esperados — cuando la función lanza, compara `error.constructor.name` con el `esperado`; aquí no lanzó, y la comparación se convierte en la discrepancia numérica que ves. El lector de criterios no se guarda nada.
+3. **`el contrato está cerrado`/`abierto` es binario**: el veredicto no admite «casi». Esa negatividad es la que hace que en l06 el certificador pueda prometer algo — la entrega sólo se certifica con el contrato cerrado.
+
+Errores típicos al resolverlo:
+
+- **Dar la suite verde por suficiente**: el ejercicio existe para eso. Un proyecto puede tener su suite impecable y una spec crecida sin tocar; el ciclo mide las dos cosas.
+- **Escribir el test de C5 sin implementar el `RangeError`**: el test nuevo fallaría (la función no lanza) y la suite pasaría a `5 pruebas, 1 fallo` — seguiría en rojo, pero por la luz correcta. El orden del ciclo es spec → implementación → test, y aquí se ven las tres.
+- **Olvidar que `verificar.js` necesita la spec**: sin `spec.md` en el directorio, muere con ENOENT (es el rojo `errores/ciclo-saltado.js`) — la verificación no funciona a ciegas.
+
+## Cómo verificarlo
+
+1. Prepara el taller con `proyecto/`, `ciclo.js` y `verificar.js` (comandos del ejercicio).
+
+2. Verifica el proyecto intacto:
+
+   ```sh
+   node verificar.js proyecto; echo "codigo=$?"
+   ```
+
+   Esperado: los 4 `✓`, la línea de suite con `4 pruebas, 0 fallos`, `el contrato está cerrado` y `codigo=0`.
+
+3. Añade el C5 (el `cat`) y verifica de nuevo:
+
+   Esperado: `✗ C5 esperaba RangeError, la función devolvió -1`, `1 criterios sin cumplir y 0 pruebas en rojo — el contrato está abierto` y `codigo=1`.
+
+4. Comprueba las dos luces por separado: `node --test` dentro de `proyecto/` sigue dando `fail 0` — la suite no miente; simplemente no sabe nada del C5.
+
+## Errores comunes
+
+- **Conformarse con `fail 0`**: es la mitad de la luz. La frase «las pruebas pasan» no dice nada de lo que se acordó en la spec; el verificador del ciclo exige las dos.
+- **Parchear la spec para cerrar el contrato**: si el C5 no se quiere, se elimina de la spec con su discusión (l01/l02); lo que no se puede es dejarlo declarado y dar el contrato por cerrado.
+- **Ejecutar `node --test` en la carpeta equivocada**: la suite vive en `proyecto/test/`; ejecutada desde `ejemplos/` no encuentra el proyecto y sus cifras no significan nada. Por eso `ejecutarSuite` recibe el directorio y corre allí.
+- **Creer que el verificador certifica la entrega**: cierra el contrato de una funcionalidad; el entregable entero (plan, spec, contrato y suite) lo certifica `entregable.js` en l06.
+
+## Fuentes
+
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. `node:test` y `node --test` son la segunda luz del verificador: el runner ejecuta la suite del proyecto, imprime sus cifras y decide con el código de salida que `ejecutarSuite` parsea.
+
+## Siguientes pasos
+
+- Ejecuta `node verificar.js proyecto` sobre el proyecto intacto una última vez y guarda `el contrato está cerrado` con `codigo=0`.
+- Siguiente lección: [El ciclo completo: iterar sin romper el contrato](/curriculo/n2/m1/l05-el-ciclo-completo-iterar-sin-romper-el-contrato/) — el contrato abierto de hoy es el rojo de mañana: l05 hace crecer la spec y cierra el ciclo rojo → verde sin romper lo acordado.

@@ -1,0 +1,169 @@
+---
+titulo: "El ciclo completo: iterar sin romper el contrato"
+resumen: "La spec crece y el ciclo entero la sigue. La lección ejecuta `iterar.js`: añade un C5 (el importe negativo se rechaza) a una copia del proyecto, verifica en rojo — `C5 esperaba RangeError, la función devolvió -1` — parchea la implementación y su suite, y vuelve a verde — `criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos`. En el ejercicio haces tu propia iteración con C5 (el descuento imposible): rojo `4/5`, parche con guarda de rango y test nuevo, verde `5/5` sin tocar los criterios anteriores."
+nivel: "n2"
+modulo: "m1"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Hacer crecer la spec con un criterio nuevo y ver el ciclo caer en rojo"
+  - "Cerrar la iteración parcheando implementación y suite sin romper lo anterior"
+  - "Leer el ciclo rojo → verde como secuencia ejecutada, no como relato"
+prerrequisitos:
+  - "n2/m1/l04-la-verificacion-la-suite-y-los-criterios-deciden"
+actualizado: "2026-10-22"
+tags:
+  - "iteracion"
+  - "rojo-verde"
+  - "ciclo-completo"
+fuentes:
+  - titulo: "Wikipedia — Desarrollo guiado por pruebas"
+    url: "https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Iterar es hacer crecer el acuerdo sin romper lo ya acordado — la disciplina del rojo al verde que el TDD convirtió en método (fuente consultada el 2026-10-22). `iterar.js` ejecuta el ciclo entero sobre una copia: declara **C5** en la spec (`{"error": "RangeError"}` para importes negativos), verifica y ve **rojo** (`C5 esperaba RangeError, la función devolvió -1`), parchea la implementación (guarda `RangeError`), añade el test C5 a la suite y verifica **verde** (`criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos`), terminando con **`ciclo completo: rojo → verde — la spec creció y la implementación la siguió sin romper lo anterior`** y `codigo=0`. En el ejercicio haces tu iteración con otro criterio de validación: rojo `4/5`, parche y test, verde `5/5`.
+
+## Conceptos
+
+### El rojo no es un error: es el contrato abierto
+
+La lección anterior dejó una enseñanza incómoda: la spec puede crecer y la suite quedarse «verde» sin enterarse. Iterar bien es aprovechar ese estado — el **rojo** del ciclo no es un fallo del proyecto, es la representación ejecutada de lo que se acordó y aún no se hizo. La demo `iterar.js` lo muestra con las dos mitades (salida real, Node v24.22.0, 2026-10-22):
+
+```text
+iteración 1: C5 declarado en la spec → rojo (la implementación no lo cumple aún)
+criterios: 4/5 cumplidos — suite: 4 pruebas, 0 fallos
+ ✗ C5 esperaba RangeError, la función devolvió -1
+iteración 2: parche en presupuesto.js y test C5 añadido → verde
+criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos
+ciclo completo: rojo → verde — la spec creció y la implementación la siguió sin romper lo anterior
+```
+
+Detalles de ingeniería que la demo enseña sin decirlos:
+
+- **Cada verificación corre en un proceso hijo** (`node --input-type=module -e` con el taller como directorio de trabajo). Node cachea los módulos ESM por URL: reimportar `presupuesto.js` tras parchearlo en el mismo proceso devolvería el código viejo. El hijo importa el estado actual del disco.
+- **El parche es un `String.replace` sobre el código exacto**: si la implementación cambia de forma, el parche no casa y la iteración no cierra — lo mismo que los patrones `perl` de los ejercicios, y por la misma razón: un cambio no declarado no se aplica «más o menos».
+- **Criterios y suite crecen juntos**: el verde no es sólo `5/5` en criterios; son también las `5 pruebas` del test C5 añadido. Lo que se acuerda en la spec queda escrito en la suite.
+
+### Tu iteración: el descuento imposible
+
+El ejercicio repite el patrón con un criterio distinto — **C5 · el descuento imposible se rechaza** (una factura con `descuento: 150` no tiene sentido; el contrato la rechaza con `RangeError`). La secuencia es la del ciclo: declarar el criterio (rojo `4/5`, la función devuelve `-5`), parchear la implementación con la guarda `if (descuento > 100) throw new RangeError(…)`, añadir el test C5 y volver a verificar (`5/5`, suite de `5 pruebas`). Cada iteración deja la spec más cerrada y los criterios anteriores intactos — que es lo que «sin romper el contrato» significa en la práctica.
+
+## Ejercicio
+
+Declara tu C5 en la spec, verifica el rojo, parchea implementación y suite, y cierra en verde. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/ciclo.js" "$TALLER/"
+cd "$TALLER"
+cat >> proyecto/spec.md <<'EOF'
+
+### C5 · el descuento imposible se rechaza
+entrada: [[{"importe": 10, "impuesto": 0, "descuento": 150}]]
+esperado: {"error": "RangeError"}
+EOF
+node --input-type=module -e '
+import { ejecutarCriterios, ejecutarSuite, leerSpec } from "./ciclo.js";
+const spec = leerSpec("proyecto/spec.md");
+const resultados = await ejecutarCriterios(spec, "proyecto");
+const incumplidos = resultados.filter((r) => !r.ok);
+for (const i of incumplidos) console.log(` ✗ ${i.detalle}`);
+const suite = ejecutarSuite("proyecto");
+console.log(`criterios: ${resultados.length - incumplidos.length}/${resultados.length} cumplidos — suite: ${suite.pruebas} pruebas, ${suite.fallos} fallos`);
+process.exitCode = 1;
+'; echo "codigo=$?"
+perl -0pi -e 's/  for \(const \{ importe, impuesto = 0, descuento = 0 \} of lineas\) \{/  for (const { importe, impuesto = 0, descuento = 0 } of lineas) {\n    if (descuento > 100) throw new RangeError(`descuento imposible: ${descuento}`);/' proyecto/presupuesto.js
+cat >> proyecto/test/presupuesto.test.js <<'EOF'
+
+test("C5 · el descuento imposible se rechaza", () => {
+  assert.throws(() => totalFactura([{ importe: 10, impuesto: 0, descuento: 150 }]), RangeError);
+});
+EOF
+node --input-type=module -e '
+import { ejecutarCriterios, ejecutarSuite, leerSpec } from "./ciclo.js";
+const spec = leerSpec("proyecto/spec.md");
+const resultados = await ejecutarCriterios(spec, "proyecto");
+const incumplidos = resultados.filter((r) => !r.ok);
+const suite = ejecutarSuite("proyecto");
+console.log(`criterios: ${resultados.length - incumplidos.length}/${resultados.length} cumplidos — suite: ${suite.pruebas} pruebas, ${suite.fallos} fallos`);
+process.exitCode = incumplidos.length === 0 && suite.status === 0 ? 0 : 1;
+'; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera verificación muestra ` ✗ C5 esperaba RangeError, la función devolvió -5`, `criterios: 4/5 cumplidos — suite: 4 pruebas, 0 fallos` y `codigo=1`;
+- tras el parche y el test, la segunda muestra `criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos` y `codigo=0`;
+- ejecutas también `node iterar.js` desde `ejemplos/` y ves el ciclo de C5 (importe negativo) rojo → verde con su cierre `ciclo completo: rojo → verde` y `codigo=0`;
+- puedes explicar por qué `-5`: la fórmula intacta da `10 − (10 × 150) / 100 = -5` — la base descontada queda negativa. El criterio no pide un número mejor: pide que la entrada imposible se rechace con `RangeError`, y eso es lo que el contrato ahora exige.
+
+Pista: el parche añade la guarda justo después de la línea del `for`; si el patrón no casa, la verificación seguirá en rojo con `-5` y lo sabrás porque la segunda termina con `codigo=1`. Y el `-5` sale de la fórmula intacta: `10 − (10 × 150) / 100 = -5` — la base es negativa y el total ni siquiera merece redondearse. La entrada es imposible y el contrato ahora lo dice.
+
+## Solución explicada
+
+La salida del ejercicio, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+ ✗ C5 esperaba RangeError, la función devolvió -5
+criterios: 4/5 cumplidos — suite: 4 pruebas, 0 fallos
+codigo=1
+```
+
+Tras el parche y el test C5:
+
+```text
+criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos
+codigo=0
+```
+
+Tres cosas a mirar:
+
+1. **El rojo se sostiene en una sola línea**: `✗ C5 esperaba RangeError, la función devolvió -5`. Los criterios C1–C4 siguen cumplidos — la iteración no ha tocado nada de lo anterior, y el verificador lo confirma implícitamente (`4/5`, no `0/5`).
+2. **El verde suma dos luces**: `5/5` en criterios y `5 pruebas, 0 fallos` en la suite. El test nuevo (`assert.throws(…, RangeError)`) es la promesa escrita: mañana, cualquier cambio que elimine la guarda volverá a caer aquí.
+3. **Cada mitad corre en su propio proceso `-e`**: el primer bloque se ejecuta con la spec crecida y el código sin parchear; el segundo, después de los dos cambios. Node no cachea nada entre mitades porque cada una es un hijo nuevo — el mismo truco que usa `iterar.js`.
+
+Errores típicos al resolverlo:
+
+- **Parchear sin declarar el criterio**: la tentación de «arreglarlo ya» deja la spec muda; el ciclo al revés es el que no escala. El criterio va primero — es lo que hace que el rojo signifique algo.
+- **Añadir el test sin la guarda**: el test fallaría (`Missing expected exception` o el `-5` sin lanzar) y la suite pasaría a `1 fallo` — rojo por la luz correcta, pero rojo. Spec → implementación → test, en ese orden.
+- **Romper C2 «de paso»**: si el parche altera la fórmula (p. ej. redondeando por línea), el verde no llega: verías `4/5` con el C2 incumplido. Iterar sin romper el contrato es justamente eso — el verde cuenta los cinco.
+
+## Cómo verificarlo
+
+1. Ejecuta la demo del ciclo completo desde la carpeta real `ejemplos/`:
+
+   ```sh
+   node iterar.js; echo "codigo=$?"
+   ```
+
+   Esperado: la iteración 1 en rojo con `✗ C5 esperaba RangeError, la función devolvió -1`, la iteración 2 en verde con `criterios: 5/5 cumplidos — suite: 5 pruebas, 0 fallos`, el cierre `ciclo completo: rojo → verde …` y `codigo=0`.
+
+2. Repite el ejercicio en tu taller (comandos del ejercicio) y confirma las dos mitades: rojo `4/5` con `codigo=1`, verde `5/5` con `codigo=0`.
+
+3. Comprueba que nada anterior se rompió: con el taller todavía a mano, `node --input-type=module -e 'import { ejecutarSuite } from "./ciclo.js"; console.log(ejecutarSuite("proyecto").fallos);'` imprime `0`.
+
+4. Comprueba que el proyecto original del módulo sigue intacto: `node verificar.js proyecto` desde `ejemplos/` cierra con `4 criterios cumplidos … el contrato está cerrado` — iteraste en copias; el original sólo cambia cuando el ciclo lo decide.
+
+## Errores comunes
+
+- **Iterar sobre el original sin copia**: los ejercicios trabajan en talleres temporales a propósito. Iterar destruye la línea base: si la iteración sale mal, ya no tienes con qué comparar.
+- **Cerrar el ciclo con el criterio rojo «dejadlo para después»**: un criterio declarado y sin cumplir es deuda declarada — el certificador de l06 la contará como incidencia. El ciclo se cierra o se revierte el criterio.
+- **Confundir rojo del ciclo con rojo de fallo**: en l04 el rojo era un error (contrato abierto por descuido); aquí es el estado esperado de una spec crecida. La diferencia es que este rojo tiene fecha de caducidad: la iteración.
+- **Redondear `-5` a «casi»**: la entrada es imposible, no difícil. El contrato la rechaza con `RangeError`; cualquier número devuelto — redondeado o no — es un incumplimiento.
+
+## Fuentes
+
+- [Wikipedia: Desarrollo guiado por pruebas](https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas) — consultado el 2026-10-22. La disciplina del ciclo rojo → verde que estructura la iteración: primero el fallo ejecutado, después el mínimo cambio que lo cierra, siempre con la comprobación verde al final.
+
+## Siguientes pasos
+
+- Ejecuta `node iterar.js` una última vez y guarda el `ciclo completo: rojo → verde` con `codigo=0`: has visto el ciclo entero pasar por sus cuatro etapas.
+- Siguiente lección: [Entregable: funcionalidad entregada con su spec y sus tests](/curriculo/n2/m1/l06-entregable-funcionalidad-entregada-con-su-spec-y-sus-tests/) — l06 certifica el conjunto: plan, spec, criterios, contrato y suite, con sus verdes y sus rojos.
