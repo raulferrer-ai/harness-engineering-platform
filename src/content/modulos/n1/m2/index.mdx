@@ -5,5 +5,24 @@ modulo: "m2"
 objetivos:
   - "Formular tareas acotadas que el asistente resuelve verificablemente"
 entregable: "Serie de tareas de 10 minutos con pruebas"
-actualizado: "2026-10-19"
+actualizado: "2026-10-22"
 ---
+
+## Para quién es este módulo
+
+Tras `n1/m1` sabes qué es un modelo de lenguaje, qué no puede saber y por qué la verificación es tu único límite. Este módulo es la consecuencia práctica: si la prosa del asistente solo se juzga ejecutándola, la **tarea que le escribes** debe venir con todo lo necesario para ese juicio. Aquí aprendes a formular tareas pequeñas: anatomía con instrucción, entregable y criterios (l01), contexto mínimo sin ruido (l02), criterios ejecutables escritos antes que el código (l03), fronteras de archivos (l04), verificación medida en menos de 10 minutos (l05) y, como entregable, una serie completa de tareas validada y medida (l06). Público objetivo: quien cierra `n1/m1/l06` con su nota técnica. Duración estimada: unas 5 horas y media repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas la **serie de tareas de 10 minutos con pruebas**: de 3 a 5 tareas, cada una con instrucción concreta, contexto mínimo, un entregable nombrable, criterios ejecutables, archivos permitidos y un comando `node --test`. La serie se valida con `ejemplos/comprobar-serie.js` (código `0`) y se mide con `ejemplos/verificacion-rapida.js`, que ejecuta cada comando y cronometra su duración real. La carpeta `ejemplos/` reúne **7 scripts verdes** con solo librería estándar — anatomía, contexto mínimo, criterios primero, alcance, la serie, su validador y la medición — más **4 rojos deliberados**: la tarea ambigua, el contexto inflado, el alcance excedido y la serie rota (los cuatro con código `1`). El directorio `tareas/` contiene tres entregables de referencia con sus suites y el borrador plausible que la fase roja refuta. Todo se ejecuta offline, sin dependencias, red ni claves: las tareas del módulo son también un ejemplo de lo que enseñan.
+
+## Lecciones
+
+| #   | Lección                                                                                                                             | Tiempo |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [La tarea pequeña: anatomía de un encargo](/curriculo/n1/m2/l01-la-tarea-pequena-anatomia-de-un-encargo/)                           | 45 min |
+| 2   | [Contexto mínimo: lo justo para resolver](/curriculo/n1/m2/l02-contexto-minimo-lo-justo-para-resolver/)                             | 50 min |
+| 3   | [Criterios de aceptación ejecutables](/curriculo/n1/m2/l03-criterios-de-aceptacion-ejecutables/)                                    | 55 min |
+| 4   | [Acotar el alcance: fronteras de la tarea](/curriculo/n1/m2/l04-acotar-el-alcance-fronteras-de-la-tarea/)                           | 50 min |
+| 5   | [La verificación de 10 minutos](/curriculo/n1/m2/l05-la-verificacion-de-10-minutos/)                                                | 50 min |
+| 6   | [Entregable: serie de tareas de 10 minutos con pruebas](/curriculo/n1/m2/l06-entregable-serie-de-tareas-de-10-minutos-con-pruebas/) | 60 min |

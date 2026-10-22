@@ -1,0 +1,188 @@
+---
+titulo: "Contexto mínimo: lo justo para resolver"
+resumen: "El contexto de una tarea son las piezas que el asistente no puede adivinar: fragmento del código, convención aplicable y comando de verificación. Contarás las palabras de un contexto con y sin ruido — 27 frente a 60 — y ejecutarás el rojo del contexto inflado, que rechaza las piezas incluidas «por si acaso»."
+nivel: "n1"
+modulo: "m2"
+orden: 2
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Distinguir una pieza de contexto necesaria de una pieza de ruido"
+  - "Componer el contexto mínimo de una tarea: fragmento, convención y verificación"
+  - "Medir el coste del ruido en palabras y entender por qué diluye la instrucción"
+prerrequisitos:
+  - "n1/m2/l01-la-tarea-pequena-anatomia-de-un-encargo"
+actualizado: "2026-10-22"
+tags:
+  - "contexto"
+  - "ruido"
+  - "sensibilidad"
+  - "ventana"
+fuentes:
+  - titulo: "OpenAI — Prompt engineering: Include relevant context information"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El contexto de una tarea son **las piezas que el asistente no puede adivinar**: el fragmento del código donde trabaja, la convención del proyecto que aplica y el comando con el que verificará el resultado. Todo lo demás — la historia del módulo, el archivo completo, las opiniones de diseño — es ruido que compite con tu instrucción. `ejemplos/contexto-minimo.js` compone el contexto mínimo y lo cuenta en **palabras** (27 con las piezas necesarias, 60 con el ruido); `errores/contexto-inflado.js` termina en rojo cuando el contexto incluye piezas que la tarea no pide.
+
+## Conceptos
+
+### Piezas necesarias vs. ruido
+
+En `n1/m1/l04` viste que la respuesta del modelo cambia con el contexto que recibe: la misma pregunta sobre ficheros contestaba `fs/promises` o HTTP según el archivo que la precediera. Esa sensibilidad tiene dos caras. La buena: una pieza bien elegida orienta toda la respuesta. La mala: las piezas mal elegidas también se cumplen — y diluyen. El contexto inflado no es «más seguridad», es la instrucción compitiendo con relleno por la atención del modelo y por espacio de la ventana (m1/l03 midió ese coste en tokens y dólares).
+
+La guía de OpenAI lo formula así: incluye contexto adicional para dar acceso a datos que el modelo no conoce **y para acotar la respuesta a un conjunto de recursos que tú has determinado** que son los más útiles (fuente consultada el 2026-10-22). «Conjunto determinado» es la palabra clave: alguien elige; no se vacía el cajón en el prompt. Para una tarea pequeña de desarrollo, ese conjunto mínimo tiene tres piezas:
+
+1. **Fragmento del código relevante**: las líneas donde se trabaja, no el archivo entero. Si la tarea toca una función, pega la función.
+2. **Convención aplicable**: la regla del proyecto que el fragmento no muestra — «módulos ESM, funciones puras, identificadores en español». Una línea basta.
+3. **Comando de verificación**: cómo se comprobará el resultado. En l03 serán los criterios; aquí basta el `node --test` que los ejecuta.
+
+### Contar palabras, no prometer tokens
+
+`contexto-minimo.js` marca cada pieza candidata con su necesidad real para la tarea y selecciona solo las necesarias. La métrica es deliberadamente grosera: **palabras**, las que cuenta `wc -w`. No inventamos «tokens» de un proveedor que no podemos medir aquí — `n1/m1/l01` ya advirtió que el tokenizador real es propietario; aquí medimos lo que sí es medible y lo llamamos por su nombre.
+
+```sh
+node contexto-minimo.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+piezas candidatas: 5
+ ✓ necesaria — fragmento del archivo existente: export function normalizarNombr…
+ ✓ necesaria — convención del proyecto: módulos ESM, funciones puras, nombres e…
+ ✓ necesaria — comando de verificación: node --test normalizar-nombre.test.js…
+ ✗ ruido   — historia: el módulo nació en 2024 para el equipo de ventas y lue…
+ ✗ ruido   — el archivo completo de 300 líneas del que se extrajo el fragment…
+piezas seleccionadas: 3 de 5
+palabras del contexto: 27 (con el ruido serían 60)
+contexto mínimo: solo piezas necesarias para esta tarea
+```
+
+Tres piezas, 27 palabras. Con el ruido serían 60: más del doble, y la mitad de ese texto no cambia en nada la respuesta que esperas. Ahora el rojo — el error humano clásico, incluirlo todo «por si acaso»:
+
+```sh
+node errores/contexto-inflado.js
+echo $?
+```
+
+Salida real (2026-10-22):
+
+```text
+piezas incluidas: 5 de 5
+palabras del contexto: 46
+necesarias de verdad: 3
+✗ pieza innecesaria: historia: el módulo nació en 2024 para ventas y hoy lo usa operaciones
+✗ pieza innecesaria: archivo completo de 300 líneas del que se extrajo el fragmento
+contexto refutado: 2 piezas no son necesarias para esta tarea
+codigo=1
+```
+
+El comprobador no adivina: las piezas vienen **declaradas** con su necesidad, y ahí está el ejercicio real de formulación — antes de pegar contexto en el prompt, decides pieza a pieza si es necesaria para **esta** tarea. Si no lo es, no se pega. El ruido también ocupa ventana y dinero (m1/l03), y su efecto en la respuesta no es cero (m1/l04).
+
+### El contexto mínimo también es una frontera
+
+Mandar el contexto exacto tiene un segundo efecto, menos obvio: acota la respuesta. Si solo llevas la función `normalizarNombre` y la convención ESM, la probabilidad de que el asistente «mejore» el resto del archivo baja, porque el resto del archivo no está. En l04 formalizarás esa frontera con `archivosPermitidos`; el contexto mínimo es su versión preventiva: lo que no se muestra, con menos probabilidad se toca.
+
+Advierte la honestidad del método: este comprobador verifica que **tú** no arrastras ruido. No garantiza que el modelo ignore lo que sabe — solo garantiza que tu encargo no le da excusas. Es lo mismo que la verificación de m1/l05: controlas tu entrada, juzgas por la salida.
+
+## Ejercicio
+
+Mide el contexto mínimo, incluye después la historia como si fuera necesaria — observa el crecimiento — y quítala de nuevo.
+
+```sh
+mkdir taller && cd taller
+cp ../ejemplos/contexto-minimo.js .
+node contexto-minimo.js | tail -2
+perl -0pi -e 's/(historia: el módulo nació en 2024 para el equipo de ventas y luego pasó a operaciones",\s*necesaria: )false/${1}true/' contexto-minimo.js
+node contexto-minimo.js
+perl -0pi -e 's/(historia: el módulo nació en 2024 para el equipo de ventas y luego pasó a operaciones",\s*necesaria: )true/${1}false/' contexto-minimo.js
+node contexto-minimo.js | tail -2
+```
+
+Esto se cumple cuando:
+
+- la primera y la última ejecución imprimen `piezas seleccionadas: 3 de 5` y `palabras del contexto: 27 (con el ruido serían 60)`;
+- la ejecución intermedia imprime `piezas seleccionadas: 4 de 5` y `palabras del contexto: 43 (con el ruido serían 60)`;
+- puedes explicar qué compran esas 16 palabras de más: nada que cambie la respuesta, porque la historia del módulo no es información que la tarea necesita.
+
+Pista: si `perl` no está disponible, cambia a mano el `necesaria: false` de la pieza de la historia (línea 44) y reviértelo después.
+
+## Solución explicada
+
+La secuencia de arriba, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- mínimo (3 de 5) ---
+piezas seleccionadas: 3 de 5
+palabras del contexto: 27 (con el ruido serían 60)
+
+--- con la historia marcada como necesaria (4 de 5) ---
+piezas candidatas: 5
+ ✓ necesaria — fragmento del archivo existente: export function normalizarNombr…
+ ✓ necesaria — convención del proyecto: módulos ESM, funciones puras, nombres e…
+ ✓ necesaria — comando de verificación: node --test normalizar-nombre.test.js…
+ ✓ necesaria — historia: el módulo nació en 2024 para el equipo de ventas y lue…
+ ✗ ruido   — el archivo completo de 300 líneas del que se extrajo el fragment…
+piezas seleccionadas: 4 de 5
+palabras del contexto: 43 (con el ruido serían 60)
+contexto mínimo: solo piezas necesarias para esta tarea
+
+--- mínimo otra vez (3 de 5) ---
+piezas seleccionadas: 3 de 5
+palabras del contexto: 27 (con el ruido serían 60)
+```
+
+Por qué la historia pesa 16 palabras y no cambia nada: el modelo no necesita saber cuándo nació el módulo para normalizar un nombre; esa información solo sería útil si la tarea fuera «decide si el módulo sigue siendo útil» — y aun así, sería una tarea distinta. El criterio de pertinencia es **contrapreguntar a la tarea**: ¿qué decisión de la tarea cambia si esta pieza desaparece? Si ninguna, es ruido. El archivo completo falla por la misma razón y con agravante: 300 líneas de las que solo importan 5 diluyen el fragmento que sí importa.
+
+Errores típicos al resolverlo:
+
+- **Marcar «necesaria» por costumbre**: «siempre pego el archivo entero» es costumbre, no necesidad. La contrapregunta es por tarea, no por persona.
+- **Pegar contexto sin recortar**: el fragmento debe empezar y terminar en la función. Un archivo «medio pegado» confunde más que dos archivos bien recortados.
+- **Ocultar el ruido en la instrucción**: mover la historia al texto de la tarea sigue siendo ruido, solo que ahora contaminando la instrucción (l01 la mediría con más caracteres y la aprobaría — el comprobador es grosero; tú no lo seas).
+- **Olvidar la convención**: la pieza más saltada. El asistente escribe `const` donde tu proyecto usa `let` no por torpeza, porque nadie le dijo la convención. Una línea ahorra un ida y vuelta.
+- **Confundir mínimo con escaso**: si la tarea necesita dos fragmentos por cómo está estructurado el código, dos fragmentos. Mínimo es «lo necesario», no «lo más pequeño posible».
+
+## Cómo verificarlo
+
+1. Prepara el taller con la copia editable (comandos del ejercicio).
+
+2. Ejecuta las tres fases y compara los recuentos:
+
+   ```sh
+   node contexto-minimo.js
+   ```
+
+   Esperado: `3 de 5` y `27` palabras en mínimo; `4 de 5` y `43` al incluir la historia.
+
+3. Confirma que el rojo del módulo sigue en rojo:
+
+   ```sh
+   node errores/contexto-inflado.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `contexto refutado: 2 piezas no son necesarias para esta tarea` y `codigo=1`.
+
+4. Aplica el método a una tarea tuya: lista las piezas que estás pensando mandar, márcalas una a una con la contrapregunta (¿qué decisión de la tarea cambia sin esta pieza?), y cuenta las palabras de las que sobreviven. Registra el antes y el después: es la segunda pieza de tu serie del entregable.
+
+## Errores comunes
+
+- **«Por si acaso»**: la frase que convierte contexto en ruido. Si el «si acaso» no es ninguna decisión concreta de la tarea, no se pega.
+- **Contexto de otra tarea**: arrastrar el fragmento de la tarea anterior «porque ya está pegado». Cada tarea se formula con su contexto; la conversación no es memoria compartida garantizada (m1/l03: la ventana no es memoria).
+- **Medir en lugar de juzgar**: 27 palabras no es un récord que batir; es el resultado de haber quitado lo que no hacía falta. Si una tarea legítimamente necesita 40, usa 40 — el comprobador de l06 admite hasta 3 piezas, no un número mágico de palabras.
+- **Pegar código que no compila**: un fragmento recortado a medias (función sin cerrar) invita al asistente a adivinar. Recorta en fronteras de sintaxis completas.
+- **Olvidar el comando de verificación**: sin él, la tarea no puede cerrarse sola — en l05 verás que una tarea sin comando verificable no es pequeña, es pendiente.
+
+## Fuentes
+
+- [OpenAI: Prompt engineering](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Secciones «Include relevant context information» (acotar la respuesta a un conjunto de recursos determinado) y «Planning for the context window» (la ventana se mide en tokens y es finita).
+
+## Siguientes pasos
+
+- Siguiente lección: [l03 «Criterios de aceptación ejecutables»](/curriculo/n1/m2/l03-criterios-de-aceptacion-ejecutables/) — el contexto orienta al asistente; los criterios deciden si acertó. Los escribes antes que el código y se ejecutan contra un borrador plausible.
+- Proyecto longitudinal: tu serie del entregable llevará, por tarea, su contexto mínimo con la contrapregunta aplicada pieza a pieza.

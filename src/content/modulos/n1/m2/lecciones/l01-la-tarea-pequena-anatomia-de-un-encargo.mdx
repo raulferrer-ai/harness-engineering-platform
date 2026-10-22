@@ -1,0 +1,177 @@
+---
+titulo: "La tarea pequeña: anatomía de un encargo"
+resumen: "Una tarea que un asistente puede resolver verificablemente tiene tres piezas: una instrucción concreta, un entregable nombrable y criterios observables. Ejecutas el comprobador de anatomía sobre tres tareas bien formadas, rompes una a propósito — queda en rojo con código 1 — y la corriges hasta dejar las tres en verde."
+nivel: "n1"
+modulo: "m2"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Reconocer las tres piezas de una tarea pequeña: instrucción, entregable y criterios"
+  - "Detectar una instrucción vaga antes de mandarla al asistente"
+  - "Ejecutar el comprobador de anatomía y leer su veredicto en verde y en rojo"
+prerrequisitos:
+  - "n1/m1/l06-nota-tecnica-con-fuentes"
+actualizado: "2026-10-22"
+tags:
+  - "tareas"
+  - "instrucciones"
+  - "entregable"
+  - "criterios"
+fuentes:
+  - titulo: "OpenAI — Prompt engineering"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+  - titulo: "Anthropic — Prompt engineering overview"
+    url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una tarea pequeña es un encargo que el asistente puede resolver **sin adivinar nada**: lleva una **instrucción concreta** (qué hacer, con nombres reales), **un entregable nombrable** (qué se recibe al terminar) y **criterios observables** (cómo se ve que está terminada). Si falta cualquiera de las tres, el asistente rellena el hueco con suposiciones — y las suposiciones de un modelo son, por definición, no verificables. `ejemplos/anatomia.js` comprueba esa anatomía en tres tareas; su rojo `errores/tarea-ambigua.js` muestra qué detecta cuando el encargo es «arregla el login».
+
+## Conceptos
+
+### Las tres piezas de un encargo
+
+M1 te enseñó que el modelo responde según el contexto que recibe (l04) y que su prosa solo se juzga ejecutándola (l05). La tarea pequeña aplica ambas lecciones a la inversa: en lugar de improvisar el contexto y discutir el resultado, escribes **antes** un encargo que ya trae su juicio dentro. Las tres piezas:
+
+1. **Instrucción concreta**: qué hacer, con el nombre real de la función, del archivo o del comando. «Escribe una función normalizarNombre(texto) que devuelve el texto con un solo espacio entre palabras y la primera letra de cada palabra en mayúscula» dice lo mismo que «arregla los nombres», pero solo la primera es ejecutable por alguien que no está en tu cabeza.
+2. **Un entregable nombrable**: qué se recibe al terminar, en singular. «Un archivo normalizar-nombre.js que exporta normalizarNombre». Dos entregables son dos tareas — verás en l04 cómo el asistente los entrega igual y cómo eso rompe la revisión.
+3. **Criterios observables**: de tres a cinco comprobaciones con entrada y salida esperada. «“Ana maría” → “Ana María”». Los criterios no son decoración: en l03 los convertirás en pruebas que se ejecutan.
+
+La guía de prompt engineering de OpenAI recomienda descomponer la petición en subpeticiones y confirmar que cada una se completa (fuente consultada el 2026-10-22); el overview de Anthropic asume, antes de cualquier refinamiento, «una definición clara de los criterios de éxito del caso de uso» (fuente consultada el 2026-10-22). La anatomía de tres piezas es esa descomposición llevada al formato mínimo de un encargo de desarrollo.
+
+### El comprobador de anatomía
+
+`ejemplos/anatomia.js` codifica las tres piezas como comprobaciones: instrucción de al menos 40 caracteres, entregable con longitud positiva y criterios en número de 1 a 5. Los 40 caracteres son **una regla del curso, no una ley de la naturaleza**: es el detector grosero que separa «Arregla el login.» (17 caracteres) de cualquier instrucción que ya nombres algo. Lo que importa no es el número sino lo que detecta: una instrucción que no llega a nombrar ni el archivo ni el resultado.
+
+```sh
+node anatomia.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+✓ tarea-1: instrucción (149 caracteres), 1 entregable, 3 criterios
+✓ tarea-2: instrucción (135 caracteres), 1 entregable, 3 criterios
+✓ tarea-3: instrucción (135 caracteres), 1 entregable, 3 criterios
+anatomía correcta: 3 de 3 tareas
+```
+
+Tres tareas, tres anatomías correctas. Ahora la simetría: el rojo `errores/tarea-ambigua.js` manda la misma comprobación sobre un encargo real de los malos.
+
+```sh
+node errores/tarea-ambigua.js
+echo $?
+```
+
+Salida real (2026-10-22):
+
+```text
+✗ tarea-ambigua: instrucción vaga (17 caracteres; el curso exige 40)
+✗ tarea-ambigua: sin entregable nombrable: no se sabe qué se recibe
+tarea no formulable: un asistente tendría que adivinar qué entregar y cuándo parar
+codigo=1
+```
+
+Fíjate en qué **no** critica el comprobador: la tarea «que funcione bien» tiene un criterio, y el criterio no está vacío. El comprobador no evalúa la calidad del criterio, evalúa la anatomía. La calidad ejecutable llega en l03; aquí solo construyes el esqueleto.
+
+### Tamaño pequeño ≠ tarea fácil
+
+Pequeño no significa trivial: normalizar un nombre es pequeño, pero no es vacío — tiene fronteras (¿qué pasa con «cARLOS lÓPEZ»?), tiene casos límite (cadena vacía) y tiene un fallo binario que esconder (l03 lo mostrará contra un borrador). Pequeño significa **acotado**: un entregable que una persona puede revisar entero y una instrucción que no da lugar a decisiones de diseño abiertas. Es el mismo instinto que usabas en `n0/m5` cuando partías un diff en revisiones de 20 minutos; aquí lo aplicas al encargo antes de que exista el diff.
+
+## Ejercicio
+
+Toma una copia de `anatomia.js`, rompe la instrucción de la tarea-3 y observa el rojo; después restáuela y vuelve al verde.
+
+```sh
+mkdir taller && cd taller
+cp ../ejemplos/anatomia.js .
+perl -0pi -e 's/"Escribe una función sumaDecimales\(a, b\) que devuelve a \+ b redondeada a 2 decimales sin error binario en los casos de prueba indicados\."/"Suma los números bonito."/' anatomia.js
+node anatomia.js
+echo "codigo=$?"
+perl -0pi -e 's/"Suma los números bonito."/"Escribe una función sumaDecimales(a, b) que devuelve a + b redondeada a 2 decimales sin error binario en los casos de prueba indicados."/' anatomia.js
+node anatomia.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime `✗ tarea-3: instrucción vaga (24 caracteres; el curso exige 40)` y termina con `codigo=1`;
+- la segunda imprime `anatomía correcta: 3 de 3 tareas` y termina con `codigo=0`;
+- puedes explicar por qué «Suma los números bonito.» es vaga: no nombra la función, no nombra el archivo y «bonito» no es una salida comprobable.
+
+Pista: si `perl` no está disponible, haz los dos cambios en `anatomia.js` con tu editor — el texto a sustituir es la línea de `instruccion` de la tarea-3.
+
+## Solución explicada
+
+La secuencia de arriba, en el directorio `taller/` que crea el propio ejercicio (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- tras romper ---
+✓ tarea-1: instrucción (149 caracteres), 1 entregable, 3 criterios
+✓ tarea-2: instrucción (135 caracteres), 1 entregable, 3 criterios
+✗ tarea-3: instrucción vaga (24 caracteres; el curso exige 40)
+anatomía correcta: 2 de 3 tareas
+codigo=1
+
+--- tras corregir ---
+✓ tarea-1: instrucción (149 caracteres), 1 entregable, 3 criterios
+✓ tarea-2: instrucción (135 caracteres), 1 entregable, 3 criterios
+✓ tarea-3: instrucción (135 caracteres), 1 entregable, 3 criterios
+anatomía correcta: 3 de 3 tareas
+codigo=0
+```
+
+Por qué funciona el detector: la comprobación mide la longitud de la instrucción recortada y la compara con 40; «Suma los números bonito.» mide 24 y cae. Es un detector grosero y por eso mismo honesto — no pretende saber si la instrucción es buena, solo si es del tamaño mínimo de un encargo. Cuando la vuelves a poner, los 135 caracteres incluyen obligatoriamente la función `sumaDecimales`, el archivo y el redondeo a dos decimales: la longitud obliga al contenido.
+
+Errores típicos al resolverlo:
+
+- **Confundir relleno con concreción**: «Escribe una función en el archivo de la izquierda que haga más o menos lo que hablamos, gracias» también pasa de 40 caracteres y sigue siendo vaga. La longitud es un detector, no un premio.
+- **Meter dos tareas en la instrucción**: «Escribe sumaDecimales y añade sus pruebas» ya son dos entregables. Las pruebas las escribes tú en l03; el asistente entrega el código.
+- **Arreglar el rojo del módulo**: `errores/tarea-ambigua.js` es la demostración del encargo malo; su salida en rojo es el mensaje. Si lo corriges, pierdes el ejemplo (como los rojos de `n0/m5` y `n1/m1`).
+
+## Cómo verificarlo
+
+1. Prepara el taller con la copia rompible (comandos del ejercicio).
+
+2. Ejecuta la anatomía rota y la corregida:
+
+   ```sh
+   node anatomia.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: rojo con `2 de 3 tareas` y `codigo=1` tras romper; verde con `3 de 3 tareas` y `codigo=0` tras corregir.
+
+3. Confirma que el rojo del módulo sigue en rojo:
+
+   ```sh
+   node errores/tarea-ambigua.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: las dos líneas `✗` y `codigo=1`.
+
+4. Aplica la anatomía a una tarea tuya: escribe instrucción, entregable y criterios de un encargo que tengas pendiente y pásalo por `revisarAnatomia` (importa la función desde `anatomia.js` o reimplementa las tres comprobaciones). Registra el resultado: es la primera pieza de tu serie del entregable de l06.
+
+## Errores comunes
+
+- **Tratar la instrucción como conversación**: «¿me podrías hacer un favor con los nombres?» es un turno de chat, no una tarea. La instrucción debe sobrevivir a que nadie esté al otro lado.
+- **Entregables en plural disfrazados**: «un archivo con la función y sus pruebas» suena a uno y son dos artefactos con dos responsabilidades. Una tarea, un entregable.
+- **Criterios que repiten la instrucción**: «hace la normalización» no añade información. Un criterio nuevo siempre aporta un caso que la instrucción no cubría (fronteras, vacíos, mayúsculas).
+- **Olvidar el criterio incómodo**: si solo pones el caso feliz, el borrador del asistente pasará la anatomía y fallará igualmente. Los criterios de l03 se escriben con los casos límite incluidos — `n0/m2` ya te enseñó a buscarlos.
+- **Esperar que la anatomía valide el contenido**: el comprobador aprueba el esqueleto. Un encargo anatómicamente correcto puede seguir siendo tonto; eso lo juzgas tú, antes de mandarlo.
+
+## Fuentes
+
+- [OpenAI: Prompt engineering](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Sección «Agentic tasks»: descomponer la petición en subpeticiones y confirmar que cada una se completa.
+- [Anthropic: Prompt engineering overview](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview) — consultado el 2026-10-22. Supuestos previos: definición clara de criterios de éxito y forma de testearlos empíricamente.
+
+## Siguientes pasos
+
+- Siguiente lección: [l02 «Contexto mínimo»](/curriculo/n1/m2/l02-contexto-minimo-lo-justo-para-resolver/) — la anatomía da el esqueleto; ahora aprendes a vestirlo con el contexto exacto que la tarea necesita, ni un renglón más.
+- Proyecto longitudinal: cada tarea de tu serie del entregable pasará por este comprobador; guárdalo como puerta de entrada obligatoria de cualquier encargo que mandes a un asistente.

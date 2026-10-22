@@ -1,0 +1,209 @@
+---
+titulo: "Entregable: serie de tareas de 10 minutos con pruebas"
+resumen: "Compones las cinco lecciones en el entregable del módulo: una serie de 3 tareas con anatomía, contexto mínimo, criterios ejecutables, archivos permitidos y comando medido. La validas con comprobar-serie.js — la serie rota cae con 6 incidencias — y la corriges hasta el verde, con la medición real como cierre."
+nivel: "n1"
+modulo: "m2"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Componer una serie completa de tareas con las reglas de las cinco lecciones"
+  - "Usar el validador para diagnosticar y corregir una serie rota"
+  - "Entregar la serie verde y medida como cierre del módulo"
+prerrequisitos:
+  - "n1/m2/l05-la-verificacion-de-10-minutos"
+actualizado: "2026-10-22"
+tags:
+  - "entregable"
+  - "serie"
+  - "validador"
+  - "formulacion"
+fuentes:
+  - titulo: "Anthropic — Define success criteria and build evaluations"
+    url: "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+    fecha: "2026-10-22"
+  - titulo: "Anthropic — Prompt engineering overview"
+    url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable del módulo es una **serie de 3 a 5 tareas de 10 minutos con pruebas**: cada tarea con instrucción concreta, contexto mínimo, un entregable nombrable, criterios ejecutables, archivos permitidos y un comando `node --test`. `ejemplos/serie.js` es la referencia con sus tres implementaciones en `tareas/`; `ejemplos/comprobar-serie.js` la valida con las reglas de las cinco lecciones, y su rojo `errores/serie-rota.js` cae con 6 incidencias que convierte la formulación en algo que se puede corregir en minutos.
+
+## Conceptos
+
+### La serie: formato y reglas
+
+La serie es el mismo formato de tarea de l01 a l05, repetido por tarea y exportado como datos. `ejemplos/serie.js` contiene tres tareas reales — normalizar nombres, contar líneas y sumar decimales — cada una con sus seis piezas:
+
+```js
+{
+  id: "tarea-1",
+  titulo: "Normalizar nombres propios",
+  instruccion: "Escribe tareas/tarea-1.js con una función normalizarNombre(texto)…",
+  entregable: "un único archivo tareas/tarea-1.js que exporta normalizarNombre",
+  contexto: ["fragmento: …", "convención: …", "verificación: …"],
+  criterios: ["«Ana   maría» → «Ana María»", "…"],
+  archivosPermitidos: ["tareas/tarea-1.js"],
+  verificacion: "node --test tareas/tarea-1.test.js",
+}
+```
+
+La serie completa se comprueba con `comprobar-serie.js`, que codifica las reglas del módulo: de 3 a 5 tareas con identificadores únicos; por tarea, instrucción de 40 caracteres o más, un entregable, de 1 a 5 criterios, de 1 a 3 piezas de contexto, archivos permitidos declarados y un comando `node --test`. La guía de Anthropic pide criterios específicos, medibles y automatizables (fuente consultada el 2026-10-22); el overview de Anthropic asume esos criterios antes de cualquier refinamiento (fuente consultada el 2026-10-22); el runner de Node los ejecuta sin dependencias (fuente consultada el 2026-10-22). La serie es ese trío convertido en formato de archivo.
+
+```sh
+node comprobar-serie.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+serie válida: 3 tareas, 11 criterios, 3 comandos de verificación
+```
+
+Código `0`. Las tres implementaciones de referencia y sus suites viven en `tareas/` y pasan con `node --test` (4, 4 y 3 pruebas en verde, verificado el 2026-10-22).
+
+### La serie rota: el rojo que enseña
+
+El entregable no se demuestra solo en verde; se demuestra **diagnosticando**. `errores/serie-rota.js` es una serie con los fallos típicos de formulación — la tarea ambigua de l01, la tarea sin frontera de l04, la verificación manual de l05 — y el validador los enumera:
+
+```sh
+node comprobar-serie.js errores/serie-rota.js
+echo $?
+```
+
+Salida real (2026-10-22):
+
+```text
+✗ tarea-a: instrucción vaga (17 caracteres; el curso exige 40)
+✗ tarea-a: 6 criterios; el curso admite de 1 a 5
+✗ tarea-a: 5 piezas de contexto; el curso admite de 1 a 3
+✗ tarea-b: sin entregable nombrable
+✗ tarea-b: sin archivos permitidos declarados (sin frontera)
+✗ tarea-b: verificación «abre el navegador y comprueba a mano que va más rápido» no es un comando node --test
+serie NO válida: 6 incidencias
+codigo=1
+```
+
+Seis incidencias, dos tareas señaladas, una limpia (tarea-c). El validador es la formalización del módulo entero: cada regla que aprendiste con su demo y su rojo ahora es una línea de un comprobador que corre en milisegundos. Y como en todos los rojos del curso, **el rojo es información**: cada línea dice qué regla rompes y con qué valor, que es exactamente lo necesario para corregir.
+
+### Cerrar el ciclo como en m1/l06
+
+En `n1/m1` cerraste el módulo con una nota técnica validada por su comprobador; aquí el cierre es simétrico: la serie se **valida** (estructura y reglas) y se **mide** (ejecución real de sus comandos). La diferencia importa: `comprobar-serie.js` comprueba que la tarea está bien formulada; `verificacion-rapida.js` comprueba que sus pruebas pasan de verdad. Formulación correcta con pruebas rotas es una tarea bien escrita que nadie ha ejecutado — la mitad del ciclo. Las dos mitades, juntas, son el entregable.
+
+## Ejercicio
+
+Toma la serie rota, pásala por el validador, corrígela hasta el verde y confirma que la referencia del módulo sigue intacta.
+
+```sh
+mkdir taller && cd taller
+mkdir errores
+cp ../ejemplos/comprobar-serie.js ../ejemplos/serie.js .
+cp ../ejemplos/errores/serie-rota.js errores/
+node comprobar-serie.js errores/serie-rota.js
+echo "codigo=$?"
+node comprobar-serie.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime las 6 líneas `✗` y `serie NO válida: 6 incidencias` con `codigo=1`;
+- la segunda valida la referencia copiada (`serie.js`) e imprime `serie válida: 3 tareas, 11 criterios, 3 comandos de verificación` con `codigo=0`;
+- tras corregir `errores/serie-rota.js` (ver solución), `node comprobar-serie.js errores/serie-rota.js` imprime `serie válida: 3 tareas, 7 criterios, 3 comandos de verificación` y `codigo=0`;
+- puedes señalar, incidencia a incidencia, qué regla de qué lección corrige cada cambio.
+
+## Solución explicada
+
+La corrección de la serie rota, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- rota ---
+✗ tarea-a: instrucción vaga (17 caracteres; el curso exige 40)
+✗ tarea-a: 6 criterios; el curso admite de 1 a 5
+✗ tarea-a: 5 piezas de contexto; el curso admite de 1 a 3
+✗ tarea-b: sin entregable nombrable
+✗ tarea-b: sin archivos permitidos declarados (sin frontera)
+✗ tarea-b: verificación «abre el navegador y comprueba a mano que va más rápido» no es un comando node --test
+serie NO válida: 6 incidencias
+codigo=1
+
+--- corregida ---
+serie válida: 3 tareas, 7 criterios, 3 comandos de verificación
+codigo=0
+```
+
+La corrección, incidencia a incidencia:
+
+- **tarea-a** (lección l01, l02): la instrucción vaga se sustituye por una que nombra `src/login.js`, la validación y el error 400 (148 caracteres); el entregable pasa a ser un único archivo; los 6 criterios bajan a 3 con entrada y salida; las 5 piezas de contexto bajan a 3 (fragmento, convención, verificación).
+- **tarea-b** (lecciones l01, l04, l05): «mejorar el rendimiento» se convierte en una tarea con entregable único (`src/informe.js` con la medición añadida), un criterio comprobable (el archivo de salida contiene «informe: » y « ms»), `archivosPermitidos: ["src/informe.js"]` y un comando `node --test informe.test.js` en lugar de la comprobación manual.
+- **tarea-c** no se toca: ya cumplía las reglas. El validador distingue lo que está bien de lo que no — también eso es información.
+
+Errores típicos al resolverlo:
+
+- **Parchear el validador en lugar de la serie**: tocar `comprobar-serie.js` para que deje de quejarse es hacer trampa con los propios ojos (el mismo error de relajar criterios en l03). El validador es el juez; se corrige la causa, no el juez.
+- **Subsanar sin cumplir el requisito**: alargar la instrucción con relleno hasta pasar los 40 caracteres deja el detector satisfecho y el problema intacto. Cada corrección debe cambiar la **decisión** de la tarea, no solo el contador.
+- **Tocar la referencia del módulo**: la `serie.js` de `ejemplos/` y sus implementaciones de `tareas/` son el estándar; se copian al taller y allí se experimenta.
+- **Dejar la tarea-c como única tarea válida**: una tarea de las tres no es serie. El entregable admite de 3 a 5 — el mínimo es 3 precisamente para que practiques la formulación más de una vez.
+- **Entregar sin medir**: la serie corregida está formulada; si sus comandos no corren en tu máquina (los `.test.js` de `tareas/` no están copiados, por ejemplo), el entregable es a medias. Copia la suite o escribe la tuya.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el validador y la serie rota (comandos del ejercicio).
+
+2. Ejecuta el diagnóstico y la referencia:
+
+   ```sh
+   node comprobar-serie.js errores/serie-rota.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: 6 incidencias y `codigo=1`. Después, desde `ejemplos/`:
+
+   ```sh
+   node comprobar-serie.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `serie válida: 3 tareas, 11 criterios, 3 comandos de verificación` y `codigo=0`.
+
+3. Corrige la serie del taller hasta el verde y vuelve a medir:
+
+   ```sh
+   node comprobar-serie.js errores/serie-rota.js
+   ```
+
+   Esperado: `serie válida: 3 tareas, 7 criterios, 3 comandos de verificación` y `codigo=0`.
+
+4. Escribe **tu propia serie** de 3 a 5 tareas para tu proyecto — con sus suites `node:test` — y pásala por las dos puertas:
+
+   ```sh
+   node comprobar-serie.js mi-serie.js
+   node verificacion-rapida.js   # adaptado a tu serie
+   ```
+
+   Esperado: `serie válida` y `codigo=0` en la primera; todas las tareas en `✓` en la segunda. Esa serie es tu entregable del módulo.
+
+## Errores comunes
+
+- **Serie de relleno**: tres tareas inventadas para cumplir el formato. La serie es para tu proyecto real; las de `ejemplos/` son la referencia, no la copia.
+- **Criterios que repiten la instrucción en las tres tareas**: cada criterio debe aportar un caso nuevo. Si tus nueve criterios son nueve paráfrasis, vuelve a l03.
+- **Verificar solo la estructura**: `serie válida` no dice que las pruebas pasen; `verificacion-rapida.js` sí. Las dos puertas, siempre.
+- **Olvidar el contexto mínimo al escribir la serie**: a veces se rellenan las tres piezas de contexto por inercia. Contrapregunta pieza a pieza (l02) — hay tareas que necesitan dos y otras que necesitan una.
+- **Entregar la serie sin ejecutar sus suites**: el entregable son las tareas **y** sus pruebas en verde; una suite rota en el entregable es como un diff sin CI (`n0/m5`).
+
+## Fuentes
+
+- [Anthropic: Define success criteria and build evaluations](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests) — consultado el 2026-10-22. Criterios específicos, medibles y automatizables; el ciclo criterios → evaluaciones → refinamiento.
+- [Anthropic: Prompt engineering overview](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview) — consultado el 2026-10-22. Supuestos previos: criterios de éxito definidos y forma de testearlos empíricamente antes de iterar.
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. Suites con `node:test` y ejecución masiva con `node --test`.
+
+## Siguientes pasos
+
+- Siguiente módulo: [n1/m3 «Revisar el código generado»](/curriculo/n1/m3/) — la tarea bien formulada produce entregas; ahora aprendes a revisarlas: diffs, dependencias, edge cases y el checklist que separa aceptar de devolver.
+- Proyecto longitudinal: con esta serie cierras el arco de `n1/m1`–`n1/m2`: primero entendiste al asistente (m1), ahora lo formulas (m2); en `n1/m3` lo revisas. Las tres piezas del trabajo verificable con IA.

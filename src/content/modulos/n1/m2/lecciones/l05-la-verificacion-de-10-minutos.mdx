@@ -1,0 +1,180 @@
+---
+titulo: "La verificación de 10 minutos"
+resumen: "Una tarea solo es pequeña si también es pequeña de comprobar: un comando, criterios ejecutables y milisegundos medidos. Ejecutas el medidor sobre la serie — 256 ms en total frente al límite de 600000 — y rompes un comando de verificación para ver cómo el medidor rechaza una tarea que nadie puede comprobar."
+nivel: "n1"
+modulo: "m2"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Aplicar la prueba de los 10 minutos como criterio de tamaño de una tarea"
+  - "Medir la duración real de la verificación con node --test"
+  - "Reconocer una tarea no verificable: comando ausente, inexistente o manual"
+prerrequisitos:
+  - "n1/m2/l04-acotar-el-alcance-fronteras-de-la-tarea"
+actualizado: "2026-10-22"
+tags:
+  - "verificacion"
+  - "limite"
+  - "medicion"
+  - "node-test"
+fuentes:
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+  - titulo: "OpenAI — Prompt engineering: Coding"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La última prueba de tamaño de una tarea pequeña es su **verificación**: un solo comando `node --test`, de 1 a 5 criterios y una duración medida en milisegundos. Si comprobar la entrega requiere levantar entornos, pedir a mano o esperar, la tarea no es pequeña — es grande con maquillaje. `ejemplos/verificacion-rapida.js` ejecuta los comandos de la serie entera y la mide: 256 ms en total, frente al límite del curso de 600000 ms (10 minutos).
+
+## Conceptos
+
+### La regla de los 10 minutos
+
+El nombre del módulo viene de ahí: **tarea de 10 minutos** significa que su verificación entera cabe en minutos, no en horas. La regla del curso tiene tres condiciones, todas comprobables:
+
+1. **Un comando**: la tarea declara `verificacion: "node --test tareas/tarea-1.test.js"`. Uno. Si la verificación es «ejecuta el servidor, abre el navegador, comprueba el formulario y luego corre los tests», son cinco pasos y ningún código de salida.
+2. **Criterios de 1 a 5**: ya viste en l01 por qué el comprobador impone el techo. Cinco criterios son una lista que una persona lee de un vistazo; quince son un plan de pruebas.
+3. **Duración medida**: el límite son 10 minutos (600000 ms); las suites reales de este módulo tardan decenas de milisegundos. El margen no es el mérito — la medición es el mérito, porque convierte «rápido» en un número.
+
+El runner de pruebas de Node es lo que hace esto gratis: viene en la librería estándar, no instala nada y devuelve un código de salida que distingue verde de rojo (fuente consultada el 2026-10-22).
+
+### El medidor con reloj
+
+`ejemplos/verificacion-rapida.js` toma la serie de `serie.js`, ejecuta el comando de cada tarea con `spawnSync` y cronometra cada ejecución con `performance.now()` — tiempo real de proceso, no una estimación:
+
+```sh
+node verificacion-rapida.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+✓ tarea-1: node --test tareas/tarea-1.test.js → 4 pruebas en verde en 98 ms
+✓ tarea-2: node --test tareas/tarea-2.test.js → 4 pruebas en verde en 76 ms
+✓ tarea-3: node --test tareas/tarea-3.test.js → 3 pruebas en verde en 82 ms
+verificación total: 256 ms (límite: 600000 ms = 10 minutos)
+3 tareas verificables en mucho menos de 10 minutos
+```
+
+256 ms para verificar la serie entera. Los milisegundos concretos variarán en tu máquina — es tiempo real de proceso — pero el orden de magnitud es el punto: la verificación de una tarea pequeña **es instantánea**, y por eso puede ejecutarse cada vez que el asistente entrega algo.
+
+### «Done» no es evidencia
+
+¿Por qué medir si ya hay verde? Porque el escepticismo de m1 se aplica también a la herramienta. OpenAI lo advierte en su sección de coding: valida los parches con cuidado, **porque las herramientas de aplicación de cambios pueden devolver «Done» incluso cuando el cambio falla** (fuente consultada el 2026-10-22). El asistente dirá «hecho»; su editor dirá «aplicado»; la terminal dirá «Done». Ninguno de los tres es evidencia. La evidencia es tu comando, tu código de salida y tu medición — y si la verificación tarda demasiado, no la ejecutarás siempre, y entonces los tres mensajes anteriores pasarán a ser tu única «verificación», que es exactamente lo que este módulo existe para impedir.
+
+### El rojo: una tarea que nadie puede comprobar
+
+La contraparte de la regla es reconocer la tarea no verificable. Ejecuta esto en un taller (o mira la salida del ejercicio de esta lección): si el comando de la tarea-2 apunta a una prueba que no existe, el medidor no se deja engañar por la rapidez del proceso — 31 ms — porque **rápido y vacío no es verificado**:
+
+```text
+✗ tarea-2: node --test tareas/prueba-que-no-existe.test.js → 0 pruebas en verde en 31 ms
+```
+
+Cero pruebas en verde no es una verificación lenta: es una verificación ausente. El medidor termina en rojo con `serie no verificable dentro del límite de 10 minutos`. La misma lógica rechazaría «abre el navegador y comprueba a mano»: no hay comando, no hay código de salida, no hay verificación — el validador de l06 ya lo tacha en la serie rota.
+
+## Ejercicio
+
+Mide la serie, rompe el comando de verificación de la tarea-2 y restáuralo.
+
+```sh
+mkdir taller && cd taller
+mkdir tareas errores
+cp ../ejemplos/serie.js ../ejemplos/verificacion-rapida.js .
+cp ../ejemplos/tareas/tarea-*.js tareas/
+node verificacion-rapida.js
+echo "codigo=$?"
+perl -0pi -e 's/(id: "tarea-2",[\s\S]*?verificacion: )"node --test tareas\/tarea-2\.test\.js"/${1}"node --test tareas\/prueba-que-no-existe.test.js"/' serie.js
+node verificacion-rapida.js
+echo "codigo=$?"
+perl -0pi -e 's/"node --test tareas\/prueba-que-no-existe\.test\.js"/"node --test tareas\/tarea-2.test.js"/' serie.js
+node verificacion-rapida.js | tail -2
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime `✓ tarea-1`, `✓ tarea-2`, `✓ tarea-3`, `3 tareas verificables en mucho menos de 10 minutos` y `codigo=0`;
+- la segunda imprime `✗ tarea-2: node --test tareas/prueba-que-no-existe.test.js → 0 pruebas en verde` y `codigo=1`;
+- la tercera restaura el verde completo;
+- puedes explicar por qué el proceso tardó 31 ms en la fase roja y aun así se rechazó: el comprobador no mide solo velocidad, cuenta pruebas en verde.
+
+Pista: los comandos copian los `.test.js` de `tareas/` incluidos; el `cp` con comodín los lleva todos.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- serie entera (verde) ---
+✓ tarea-1: node --test tareas/tarea-1.test.js → 4 pruebas en verde en 98 ms
+✓ tarea-2: node --test tareas/tarea-2.test.js → 4 pruebas en verde en 76 ms
+✓ tarea-3: node --test tareas/tarea-3.test.js → 3 pruebas en verde en 82 ms
+verificación total: 256 ms (límite: 600000 ms = 10 minutos)
+3 tareas verificables en mucho menos de 10 minutos
+codigo=0
+
+--- comando de tarea-2 roto (rojo) ---
+✓ tarea-1: node --test tareas/tarea-1.test.js → 4 pruebas en verde en 73 ms
+✗ tarea-2: node --test tareas/prueba-que-no-existe.test.js → 0 pruebas en verde en 31 ms
+✓ tarea-3: node --test tareas/tarea-3.test.js → 3 pruebas en verde en 97 ms
+verificación total: 201 ms (límite: 600000 ms = 10 minutos)
+serie no verificable dentro del límite de 10 minutos
+codigo=1
+
+--- comando restaurado ---
+verificación total: 218 ms (límite: 600000 ms = 10 minutos)
+3 tareas verificables en mucho menos de 10 minutos
+codigo=0
+```
+
+Por qué el medidor detecta el vacío: `medirVerificacion` parsea el resumen del runner (`pass N`, `fail N`) y exige `fail === 0` **y** `status === 0`. Un comando que no encuentra la suite produce `pass 0` y estado de proceso distinto de cero — la bandera `✓` exige verde, no silencio. Fíjate además en un detalle: la serie rota tardó 201 ms en total, menos que la verde de 256 ms. **La verificación rota fue más rápida** — y sigue siendo una derrota. La velocidad no es la virtud; es el presupuesto.
+
+Errores típicos al resolverlo:
+
+- **Medir solo el tiempo**: el ms del proceso que no ejecuta pruebas es ruído. Primero verde (`fail 0` y estado `0`), después el cronómetro.
+- **Confundir «rápido» con «verificado»**: 31 ms de suite inexistente son el ejemplo canónico. El número solo significa algo con pruebas detrás.
+- **Verificación manual «solo esta vez»**: la primera vez es manual, la segunda también, y en la cuarta ya no la haces y entregas a ciegas. Si no cabe en un comando, se automatiza o se parte la tarea.
+- **Cinco comandos encadenados**: «corre los tests y el linter y el build y el informe» no es una verificación de tarea pequeña. Si de verdad necesitas el linter, esa es otra comprobación del proyecto, no de esta tarea.
+- **Tocar el límite del curso como ley**: 10 minutos es la regla del módulo para tareas de aprendizaje; en tu trabajo real el límite puede ser menor. Lo que no cambia: **medido, con comando y en verde**.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la serie y el medidor (comandos del ejercicio).
+
+2. Ejecuta la medición completa:
+
+   ```sh
+   node verificacion-rapida.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: tres líneas `✓`, un total en ms y `codigo=0`. Los ms variarán; los `✓` y el código no.
+
+3. Ejecuta la fase rota y restaurada (pasos 2 y 3 del ejercicio).
+
+   Esperado: `✗ tarea-2 ... 0 pruebas en verde` con `codigo=1`; tras restaurar, `3 tareas verificables` y verde.
+
+4. Cronometra la verificación de una tarea tuya con `time node --test <tu-suite>` y registra el ms. Si no tienes aún la suite, el tiempo es ∞ y la tarea no pasa la prueba de tamaño — escríbela (l03) antes de dar la tarea por formulada.
+
+## Errores comunes
+
+- **Declarar un comando que nadie ejecuta**: el `verificacion` de la serie es una promesa hasta que la corres. El validador de l06 exige el formato; el medidor de esta lección exige la ejecución.
+- **Suite que pasa con un stub vacío**: una suite verde que no prueba nada da verde falso. Los criterios de l03 morden o la verificación es decorativa.
+- **Medir en frío y condenar**: la primera ejecución incluye arranque de proceso. Lo que importa es el orden de magnitud — ms, no minutos — y la estabilidad del verde.
+- **Cero pruebas leído como cero fallos**: `pass 0 · fail 0` no es verde; es la ausencia de veredicto. El medidor los trata por separado, y así deben tratarlo tus ojos.
+- **Crecer sin darse cuenta**: si una tarea necesita dos suites y tres comandos, ya no es de 10 minutos. Parte la tarea; el formato de la serie (l06) admite hasta 5 tareas — úsalas.
+
+## Fuentes
+
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. Ejecución de suites con `node --test`, resumen `pass`/`fail` y código de salida.
+- [OpenAI: Prompt engineering](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Sección «Coding»: validar los parches con cuidado porque la herramienta puede devolver «Done» aunque el cambio falle.
+
+## Siguientes pasos
+
+- Siguiente lección: [l06 «Entregable: serie de tareas de 10 minutos con pruebas»](/curriculo/n1/m2/l06-entregable-serie-de-tareas-de-10-minutos-con-pruebas/) — anatomía, contexto, criterios, alcance y verificación se juntan en la serie completa, con su validador y su medidor.
+- Proyecto longitudinal: tu serie ya tiene los ingredientes de estas cinco lecciones; en l06 se componen y se pasan por el validador hasta el verde.

@@ -31,6 +31,11 @@ import { afterAll, describe, expect, it } from "vitest";
  *   (AssertionError sin mensaje, estado compartido, TypeError con traza); las
  *   implementaciones `descuento.js`/`presupuesto.js` se verifican por
  *   importación desde sus suites;
+ * - H13 añade `n0/m7` (fundamentos web, bucle 127.0.0.1) y H14 `n1/m2`
+ *   (tareas pequeñas): demos con solo librería estándar que formulan y
+ *   verifican encargos — anatomía, contexto mínimo, criterios primero,
+ *   alcance, serie validada y medida— más sus rojos deliberados; las suites
+ *   de `tareas/` se ejecutan con `node --test` desde los drivers;
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -64,6 +69,10 @@ const dirEjemplosM6 = fileURLToPath(
 
 const dirEjemplosM7 = fileURLToPath(
   new URL("../../src/content/modulos/n0/m7/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosN1M2 = fileURLToPath(
+  new URL("../../src/content/modulos/n1/m2/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -1078,6 +1087,131 @@ describe("ejemplos del módulo n0/m7: fundamentos web", () => {
   });
 });
 
+describe("ejemplos del módulo n1/m2: tareas pequeñas (solo librería estándar)", () => {
+  interface DemoN1M2 {
+    fichero: string;
+    marcas: string[];
+    argumentos?: string[];
+    descripcion: string;
+  }
+
+  // H14: scripts con solo librería estándar que formulan y verifican encargos:
+  // anatomía, contexto mínimo medido en palabras, criterios en rojo→verde,
+  // alcance, la serie del entregable, su validador y su medición real.
+  const demos: DemoN1M2[] = [
+    {
+      fichero: "anatomia.js",
+      marcas: ["anatomía correcta: 3 de 3 tareas", "✓ tarea-1: instrucción (149 caracteres)"],
+      descripcion: "l01: las tres tareas con anatomía correcta",
+    },
+    {
+      fichero: "contexto-minimo.js",
+      marcas: [
+        "piezas seleccionadas: 3 de 5",
+        "palabras del contexto: 27 (con el ruido serían 60)",
+      ],
+      descripcion: "l02: el contexto mínimo contado en palabras frente al ruido",
+    },
+    {
+      fichero: "criterios-primero.js",
+      marcas: [
+        "pass 1 · fail 3",
+        "pass 4 · fail 0",
+        "borrador refutado en 3 criterios; entrega verificada en 4",
+      ],
+      descripcion: "l03: la misma suite contra el borrador (rojo) y la entrega (verde)",
+    },
+    {
+      fichero: "alcance.js",
+      marcas: ["✓ alcance respetado: 1 archivo tocado, dentro de los 1 permitidos"],
+      descripcion: "l04: la entrega queda dentro de los archivos permitidos",
+    },
+    {
+      fichero: "serie.js",
+      marcas: [
+        "serie de 3 tareas · 11 criterios · 3 comandos de verificación",
+        "tarea-3 — Suma con dos decimales exactos (3 criterios)",
+      ],
+      descripcion: "l06: la serie del entregable con sus tres tareas",
+    },
+    {
+      fichero: "comprobar-serie.js",
+      marcas: ["serie válida: 3 tareas, 11 criterios, 3 comandos de verificación"],
+      descripcion: "l06: el validador aprueba la serie de referencia",
+    },
+    {
+      fichero: "verificacion-rapida.js",
+      marcas: ["verificación total: ", "3 tareas verificables en mucho menos de 10 minutos"],
+      descripcion: "l05: los comandos de la serie ejecutados y medidos en ms",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero, ...(demo.argumentos ?? [])], {
+        cwd: dirEjemplosN1M2,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  it("errores/tarea-ambigua.js termina en 1 con la anatomía rota (rojo de l01)", () => {
+    const rojo = ejecutarNode(["errores/tarea-ambigua.js"], dirEjemplosN1M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("instrucción vaga (17 caracteres; el curso exige 40)");
+    expect(rojo.stderr).toContain("sin entregable nombrable");
+  });
+
+  it("errores/contexto-inflado.js termina en 1 con las piezas innecesarias (rojo de l02)", () => {
+    const rojo = ejecutarNode(["errores/contexto-inflado.js"], dirEjemplosN1M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("contexto refutado: 2 piezas no son necesarias para esta tarea");
+  });
+
+  it("errores/alcance-excedido.js termina en 1 con archivos fuera de la frontera (rojo de l04)", () => {
+    const rojo = ejecutarNode(["errores/alcance-excedido.js"], dirEjemplosN1M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "archivos tocados por la entrega:  src/gastos.js, src/informe.js, test/gastos.test.js, README.md",
+    );
+    expect(rojo.stderr).toContain(
+      "alcance refutado: 3 de 4 archivos tocados no estaban permitidos",
+    );
+  });
+
+  it("comprobar-serie.js rechaza la serie rota con 6 incidencias (rojo de l06)", () => {
+    const rojo = ejecutarNode(["comprobar-serie.js", "errores/serie-rota.js"], dirEjemplosN1M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("serie NO válida: 6 incidencias");
+    expect(rojo.stderr).toContain(
+      "tarea-b: verificación «abre el navegador y comprueba a mano que va más rápido» no es un comando node --test",
+    );
+  });
+
+  it("las tres suites de tareas/ pasan en verde y el borrador cae en rojo", () => {
+    for (const tarea of ["tarea-1", "tarea-2", "tarea-3"]) {
+      const verde = ejecutarNode(["--test", `tareas/${tarea}.test.js`], dirEjemplosN1M2);
+      expect(verde.status, verde.stderr).toBe(0);
+      expect(verde.stdout).toContain("fail 0");
+    }
+    const rojo = spawnSync(process.execPath, ["--test", "tareas/tarea-1.test.js"], {
+      cwd: dirEjemplosN1M2,
+      env: { ...process.env, BORRADOR: "1" },
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("fail 3");
+  });
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -1228,6 +1362,34 @@ describe("cobertura de ejemplos", () => {
     expect(archivosVerificables(dirEjemplosN1M1, [], ["nota-ejemplo.md"])).toEqual(
       [...enManifiesto].sort(),
     );
+  });
+
+  it("n1/m2: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // `serie.js` y las implementaciones de `tareas/` son los entregables bajo
+    // prueba: se verifican por importación desde el validador, el medidor y
+    // sus suites `.test.js`.
+    const enManifiesto = [
+      "anatomia.js",
+      "contexto-minimo.js",
+      "criterios-primero.js",
+      "alcance.js",
+      "serie.js",
+      "comprobar-serie.js",
+      "verificacion-rapida.js",
+      "errores/tarea-ambigua.js",
+      "errores/contexto-inflado.js",
+      "errores/alcance-excedido.js",
+      "errores/serie-rota.js",
+      "tareas/tarea-1.js",
+      "tareas/tarea-1-borrador.js",
+      "tareas/tarea-1.test.js",
+      "tareas/tarea-2.js",
+      "tareas/tarea-2.test.js",
+      "tareas/tarea-3.js",
+      "tareas/tarea-3.test.js",
+    ];
+
+    expect(archivosVerificables(dirEjemplosN1M2, ["tareas"])).toEqual([...enManifiesto].sort());
   });
 
   it("m6: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
