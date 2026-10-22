@@ -1,0 +1,171 @@
+---
+titulo: "Entregable: colección personal de fallos típicos con detección"
+resumen: "Una colección no es un archivo cualquiera: es un entregable con certificado. La lección cierra el módulo con las cuatro condiciones de `entregable.js` — bien formada, toda con comprobación, runner en verde y los tres tipos representados — y su batería: 6 scripts verdes que certifican y 4 rojos deliberados que demuestran que los detectores detectan. Ejecutas el certificador intacto, después le borras la comprobación de `f10` y ves la certificación caer con `entregable NO válido: 2 incidencias`."
+nivel: "n1"
+modulo: "m6"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Certificar la colección completa contra las cuatro condiciones del entregable"
+  - "Diagnosticar las incidencias del certificador y reparar la entrada señalada"
+  - "Ejecutar la batería completa del módulo y leer sus códigos de salida"
+prerrequisitos:
+  - "n1/m6/l05-el-detector-la-coleccion-se-ejecuta-y-decide"
+actualizado: "2026-10-22"
+tags:
+  - "entregable"
+  - "certificacion"
+  - "bateria"
+fuentes:
+  - titulo: "Node.js — Errors"
+    url: "https://nodejs.org/api/errors.html"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable del módulo es **la colección personal de 10 fallos con detección**: `fallos/fallos.json` con sus 10 entradas, `fallos/casos.js` con las funciones que se ejecutan, la librería `fallos.js` con los tres detectores y `entregable.js`, que la certifica con cuatro condiciones. La colección intacta cierra con **`entregable válido: colección personal de 10 fallos con detección`** y `codigo=0`. En el ejercicio le borras la comprobación a `f10` y la certificación cae con **`entregable NO válido: 2 incidencias`** y `codigo=1`.
+
+## Conceptos
+
+### Las cuatro condiciones del certificador
+
+`detectar.js` certifica que los fallos se detectan; `entregable.js` certifica que la **colección** está lista para entregar. Son preguntas distintas, y las cuatro se imprimen con su estado (salida real, Node v24.22.0, 2026-10-22):
+
+```text
+ ✓ colección: 10 entradas bien formadas
+ ✓ detecciones: todos los fallos declarados tienen comprobación
+ ✓ runner: 10 fallos de 10 confirmados (exit 0)
+ ✓ tipos: api-inexistente, codigo-erroneo, dependencia-inventada — los 3 del módulo
+entregable válido: colección personal de 10 fallos con detección
+```
+
+| Condición           | Qué protege                                     | Cómo falla                                       |
+| ------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| Bien formada        | `leerColeccion` exige `id`, `tipo` y `titulo`   | Traza de `JSON.parse` o del validador, en rojo   |
+| Sin huecos          | Ninguna entrada sin `comprobacion`              | `N fallos sin comprobación: fNN`                 |
+| Runner en verde     | Los detectores confirman todo                   | Las incidencias de `detectarColeccion`, tal cual |
+| Tipos representados | Las 3 familias del módulo viven en la colección | `tipos sin representación: …`                    |
+
+La segunda condición y el runner pueden señalar la misma entrada — no es duplicado: una mira la **declaración** (¿está todo escrito?) y el otro la **ejecución** (¿está todo confirmado?). Por eso el ejercicio de romper `f10` entrega **2 incidencias**: una de cada lente.
+
+### La batería: 6 verdes y 4 rojos
+
+Un módulo que enseña a detectar fallos tiene que enseñar sus propios rojos — y que sus verdes no son papeles. Los cuatro rojos **deliberados** con su error real (los tres primeros, los tipos que Node documenta en su referencia de errores: fuente consultada el 2026-10-22):
+
+| Rojo                                  | Error real en la salida                                             | Demuestra                              |
+| ------------------------------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| `errores/api-aprobada.js`             | `TypeError: fs.readFileAsync is not a function`                     | La API aprobada sin verificar revienta |
+| `errores/logica-plausible.js`         | `AssertionError … 18 !== 17.99`                                     | El caso límite que la revisión no vio  |
+| `errores/dependencia-no-resoluble.js` | `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'fecha-hora-es'` | El import del paquete inventado        |
+| `errores/fallo-sin-deteccion.js`      | `✗ f11: fallo declarado sin comprobación …` + salida `1`            | La colección que se niega a certificar |
+
+Y los seis verdes, cada uno con la marca de su lección: `patrones.js` (`10 fallos de 10 con detección`), `comprobar-api.js` (`4 APIs inventadas, 2 reales`), `plausible-erroneo.js` (`3 funciones plausibles con fallo en casos límite`), `paquetes-inventados.js` (`3 inventadas, 2 resueltas en el lock`), `detectar.js` (`10 fallos detectados, 0 sin detectar`) y `entregable.js` (`entregable válido: colección personal de 10 fallos con detección`).
+
+### Diez fallos es un piso, no un techo
+
+El entregable pide **10** porque es la dosis que cubre los tres patrones con variantes reales (4 + 3 + 3) sin inflar la colección con relleno. La colección es **personal**: crece con los fallos que tú veas caer en tus proyectos, con su misma anatomía. Y si mañana el patrón merece pruebas formales, la siguiente escalera ya existe: la suite de Node (`node:test`) sigue el mismo contrato — un runner ejecuta casos y decide con código de salida (fuente consultada el 2026-10-22).
+
+## Ejercicio
+
+Certifica la colección intacta, después bórrale la comprobación a `f10` y mira caer el certificador con sus dos incidencias. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/fallos" "$TALLER/"
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/fallos.js" "$ORIG/entregable.js" "$TALLER/"
+cd "$TALLER"
+node entregable.js fallos/fallos.json > salida1.txt; echo "codigo=$?"
+tail -1 salida1.txt
+perl -0pi -e 's/,\n      "comprobacion": \{ "paquete": "tabla-markdown-lite" \}//' fallos/fallos.json
+node entregable.js fallos/fallos.json > salida2.txt; echo "codigo=$?"
+grep -E "✗|NO válido" salida2.txt
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución da `codigo=0` y `entregable válido: colección personal de 10 fallos con detección`;
+- tras el `perl`, la segunda da `codigo=1` con ` ✗ 1 fallo sin comprobación: f10`, ` ✗ f10: fallo declarado sin comprobación — «tabla-markdown-lite declarada pero no resuelta» sólo existe en papel` y `entregable NO válido: 2 incidencias`;
+- puedes explicar de dónde sale cada incidencia (declaración vs runner) y por qué el certificador no se conforma con una sola lente.
+
+Pista: el `perl` retira exactamente `,` + el objeto `comprobacion` de `f10`; si el patrón no casa (p. ej. cambió el formato), el certificador seguirá en verde y lo sabrás porque `codigo=0`.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+codigo=0
+entregable válido: colección personal de 10 fallos con detección
+codigo=1
+ ✗ 1 fallo sin comprobación: f10
+ ✗ f10: fallo declarado sin comprobación — «tabla-markdown-lite declarada pero no resuelta» sólo existe en papel
+entregable NO válido: 2 incidencias
+```
+
+Tres cosas a mirar:
+
+1. **Las dos incidencias son el mismo agujero visto dos veces**: la condición 2 dice «falta la comprobación escrita» (declaración); el runner dice «hay un fallo que nadie sabe detectar» (ejecución). Un certificador con una sola lente se conformaría con arreglar el texto para callar a una — y la otra seguiría abierta.
+2. **El certificador imprime los ✓ que sí pasan antes de los ✗**: las condiciones 1, 3 y 4 siguen verdes (`colección`, `runner`, `tipos` — el runner confirma los otros 9 fallos; la pertenencia de tipos no se resiente). El diagnóstico no es «todo mal»: es «esto y sólo esto».
+3. **`NO válido` cierra con el número de incidencias, no con un símil**: `2 incidencias` es una cuenta que puedes comparar entre ejecuciones — 0 es la única cifra que entrega el módulo.
+
+Errores típicos al resolverlo:
+
+- **Borrar `f10` entera para que pase**: retirar la entrada del `fallos` también haría `codigo=0`, pero ya no sería la colección de 10 — y el certificador la contaría como 9. El arreglo es devolver la comprobación, no el silencio.
+- **Romper dos cosas a la vez**: al diagnosticar, un cambio por ejecución; si haces `perl` doble, las incidencias se mezclan y no sabes qué rojo vino de dónde.
+- **Certificar sin `proyecto/`**: el runner (condición 3) necesita el mini-proyecto para los detectores de dependencias; sin la copia completa, el certificador muere con traza en vez de dar su veredicto.
+- **Dar el entregable por bueno con `detectar.js` sólo**: es condición 3, no las 4. Un `f10` sin comprobación pasa desapercibido para el detector (nunca llega a ejecutarlo) y lo ve el certificador.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la colección completa, `proyecto/`, la librería y el certificador (comandos del ejercicio).
+
+2. Certifica la colección intacta:
+
+   ```sh
+   node entregable.js fallos/fallos.json > salida1.txt; echo "codigo=$?"
+   tail -1 salida1.txt
+   ```
+
+   Esperado: `codigo=0` y `entregable válido: colección personal de 10 fallos con detección`.
+
+3. Rompe `f10` (el `perl`) y vuelve a certificar:
+
+   Esperado: `codigo=1`, ` ✗ 1 fallo sin comprobación: f10`, la incidencia del runner con `«tabla-markdown-lite declarada pero no resuelta» sólo existe en papel` y `entregable NO válido: 2 incidencias`.
+
+4. Ejecuta la batería entera del módulo y lee sus códigos (desde la carpeta real `ejemplos/`):
+
+   ```sh
+   for f in patrones.js comprobar-api.js plausible-erroneo.js paquetes-inventados.js detectar.js entregable.js; do node "$f" >/dev/null 2>&1; echo "$f → codigo=$?"; done
+   for f in api-aprobada.js logica-plausible.js dependencia-no-resoluble.js fallo-sin-deteccion.js; do node "errores/$f" >/dev/null 2>&1; echo "errores/$f → codigo=$?"; done
+   ```
+
+   Esperado: los 6 verdes con `codigo=0` y los 4 rojos con `codigo=1` — diez ejecuciones, diez resultados que ya sabes de antemano.
+
+5. Entrega: vuelve a ejecutar `node entregable.js` en la colección intacta — si dice `entregable válido: colección personal de 10 fallos con detección` con `codigo=0`, el módulo está cerrado y puedes explicar cada uno de sus diez fallos sin abrir el fichero.
+
+## Errores comunes
+
+- **Confundir «certificado» con «sin rojos»**: la batería tiene 4 rojos esperados y el entregable sigue válido — el certificado es sobre la colección, no sobre que el mundo esté en verde. Los rojos del módulo son las demostraciones de que los detectores detectan.
+- **Entregar sin ejecutar la batería**: `entregable.js` certifica la colección; los otros cinco demos certifican que cada pieza enseñada sigue funcionando. Ambas corridas forman el cierre.
+- **Cerrar la colección como «terminada»**: diez fallos cubren el currículo del módulo, no tus proyectos. El valor personal empieza cuando añades el primer fallo que **tú** viste caer.
+- **Inventar entradas de relleno para llegar a 10**: una entrada que no has visto fallar tiene comprobación falsa, y el runner acabará desmintiéndola — o peor, certificándola sin que signifique nada.
+- **Olvidar el rojo al documentar**: el error real (`TypeError`, `AssertionError`, `ERR_MODULE_NOT_FOUND`) es la media. Quien repase el módulo necesita ver los cuatro rojos caer con su salida y su `codigo=1`.
+
+## Fuentes
+
+- [Node.js: Errors](https://nodejs.org/api/errors.html) — consultado el 2026-10-22. La referencia de los tipos de error de Node: `TypeError`, `AssertionError` y `ERR_MODULE_NOT_FOUND` son los tres que documentan los rojos del módulo.
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. `node:test` es la siguiente escala del mismo patrón: un runner ejecuta casos y decide con código de salida — la colección puede convertirse en suite sin cambiar de filosofía.
+
+## Siguientes pasos
+
+- Cierre del módulo: la carpeta `ejemplos/` con sus 6 verdes, 4 rojos y el certificador en verde **es** el entregable — «colección personal de 10 fallos con detección». Ejecuta `node entregable.js; echo "codigo=$?"` una última vez y guarda el `0`.
+- Siguiente paso del currículo: este es el último módulo de `n1` — repasa tu registro de sesiones (`n1/m4`) y tus reglas del repositorio (`n1/m5`) con esta colección como material: los fallos que detectas aquí son los que sus reglas deberían impedir que vuelvan a entrar.

@@ -1,0 +1,184 @@
+---
+titulo: "Dependencias inventadas: package.json contra package-lock.json"
+resumen: "El asistente añade `fecha-hora-es` al package.json como si la hubiera instalado ayer; el package-lock.json nunca la ha visto. La lección convierte esa discrepancia en detector: cada dependencia declarada se contrasta con su resolución en el lock, que es donde consta lo que npm llegó a bajar. Ejecutas `paquetes-inventados.js` — 3 inventadas, 2 resueltas — y declaras `markdown-estilos` a mano para ver el desfase entre manifiesto y lock salir en rojo."
+nivel: "n1"
+modulo: "m6"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Distinguir una dependencia declarada de una dependencia resuelta en el lock"
+  - "Comparar package.json con package-lock.json con un detector offline"
+  - "Explicar el desfase que deja un manifiesto editado a mano"
+prerrequisitos:
+  - "n1/m6/l03-codigo-plausible-pero-erroneo"
+actualizado: "2026-10-22"
+tags:
+  - "dependencias"
+  - "package-lock"
+  - "npm"
+fuentes:
+  - titulo: "npm Docs — About package-lock.json"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json/"
+    fecha: "2026-10-22"
+  - titulo: "npm Docs — npm install"
+    url: "https://docs.npmjs.com/cli/v11/commands/npm-install/"
+    fecha: "2026-10-22"
+  - titulo: "npm Docs — npm view"
+    url: "https://docs.npmjs.com/cli/v11/commands/npm-view/"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`package.json` es una **intención**: «quiero estas cinco dependencias». `package-lock.json` es el **acta**: qué resolvió npm, con qué versión, URL y `integrity`. Un paquete declarado en la primera y ausente de la segunda **nunca se instaló** — y en este módulo, casi seguro porque no está publicado. `paquetes-inventados.js` cruza los dos ficheros del mini-proyecto y cierra con **`3 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable`**. En el ejercicio declaras `markdown-estilos` a mano y luego la borras sólo del manifiesto para ver salir en rojo `package.json y el lock no coinciden` con `codigo=1`.
+
+## Conceptos
+
+### El manifiesto promete; el lock prueba
+
+npm documenta `package-lock.json` como el fichero que guarda la versión exacta instalada de cada dependencia y su origen (fuente consultada el 2026-10-22). En `lockfileVersion: 3` eso vive en el mapa `packages`: cada entrada `node_modules/<paquete>` lleva `version`, `resolved` (la URL del tarball) y `integrity` (su huella). Esas tres claves sólo existen si el paquete se bajó de verdad — son la prueba material de la instalación. El manifiesto, en cambio, es sólo prosa que cualquiera puede teclear (npm documenta su campo `dependencies` y `npm install` como el proceso que escribe el lock: fuentes consultadas el 2026-10-22).
+
+El mini-proyecto del módulo es el caso completo, declarado con su trampa:
+
+| Dependencia            | `package.json` | Raíz del lock | Entrada `node_modules/` resuelta | En registry.npmjs.org |
+| ---------------------- | -------------- | ------------- | -------------------------------- | --------------------- |
+| `fecha-hora-es`        | `1.4.0`        | sí            | **no**                           | 404                   |
+| `json-con-comentarios` | `0.9.4`        | sí            | **no**                           | 404                   |
+| `nanoid`               | `6.0.2`        | sí            | `6.0.2` + `integrity`            | 200                   |
+| `picocolors`           | `1.1.1`        | sí            | `1.1.1` + `integrity`            | 200                   |
+| `tabla-markdown-lite`  | `2.3.1`        | sí            | **no**                           | 404                   |
+
+(La columna del registro es un dato de la preparación del módulo, verificado el 2026-10-22; la lección **no** la necesita — con el lock basta, y el alcance sigue siendo offline.)
+
+### La comprobación offline: mirar el lock, no el mercado
+
+El detector de esta familia sólo pregunta una cosa: ¿existe `bloqueo.packages["node_modules/<paquete>"]`?
+
+```js
+const resuelta = bloqueo.packages?.[`node_modules/${paquete}`];
+return resuelta
+  ? { ok: false, detalle: `${paquete} está resuelta en el lock: es una dependencia real` }
+  : { ok: true, detalle: `${paquete} declarada en package.json, ausente del lock — inventada` };
+```
+
+Sin red, sin claves, sin registro: el lock local responde. Con red existiría la vía oficial `npm view <paquete> version` para preguntar al registro (fuente consultada el 2026-10-22), pero `n1` no sale de la terminal local — y no hace falta: si el paquete no está publicado, tampoco pudo aparecer en el lock. La salida intacta de la demo, real (Node v24.22.0, 2026-10-22):
+
+```text
+dependencias declaradas en …/ejemplos/proyecto/package.json:
+ ✗ fecha-hora-es — declarada, ausente del lock — nunca se instaló
+ ✗ json-con-comentarios — declarada, ausente del lock — nunca se instaló
+ ✓ nanoid — resuelta en el lock (versión 6.0.2)
+ ✓ picocolors — resuelta en el lock (versión 1.1.1)
+ ✗ tabla-markdown-lite — declarada, ausente del lock — nunca se instaló
+3 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable
+```
+
+### La raíz del lock y el desfase que sólo se ve desde fuera
+
+El lock tiene un segundo espejo: `packages[""]` — el paquete raíz — copia las `dependencies` del manifiesto. Mientras coincidan, el estado es coherente (aunque haya paquetes sin resolver). Si alguien edita `package.json` a mano, la raíz queda vieja y **el desfase es visible comparando los dos ficheros**. Esa es la única condición roja de `paquetes-inventados.js:42`: lista `falta en la raíz del lock` / `sobra en la raíz del lock`, añade `el manifiesto se editó a mano: sólo npm install actualiza el lock` y sale con `1`. Y es literal: npm reescribe el lock durante `npm install` (fuente consultada el 2026-10-22) — no a mano.
+
+## Ejercicio
+
+Declara una dependencia nueva (`markdown-estilos`) en el manifiesto **y** en la raíz del lock, mírala clasificarse como inventada; después bórrala sólo del manifiesto y observa el desfase en rojo. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp -R "$ORIG/fallos" "$TALLER/"
+cp "$ORIG/fallos.js" "$ORIG/paquetes-inventados.js" "$TALLER/"
+cd "$TALLER"
+perl -0pi -e 's/"tabla-markdown-lite": "2.3.1"\n  \}/"markdown-estilos": "3.1.0",\n    "tabla-markdown-lite": "2.3.1"\n  }/s' proyecto/package.json
+perl -0pi -e 's/"tabla-markdown-lite": "2.3.1"\n      \}/"markdown-estilos": "3.1.0",\n        "tabla-markdown-lite": "2.3.1"\n      }/s' proyecto/package-lock.json
+node paquetes-inventados.js "$TALLER/proyecto" > salida1.txt; echo "codigo=$?"
+grep -E "markdown-estilos|inventadas|coinciden" salida1.txt
+perl -0pi -e 's/"markdown-estilos": "3.1.0",\n    //' proyecto/package.json
+node paquetes-inventados.js "$TALLER/proyecto" > salida2.txt; echo "codigo=$?"
+tail -3 salida2.txt
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- tras el primer tramo, `codigo=0` con la línea ` ✗ markdown-estilos — declarada, ausente del lock — nunca se instaló` y el resumen `4 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable` — declarada en los dos ficheros, sigue sin estar resuelta;
+- tras el segundo `perl` (borrado sólo del manifiesto), `codigo=1` y el cierre:
+
+  ```text
+  3 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable
+   ✗ package.json y el lock no coinciden — sobra en la raíz del lock: markdown-estilos
+  el manifiesto se editó a mano: sólo npm install actualiza el lock
+  ```
+
+- puedes explicar por qué el paso 1 no instala nada (no hay `node_modules/markdown-estilos` con `resolved` + `integrity`) y por qué el paso 2 es rojo aunque «sólo» se haya borrado una línea.
+
+Pista: los dos `perl` dependen de la indentación exacta de cada fichero — 4 espacios en `package.json`, 8 en la raíz del lock —; si un patrón no casa, la edición no ocurre y los contadores te lo dirán.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+codigo=0
+ ✗ markdown-estilos — declarada, ausente del lock — nunca se instaló
+4 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable
+codigo=1
+3 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable
+ ✗ package.json y el lock no coinciden — sobra en la raíz del lock: markdown-estilos
+el manifiesto se editó a mano: sólo npm install actualiza el lock
+```
+
+Tres cosas a mirar:
+
+1. **Declarar en los dos ficheros no lo instala**: en el paso 1 `markdown-estilos` está en `package.json` y en la raíz del lock, y el detector la sigue clasificando como inventada — porque lo que cuenta es `packages["node_modules/…"]`, la entrada con `resolved` e `integrity`. La raíz del lock no es una instalación; es un espejo de la intención.
+2. **El paso 2 es rojo sin que ningún paquete falle**: no hay ninguna dependencia «más inventada» que antes; lo que rompe es la **coherencia entre los dos ficheros**. Es el chequeo que te avisa de que el manifiesto y su acta ya no hablan de lo mismo — exactamente la deriva que sólo se ve comparando.
+3. **Los contadores cambian porque la historia cambia**: `4 inventadas` en el paso 1 (los 3 de siempre + `markdown-estilos`), `3 inventadas` en el paso 2 (la borraste del manifiesto, así que ya no está declarada — pero ahora sobra en la raíz del lock). Cada rojo cuenta su verdad: cuál falta resolver y cuál sobra declarada.
+
+Errores típicos al resolverlo:
+
+- **Copiar `paquetes-inventados.js` sin `fallos/` ni `fallos.js`**: el script importa `plural` de `fallos.js`, que a su vez importa `fallos/casos.js`; sin esos ficheros, Node se queja con `ERR_MODULE_NOT_FOUND` antes de leer ningún `package.json`.
+- **Alinear mal la indentación de los `perl`**: el patrón de `package.json` cierra con dos espacios (`  }`) y el del lock con seis (`      }`); si no coinciden, no hay error — simplemente no se inserta nada y los totales te delatan (`3 inventadas` donde esperabas `4`).
+- **«Arreglar» el desfase borrando la raíz del lock a mano**: mover el problema al otro fichero no lo resuelve; sólo npm escribe el lock con coherencia, y con este fixture fallaría (los inventados no existen).
+- **Leer `2 resueltas` como «el proyecto funciona»**: el lock resuelve dos paquetes reales; el manifiesto promete cinco. Instalable es sólo lo resuelto — no confundas «hay dos buenas» con «no faltan tres».
+
+## Cómo verificarlo
+
+1. Prepara el taller con `proyecto/`, la colección, la librería y el demo (comandos del ejercicio).
+
+2. Comprueba la situación intacta antes de tocar nada (desde el taller):
+
+   ```sh
+   node paquetes-inventados.js "$TALLER/proyecto"; echo "codigo=$?"
+   ```
+
+   Esperado: `codigo=0`, `3 inventadas, 2 resueltas en el lock — sólo lo resuelto en el lock es instalable`.
+
+3. Declara `markdown-estilos` en manifiesto y raíz del lock (primeros dos `perl`) y vuelve a ejecutar:
+
+   Esperado: `codigo=0`, la línea ` ✗ markdown-estilos — declarada, ausente del lock — nunca se instaló` y `4 inventadas, 2 resueltas en el lock`.
+
+4. Borra la dependencia sólo del manifiesto (tercer `perl`) y ejecuta de nuevo:
+
+   Esperado: `codigo=1`, ` ✗ package.json y el lock no coinciden — sobra en la raíz del lock: markdown-estilos` y `el manifiesto se editó a mano: sólo npm install actualiza el lock`.
+
+5. Aplica el criterio a tu proyecto real: ejecuta `node paquetes-inventados.js` apuntando a tu `package.json` y `package-lock.json` reales — o compáralos a mano con un buscador de texto. Cualquier dependencia declarada sin entrada resuelta es, o bien un `npm install` a medio terminar, o bien una propuesta que nunca existió.
+
+## Errores comunes
+
+- **Confundir «declarada» con «instalada»**: añadir la línea al `dependencies` no baja nada. La instalación deja rastro en el lock, no en la intención.
+- **Dar por bueno el lock por existir**: un `package-lock.json` viejo es coherente con un manifiesto viejo. La comparación es de los dos, siempre.
+- **Borrar el lock para «empezar limpio»**: te quitas del medio la única prueba de lo instalado — y la comprobación entera se queda sin objeto.
+- **Editar el lock a mano para que «cuadre»**: es el análogo de ajustar el test para que pase: ahora los dos ficheros coinciden y siguen mintiendo los dos.
+- **Pedirle al ejemplo red cuando el alcance es offline**: `npm view` y `npm install` son las vías con red y quedan fuera de `n1`; la comprobación del módulo es local y reproducible en cualquier terminal, también sin conexión.
+
+## Fuentes
+
+- [npm Docs: About package-lock.json](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json/) — consultado el 2026-10-22. El lock guarda la versión instalada y el origen de cada dependencia; de ahí salen `version`, `resolved` e `integrity` que usa el detector.
+- [npm Docs: npm install](https://docs.npmjs.com/cli/v11/commands/npm-install/) — consultado el 2026-10-22. El comando que instala dependencias y actualiza el manifiesto y su lock; la única escritura legítima del `package-lock.json`.
+- [npm Docs: npm view](https://docs.npmjs.com/cli/v11/commands/npm-view/) — consultado el 2026-10-22. La consulta al registro que harías con red (`npm view <paquete> version`); queda documentada como contraste, fuera del alcance offline de `n1`.
+
+## Siguientes pasos
+
+- Siguiente lección: [l05 «El detector: la colección se ejecuta y decide»](/curriculo/n1/m6/l05-el-detector-la-coleccion-se-ejecuta-y-decide/) — las tres familias ya tienen detector; ahora el runner que las ejecuta todas y cierra con `0` o `1`.
+- Proyecto longitudinal: el `proyecto/package.json` y su lock son el sustrato de las entradas `dependencia-inventada` (f08–f10) y del rojo `errores/dependencia-no-resoluble.js`; l05 los pasa por el detector general.

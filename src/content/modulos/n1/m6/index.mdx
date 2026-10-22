@@ -5,5 +5,24 @@ modulo: "m6"
 objetivos:
   - "Reconocer APIs inexistentes, código plausible-but-erróneo y dependencias inventadas"
 entregable: "Colección personal de 10 fallos con detección"
-actualizado: "2026-10-19"
+actualizado: "2026-10-22"
 ---
+
+## Para quién es este módulo
+
+Tras `n1/m5` tienes reglas del repositorio que se ejecutan solas y vigilan la deriva. Pero las reglas protegen tu proyecto; nadie protege al asistente de sus modos de fallar. El asistente escribe código que compila y no funciona, propone APIs que no existen en la librería estándar y añade dependencias que nadie ha publicado — y lo hace con la misma seguridad con la que acierta. Este módulo convierte esos patrones en datos: una **colección personal de fallos** en la que cada entrada lleva un `id`, un tipo, un ejemplo y una **comprobación ejecutable** que confirma el fallo o lo desmiente. Aprendes a anatomizar un fallo (l01), a verificar APIs sin salir de la terminal (l02), a ejecutar el caso límite que desmonta el código plausible (l03), a enfrentar `package.json` con `package-lock.json` (l04) y a construir el detector que decide con `0` o `1` (l05), hasta certificar en l06 el entregable: la colección de 10 fallos, cada uno con su detección. Público objetivo: quien cierra `n1/m5/l06` con su pre-commit instalado. Duración estimada: unas 5 horas repartidas. Solo librería estándar, sin red ni claves: la verificación de símbolos y paquetes es local.
+
+## Cómo se cierra el módulo
+
+Entregas **la colección personal de 10 fallos con detección**: `fallos/fallos.json` con 10 entradas — 4 APIs inexistentes, 3 casos límite y 3 dependencias inventadas — más la librería `fallos.js` con sus detectores por tipo y el runner `detectar.js` que confirma cada fallo y decide con su código de salida. La carpeta `ejemplos/` reúne **6 scripts verdes** con solo librería estándar — el presentador de la colección, el verificador de APIs, el ejecutor de casos límite, el comparador de manifiesto y lock, el detector y el certificador del entregable — más **4 rojos deliberados**: una API aprobada sin verificar (TypeError), una función plausible que no pasa su aserción (AssertionError), un import de paquete inventado (ERR_MODULE_NOT_FOUND) y un fallo declarado sin comprobación (runner con código `1`). El directorio `proyecto/` contiene el mini-proyecto con sus dependencias declaradas, sobre el que trabajan los detectores de dependencias. Todo se ejecuta offline, sin dependencias externas ni claves: los talleres temporales de los ejercicios se crean y se borran en cada ejecución.
+
+## Lecciones
+
+| #   | Lección                                                                                                                                  | Tiempo |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [Anatomía de un fallo: del error a la entrada de la colección](/curriculo/n1/m6/l01-anatomia-de-un-fallo/)                               | 45 min |
+| 2   | [APIs inexistentes: verificar el símbolo, no la anécdota](/curriculo/n1/m6/l02-apis-inexistentes-verificar-el-simbolo/)                  | 50 min |
+| 3   | [Código plausible pero erróneo: el caso límite manda](/curriculo/n1/m6/l03-codigo-plausible-pero-erroneo/)                               | 50 min |
+| 4   | [Dependencias inventadas: package.json contra package-lock.json](/curriculo/n1/m6/l04-dependencias-inventadas-package-json-contra-lock/) | 50 min |
+| 5   | [El detector: la colección se ejecuta y decide](/curriculo/n1/m6/l05-el-detector-la-coleccion-se-ejecuta-y-decide/)                      | 55 min |
+| 6   | [Entregable: colección personal de fallos típicos con detección](/curriculo/n1/m6/l06-entregable-coleccion-personal-de-fallos/)          | 60 min |

@@ -1,0 +1,196 @@
+---
+titulo: "Código plausible pero erróneo: el caso límite manda"
+resumen: "El código más peligroso del asistente es el que compila, se lee bien y pasa la demo feliz. La lección enfrenta tres funciones plausibles a su borde — descuento, ordenación de fechas y media — y muestra que la única lectura que convence es la ejecución del caso límite. Añades tu propia función (`maximo`), la declaras con `funcion`, `entrada` y `esperado`, y confirmas por ejecución que `maximo([])` devuelve `-Infinity`, no `null`."
+nivel: "n1"
+modulo: "m6"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Reconocer código que pasa en el uso normal y falla sólo en su caso límite"
+  - "Declarar la comprobación de esta familia: funcion, entrada y esperado"
+  - "Ejecutar la función con su borde y leer la discrepancia como confirmación"
+prerrequisitos:
+  - "n1/m6/l02-apis-inexistentes-verificar-el-simbolo"
+actualizado: "2026-10-22"
+tags:
+  - "casos-limite"
+  - "codigo-erroneo"
+  - "ejecucion"
+fuentes:
+  - titulo: "MDN — Math.round()"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round"
+    fecha: "2026-10-22"
+  - titulo: "MDN — Array.prototype.sort()"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"
+    fecha: "2026-10-22"
+  - titulo: "MDN — Array.prototype.reduce()"
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce"
+    fecha: "2026-10-22"
+  - titulo: "Wikipedia — IEEE 754"
+    url: "https://en.wikipedia.org/wiki/IEEE_754"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una función es **plausible** cuando pasa en el uso de todos los días y falla sólo en su borde: `descuento(19.99, 10)` devuelve `18` en vez de `17.99`, `[fechas].sort()` ordena como texto, `media([])` lanza `TypeError`. La comprobación de esta familia no lee el código — lo **ejecuta** con `funcion`, `entrada` y `esperado` y compara. `plausible-erroneo.js` cierra con **`3 funciones plausibles con fallo en casos límite — 3 de 3 confirmados por ejecución`**. En el ejercicio añades `maximo()` a `fallos/casos.js` y confirmas que `maximo([])` devuelve `-Infinity`, no el `null` que pedía el contrato.
+
+## Conceptos
+
+### Plausible es exactamente el peligro
+
+Estas tres funciones no tienen pinta de bug: las escribiría igual un revisor con prisa. Todas fallan en el mismo sitio — **donde los datos se acaban**: la lista vacía, el formato sin cero a la izquierda, los céntimos que el redondeo se come. Las tres de la colección, con su salida real (Node v24.22.0, 2026-10-22):
+
+```text
+probando 3 funciones plausibles en su caso límite (…/fallos/fallos.json):
+ ✗ f05 — descuento redondeado pierde los céntimos — descuento(19.99, 10) devuelve 18, el caso pedía 17.99
+ ✗ f06 — sort por defecto compara fechas como texto — ordenarFechas(["2026-9-30","2026-10-05"]) devuelve ["2026-10-05","2026-9-30"], el caso pedía ["2026-9-30","2026-10-05"]
+ ✗ f07 — media de lista vacía lanza TypeError — media([]) lanza TypeError: el caso pedía null
+3 funciones plausibles con fallo en casos límite — 3 de 3 confirmados por ejecución
+```
+
+Y cada una tiene su causa documentada: `Math.round` redondea al entero y se lleva los céntimos (fuente consultada el 2026-10-22); `sort()` sin comparador ordena por representación de texto, no por fecha (fuente consultada el 2026-10-22); `reduce()` sin valor inicial sobre una lista vacía no tiene con qué empezar y lanza (fuente consultada el 2026-10-22). El denominador común es el 754: los números que guardas no son los números que piensas, y el rango de los finitos tiene extremos que asustan (fuente consultada el 2026-10-22). El mismo bug, detenido por una aserción en vez del detector, es el rojo `errores/logica-plausible.js` — `AssertionError … 18 !== 17.99`, salida `1`.
+
+### La comprobación: funcion, entrada, esperado
+
+Esta familia no mira módulos: **llama a tu código**. Los tres campos de la comprobación son el ensamblaje de una llamada y su contrato:
+
+| Campo      | Papel                                        | Ejemplo (f05)                          |
+| ---------- | -------------------------------------------- | -------------------------------------- |
+| `funcion`  | Clave del módulo `fallos/casos.js` a invocar | `descuento`                            |
+| `entrada`  | **Array de argumentos** de la llamada        | `[19.99, 10]` → `descuento(19.99, 10)` |
+| `esperado` | Valor contrato (`null` para «sin resultado») | `17.99`                                |
+
+El detector ejecuta y compara (`fallos.js:66`):
+
+```js
+try {
+  obtenido = fn(...entrada);
+} catch (error) {
+  return {
+    ok: true,
+    detalle: `${prueba} lanza ${error.constructor.name}: el caso pedía ${representar(esperado)}`,
+  };
+}
+if (isDeepStrictEqual(obtenido, esperado)) {
+  return {
+    ok: false,
+    detalle: `${prueba} devuelve ${representar(esperado)}: ese caso ya no falla`,
+  };
+}
+return {
+  ok: true,
+  detalle: `${prueba} devuelve ${representar(obtenido)}, el caso pedía ${representar(esperado)}`,
+};
+```
+
+Tres salidas posibles: **discrepancia → el fallo está confirmado**; **excepción → también está confirmada** (si el contrato pedía `null`, un `TypeError` es la prueba, no un accidente del detector); **coincidencia → el fallo ya no aplica** y la entrada queda desmentida (lo verás en l05).
+
+### El detalle tiene que decir la verdad del valor
+
+`representar()` existe por un motivo corto y concreto: `JSON.stringify(-Infinity)` devuelve `null`, y el detalle habría mentido (`maximo([]) devuelve null, el caso pedía null` — una frase sin sentido). La librería muestra los números no finitos como lo que son (`String(valor)`) y el resto con su forma JSON. Cuando el valor esperado es `null` y el obtenido es `-Infinity`, la frase tiene que distinguirlos — esa distinción **es** el fallo.
+
+## Ejercicio
+
+Escribe una función plausible nueva (`maximo`), mira su borde con los ojos y después declárala en una copia de la colección hasta que el detector la confirme. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/fallos" "$TALLER/"
+cp "$ORIG/fallos.js" "$ORIG/plausible-erroneo.js" "$TALLER/"
+cd "$TALLER"
+cat >> fallos/casos.js <<'EOF'
+
+// f13 propuesta: parece correcta; con la lista vacía devuelve -Infinity.
+export function maximo(valores) {
+  return Math.max(...valores);
+}
+EOF
+node --input-type=module -e 'import { maximo } from "./fallos/casos.js"; console.log("maximo([3, 9, 4]) =", maximo([3, 9, 4])); console.log("maximo([]) =", maximo([]));'
+perl -0pi -e 's/\n  \]\n\}$/, \n    {\n      "id": "f13",\n      "tipo": "codigo-erroneo",\n      "titulo": "maximo de lista vacía devuelve -Infinity",\n      "ejemplo": "return Math.max(...valores);",\n      "deteccion": "ejecutar maximo([]) y comparar con null",\n      "comprobacion": { "funcion": "maximo", "entrada": [[]], "esperado": null }\n    }\n  ]\n}/s' fallos/fallos.json
+node plausible-erroneo.js fallos/fallos.json > salida.txt; echo "codigo=$?"
+grep -E "f13|plausibles" salida.txt
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la comprobación manual imprime `maximo([3, 9, 4]) = 9` (el uso normal es impecable) y `maximo([]) = -Infinity` (el borde, no);
+- tras el `perl`, `node plausible-erroneo.js` cierra con `codigo=0`;
+- la línea de `f13` dice `✗ f13 — maximo de lista vacía devuelve -Infinity — maximo([]) devuelve -Infinity, el caso pedía null`;
+- el resumen cuenta `4 funciones plausibles con fallo en casos límite — 4 de 4 confirmados por ejecución`;
+- puedes explicar por qué `entrada: [[]]` significa «un argumento que es una lista vacía» y por qué el detalle dice `-Infinity` y no `null`.
+
+Pista: si te olvidas del `cat >> fallos/casos.js`, el detector responde `fallos/casos.js no exporta maximo` y la entrada queda desmentida (`ok: false`) — la función declarada tiene que existir para ser probada.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+maximo([3, 9, 4]) = 9
+maximo([]) = -Infinity
+ ✗ f13 — maximo de lista vacía devuelve -Infinity — maximo([]) devuelve -Infinity, el caso pedía null
+4 funciones plausibles con fallo en casos límite — 4 de 4 confirmados por ejecución
+codigo=0
+```
+
+Tres cosas a mirar:
+
+1. **La función no se leyó, se ejecutó**: `Math.max()` sin argumentos no devuelve `0` ni lanza — devuelve `-Infinity`. Es el resultado del conjunto vacío en coma flotante (IEEE 754), y sólo sale a la luz con `maximo([])`. Ninguna lectura del código «se ve» `-Infinity`.
+2. **`entrada` es el spread de argumentos**: `[[]]` es un array de un elemento (una lista vacía), así que el detector llama `maximo([])`. Si hubieras escrito `"entrada": []`, la llamada sería `maximo()` — el mismo `-Infinity`, pero no era la prueba que declaraste.
+3. **`codigo=0` significa «4 fallos confirmados», no «todo bien»**: en esta demo, verde = los 4 fallos declarados existen de verdad. El código de salida certifica la colección, no el código de `maximo()` — que sigue rojo, y así debe quedar hasta que alguien lo arregle y actualice la entrada.
+
+Errores típicos al resolverlo:
+
+- **Declarar la comprobación sin añadir la función a `casos.js`**: el detector te avisa (`fallos/casos.js no exporta maximo`) pero la incidencia es «desmentido», no «confirmado» — el error queda en la declaración.
+- **Esperar `esperado: 0` para la lista vacía**: es una decisión de contrato, no una obviedad. La colección eligió `null` («no hay resultado»); elige tú, pero decláralo — el detector comparará exactamente contra eso.
+- **Confundir la excepción con un fallo del detector**: `media([]) lanza TypeError: el caso pedía null` es la confirmación de f07. El `catch` del detector está para eso: cuando el contrato pide un valor y la función revienta, el fallo está confirmado.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la colección, la librería y el ejecutor de casos límite (comandos del ejercicio).
+
+2. Ejecuta la función en ambos extremos antes de declarar nada:
+
+   ```sh
+   node --input-type=module -e 'import { maximo } from "./fallos/casos.js"; console.log("maximo([3, 9, 4]) =", maximo([3, 9, 4])); console.log("maximo([]) =", maximo([]));'
+   ```
+
+   Esperado: `maximo([3, 9, 4]) = 9` y `maximo([]) = -Infinity`.
+
+3. Declara `f13` (el `perl`) y ejecuta el detector de la familia:
+
+   ```sh
+   node plausible-erroneo.js fallos/fallos.json > salida.txt; echo "codigo=$?"
+   grep -E "f13|plausibles" salida.txt
+   ```
+
+   Esperado: `codigo=0`, la línea `✗ f13 — maximo de lista vacía devuelve -Infinity — …` y `4 funciones plausibles con fallo en casos límite — 4 de 4 confirmados por ejecución`.
+
+4. Comprueba la intacta del módulo (fuera del taller): `node plausible-erroneo.js | tail -1` debe decir `3 funciones plausibles con fallo en casos límite — 3 de 3 confirmados por ejecución`.
+
+5. Aplica el criterio a tu material: toma la última función que te haya escrito un asistente y búscale el borde — lista vacía, cero, negativos, formato raro. Si no puedes enunciar el `esperado` del borde, la función todavía no tiene contrato.
+
+## Errores comunes
+
+- **Revisar el código con los ojos**: «`Math.max(...valores)` — sí, correcto» es la frase que precede al `-Infinity`. La revisión de código plausible termina donde empieza la ejecución del borde.
+- **Probar sólo el camino feliz**: `maximo([3, 9, 4]) = 9` estaba en la primera línea y era cierto. Los cuatro fallos de este módulo pasan su demo; por eso están en la colección.
+- **Comparar de memoria o con redondeos a ojo**: la comprobación es `isDeepStrictEqual(obtenido, esperado)` — ni `==`, ni `toFixed` (que devuelve texto), ni «se me parece». El contrato es el valor exacto.
+- **Esperar `null` de una función que no lo devuelve**: si cambias el contrato a `null`, arregla `maximo` para devolverlo; si no, cambia el `esperado`. Que «cambies el esperado para que pase» no es arreglar el fallo — es borrar la entrada de la colección con trampa (lo detecta l05).
+- **Guardar el fallo sólo en el test**: el test muere con su repo; la entrada de la colección, con `deteccion` y `comprobacion` en prosa y datos, es lo que sobrevive a cambiar de proyecto.
+
+## Fuentes
+
+- [MDN: Math.round()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round) — consultado el 2026-10-22. Redondea al entero más cercano; por eso `Math.round(19.99 * 0.9)` devuelve `18` y f05 pierde los céntimos.
+- [MDN: Array.prototype.sort()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort) — consultado el 2026-10-22. Sin comparador ordena por la representación de texto de cada elemento: `2026-10-05` va antes que `2026-9-30` porque `1` < `9` (f06).
+- [MDN: Array.prototype.reduce()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce) — consultado el 2026-10-22. Sobre una lista vacía sin valor inicial no hay con qué acumular y lanza `TypeError` (f07).
+- [Wikipedia: IEEE 754](https://en.wikipedia.org/wiki/IEEE_754) — consultado el 2026-10-22. El formato que usan los números de JavaScript: decimales como 19.99 se aproximan en binario y los extremos del rango finito son `-Infinity`/`Infinity` (f05 y el `-Infinity` del ejercicio).
+
+## Siguientes pasos
+
+- Siguiente lección: [l04 «Dependencias inventadas: package.json contra package-lock.json»](/curriculo/n1/m6/l04-dependencias-inventadas-package-json-contra-lock/) — la tercera familia y su detector: cuando el «código» que falla no es una función, sino un paquete que nadie ha publicado.
+- Proyecto longitudinal: las funciones de `fallos/casos.js` (más `maximo` si la añadiste en tu taller) son el sustrato ejecutable de las entradas `codigo-erroneo`; l05 las vuelve a pasar todas con el runner.

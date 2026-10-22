@@ -1,0 +1,14 @@
+{
+  "name": "proyecto-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mini-proyecto con dos dependencias reales y tres que el asistente propuso sin existir.",
+  "dependencies": {
+    "fecha-hora-es": "1.4.0",
+    "json-con-comentarios": "0.9.4",
+    "nanoid": "6.0.2",
+    "picocolors": "1.1.1",
+    "tabla-markdown-lite": "2.3.1"
+  }
+}

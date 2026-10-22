@@ -1,0 +1,194 @@
+---
+titulo: "Anatomía de un fallo: del error a la entrada de la colección"
+resumen: "Un error puntual se cuenta una vez; un fallo típico se guarda para siempre. La lección anatomiza la entrada de la colección personal: seis campos — id, tipo, titulo, ejemplo, deteccion y comprobacion — con la última pieza como única que decide si el fallo es comprobable. Ejecutas `patrones.js` sobre los 10 fallos del módulo y añades un undécimo sin comprobación para verlo marcado «sólo en papel» y el proceso salir con 1."
+nivel: "n1"
+modulo: "m6"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Distinguir un error puntual de un patrón de fallo repetible del asistente"
+  - "Definir la anatomía de la entrada: id, tipo, titulo, ejemplo, deteccion y comprobacion"
+  - "Declarar un fallo sin comprobación y verlo señalado como no detectable"
+prerrequisitos:
+  - "n1/m5/l06-entregable-reglas-del-repositorio-con-pre-commit"
+actualizado: "2026-10-22"
+tags:
+  - "fallos"
+  - "coleccion-personal"
+  - "patrones"
+fuentes:
+  - titulo: "GitHub Docs — Best practices for using GitHub Copilot"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/best-practices-for-using-github-copilot"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Assert"
+    url: "https://nodejs.org/api/assert.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **fallo típico** no es un error suelto: es un patrón que el asistente repite con distinta sintaxis — una API que no existe, código que no pasa su caso límite, un paquete que nadie publicó. La colección del módulo lo convierte en datos: **10 entradas** en `fallos/fallos.json`, cada una con seis campos (`id`, `tipo`, `titulo`, `ejemplo`, `deteccion` y `comprobacion`). `patrones.js` las presenta una a una y cierra con **`10 fallos de 10 con detección — tipos: api-inexistente 4, codigo-erroneo 3, dependencia-inventada 3`**. Una entrada sin `comprobacion` aparece como `✗ sólo en papel`: existe la queja, falta la prueba, y el proceso sale con `1`.
+
+## Conceptos
+
+### De «el asistente se equivocó» al patrón que se repite
+
+Las guías de uso de los asistentes insisten en el mismo punto: el código generado hay que revisarlo y probarlo antes de aceptarlo (fuente consultada el 2026-10-22). El problema práctico es que revisar uno a uno no escala — cada sesión trae errores con sintaxis nueva y fondo idéntico. La alternativa del módulo es guardar el fondo: cuando tres errores distintos comparten la causa, dejan de ser tres anécdotas y se convierten en un **fallo con detector**. La colección personal es ese fondo, en un fichero que el repositorio versiona.
+
+La semilla está en `fallos/fallos.json`: 10 entradas repartidas en tres familias, que son las que este módulo estudia:
+
+| Tipo                    | Qué propone el asistente                                    | Cómo se confirma (offline)                      | Entradas en la colección                                                         |
+| ----------------------- | ----------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
+| `api-inexistente`       | Un símbolo de la librería estándar que no está exportado    | Importar el módulo y comprobar su `typeof`      | f01 `fs.readFileAsync`, f02 `crypto.md5`, f03 `path.toPosix`, f04 `os.tmpFolder` |
+| `codigo-erroneo`        | Código correcto en el uso normal, erróneo en su caso límite | Ejecutar la función con la entrada declarada    | f05 `descuento`, f06 `ordenarFechas`, f07 `media`                                |
+| `dependencia-inventada` | Un paquete «publicado» que nadie ha publicado               | Comparar `package.json` con `package-lock.json` | f08 `fecha-hora-es`, f09 `json-con-comentarios`, f10 `tabla-markdown-lite`       |
+
+### La anatomía de la entrada: seis campos
+
+Cada fallo de la colección responde seis preguntas. La primera entrada, tal y como está en el fichero:
+
+```json
+{
+  "id": "f01",
+  "tipo": "api-inexistente",
+  "titulo": "fs.readFileAsync no existe",
+  "ejemplo": "const texto = await fs.readFileAsync(ruta);",
+  "deteccion": "importar node:fs y comprobar que readFileAsync es undefined",
+  "comprobacion": {
+    "modulo": "node:fs",
+    "simbolo": "readFileAsync",
+    "real": "fs.promises.readFile"
+  }
+}
+```
+
+| Campo          | Pregunta que responde                                    | Dirigido a                             |
+| -------------- | -------------------------------------------------------- | -------------------------------------- |
+| `id`           | ¿Cómo se nombra este fallo para siempre? (`f01` … `f10`) | El detector y sus mensajes             |
+| `tipo`         | ¿Qué detector lo va a comprobar?                         | El runner (`DETECTORES[tipo]`)         |
+| `titulo`       | ¿Qué se afirma, en una frase legible?                    | Quien lee la colección                 |
+| `ejemplo`      | ¿Qué código lo ejemplifica?                              | Quien revisa el código del asistente   |
+| `deteccion`    | ¿Cómo se comprobará?, en prosa                           | Quien va a implementar la comprobación |
+| `comprobacion` | ¿Qué datos ejecuta el detector para decidir?             | El programa                            |
+
+### La comprobación es la pieza que decide
+
+`deteccion` y `comprobacion` son la misma intención en dos capas: la prosa explica el _qué_ para una persona; los datos ejecutan el _cómo_ para el programa. Node.js documenta esa idea con `node:assert` — un valor esperado y una comprobación que falla en seco si no coincide (fuente consultada el 2026-10-22); la colección lleva la misma filosofía un paso más allá: cada `tipo` tiene su propia forma de comprobación, y el detector correspondiente sólo entiende la suya:
+
+| Tipo                    | Campos de `comprobacion`         | Detector (`fallos.js`)                                    |
+| ----------------------- | -------------------------------- | --------------------------------------------------------- |
+| `api-inexistente`       | `modulo`, `simbolo`, `real`      | `await import(modulo)` y mirar `typeof` del `simbolo`     |
+| `codigo-erroneo`        | `funcion`, `entrada`, `esperado` | Ejecutar `casos[funcion](...entrada)` y comparar          |
+| `dependencia-inventada` | `paquete`                        | Leer `package.json` y `package-lock.json` del `proyecto/` |
+
+Mientras haya `comprobacion`, `patrones.js` imprime `✓ ejecutable`; si falta, `✗ sólo en papel` y el resumen añade `la colección declara fallos sin comprobación: no son detectables todavía` con `process.exitCode = 1`. Un fallo sin comprobación no está «a medio hacer»: no está.
+
+## Ejercicio
+
+Declara un undécimo fallo (`f11`, `fs.readJson`) en una copia de la colección, míralo quedar en papel mojado y después dale su comprobación hasta que sea ejecutable. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/fallos" "$TALLER/"
+cp "$ORIG/fallos.js" "$ORIG/patrones.js" "$TALLER/"
+cd "$TALLER"
+node patrones.js | tail -1
+node --input-type=module -e 'import * as fs from "node:fs"; console.log("fs.readJson:", typeof fs.readJson);'
+perl -0pi -e 's/\n  \]\n\}$/, \n    {\n      "id": "f11",\n      "tipo": "api-inexistente",\n      "titulo": "fs.readJson no existe",\n      "ejemplo": "const datos = await fs.readJson(ruta);",\n      "deteccion": "importar node:fs y comprobar que readJson es undefined"\n    }\n  ]\n}/s' fallos/fallos.json
+node patrones.js > salida.txt; echo "codigo=$?"
+grep -A3 "f11" salida.txt; tail -2 salida.txt
+perl -0pi -e 's/(      "deteccion": "importar node:fs y comprobar que readJson es undefined")/$1,\n      "comprobacion": { "modulo": "node:fs", "simbolo": "readJson", "real": "JSON.parse(await fs.readFile(ruta))" }/s' fallos/fallos.json
+node patrones.js > salida.txt; echo "codigo=$?"
+grep -A3 "f11" salida.txt; tail -1 salida.txt
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución intacta cierra con `10 fallos de 10 con detección — tipos: api-inexistente 4, codigo-erroneo 3, dependencia-inventada 3` y `codigo=0`;
+- la verificación offline imprime `fs.readJson: undefined` — el símbolo no existe, el patrón es legítimo;
+- con `f11` sin comprobación, su bloque dice `comprobación: ✗ sólo en papel`, el resumen cuenta `10 fallos de 11 con detección — tipos: api-inexistente 5, codigo-erroneo 3, dependencia-inventada 3` y aparece `la colección declara fallos sin comprobación: no son detectables todavía` con `codigo=1`;
+- tras darle comprobación, `f11` pasa a `comprobación: ✓ ejecutable` y el resumen cierra con `11 fallos de 11 con detección` y `codigo=0`;
+- puedes explicar por qué el tipo (`api-inexistente`) tiene que coincidir con la forma de su comprobación (`modulo`, `simbolo`, `real`).
+
+Pista: el primer `perl` añade la entrada antes del cierre del array (`\n  ]\n}`); el segundo inserta el campo `comprobacion` justo detrás de la `deteccion` de `f11`, que es única en el fichero.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+10 fallos de 10 con detección — tipos: api-inexistente 4, codigo-erroneo 3, dependencia-inventada 3
+codigo=0
+fs.readJson: undefined
+f11 · api-inexistente — fs.readJson no existe
+    ejemplo: const datos = await fs.readJson(ruta);
+    detección: importar node:fs y comprobar que readJson es undefined
+    comprobación: ✗ sólo en papel
+10 fallos de 11 con detección — tipos: api-inexistente 5, codigo-erroneo 3, dependencia-inventada 3
+la colección declara fallos sin comprobación: no son detectables todavía
+codigo=1
+…
+f11 · api-inexistente — fs.readJson no existe
+    comprobación: ✓ ejecutable
+11 fallos de 11 con detección — tipos: api-inexistente 5, codigo-erroneo 3, dependencia-inventada 3
+codigo=0
+```
+
+Tres cosas a mirar:
+
+1. **El patrón vive en el fichero, no en la anécdota**: `f11` no es «una vez vi un error de `fs`» — es la quinta entrada de `api-inexistente`, con el mismo esqueleto que `f01`. Cuando aparezca otra API inventada, el detector de este tipo ya existe; sólo cambian `simbolo` y `real`.
+2. **«Sólo en papel» es una respuesta del sistema, no un reproche**: `patrones.js` cuenta entradas con `comprobacion !== undefined` y dice la verdad en ambos sentidos (`patrones.js:26`). Es el mismo términoómetro que el `TODAVÍA NO` de `n1/m5/l01`: declarar la intención sin fingir que está controlada.
+3. **La comprobación lleva la alternativa real (`real`) desde el principio**: el detector no sólo dice que `readJson` no existe, dice `la que existe es JSON.parse(await fs.readFile(ruta))`. Un fallo que no apunta a la alternativa sirve para quejarse; uno que la apunta, para corregir.
+
+Errores típicos al resolverlo:
+
+- **Declarar `f11` sin verificar el símbolo antes**: el `node --input-type=module` del paso 1 es obligatorio — si `typeof` devolviera `function`, el patrón no sería un fallo y la entrada no debería existir.
+- **Poner la comprobación de otro tipo** (p. ej. `{ "paquete": … }` a un `api-inexistente`): `DETECTORES[tipo]` sólo conoce la forma de su familia y el detector devolvería un detalle sin sentido. El `tipo` de la entrada manda sobre la forma.
+- **Contar el `f11` como «11 detectados» tras el primer perl**: el resumen dice `10 fallos de 11` — la entrada existe, la detección no. La diferencia entre ambos números es exactamente el trabajo pendiente.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la colección, la librería y el presentador (comandos del ejercicio).
+
+2. Comprueba la colección intacta antes de tocar nada:
+
+   ```sh
+   node patrones.js | tail -1
+   ```
+
+   Esperado: `10 fallos de 10 con detección — tipos: api-inexistente 4, codigo-erroneo 3, dependencia-inventada 3`.
+
+3. Declara `f11` sin comprobación (primer `perl`) y repite:
+
+   ```sh
+   node patrones.js > salida.txt; echo "codigo=$?"
+   ```
+
+   Esperado: `codigo=1`, la línea `comprobación: ✗ sólo en papel` del bloque `f11` y el aviso `la colección declara fallos sin comprobación: no son detectables todavía`.
+
+4. Dale su comprobación (segundo `perl`) y vuelve a presentar:
+
+   Esperado: `comprobación: ✓ ejecutable`, `11 fallos de 11 con detección` y `codigo=0`.
+
+5. Aplica el criterio a tu propio material: toma el último error que te haya devuelto un asistente y escríbelo con sus seis campos. Si no sabes rellenar `deteccion` en una frase, todavía no sabes qué haría falta comprobar — y si no sabes rellenar `comprobacion`, el fallo sigue siendo una anécdota.
+
+## Errores comunes
+
+- **Guardar el error tal cual cayó (la traza completa) en vez del patrón**: la traza es de un contexto; la entrada es del patrón. El `ejemplo` resume el código culpable, no pega el volcado del terminal.
+- **Un `id` desechable** (`error1`, `prueba`, `bla`): los ids no se reescriben porque el runner, el certificador y las incidencias se referencian con ellos — `f05` tiene que seguir siendo `f05` mañana.
+- **Mezclar detección con corrección**: `comprobacion` confirma que el fallo ocurre; no arregla nada. La corrección va en tu código, y si cambias la función, la comprobación dejará de confirmarlo (lo ves en l05).
+- **Empezar por diez fallos de relleno**: el módulo abre con 10 porque son los tres patrones con sus variantes reales. Una colección de fallos que no has visto caer no es memoria, es relleno.
+
+## Fuentes
+
+- [GitHub Docs: Best practices for using GitHub Copilot](https://docs.github.com/en/copilot/using-github-copilot/best-practices-for-using-github-copilot) — consultado el 2026-10-22. La guía recomienda revisar y probar el código generado en lugar de aceptarlo: la colección personal es esa revisión convertida en artefacto que no se olvida entre sesiones.
+- [Node.js: Assert](https://nodejs.org/api/assert.html) — consultado el 2026-10-22. La encarnación estándar de la comprobación ejecutable: un valor esperado y una aserción que falla en seco si no coincide; la `comprobacion` de cada entrada es la misma idea parametrizada por tipo de fallo.
+
+## Siguientes pasos
+
+- Siguiente lección: [l02 «APIs inexistentes: verificar el símbolo, no la anécdota»](/curriculo/n1/m6/l02-apis-inexistentes-verificar-el-simbolo/) — la anatomía ya está; ahora la familia más numerosa de la colección y su detector, que resuelve el «¿y de dónde sabes que no existe?» sin salir de la terminal.
+- Proyecto longitudinal: los 10 fallos de `fallos/fallos.json` son el núcleo del entregable del módulo — «colección personal de 10 fallos con detección» —; las lecciones l02 a l05 les dan detector por tipo, runner y certificado en l06.
