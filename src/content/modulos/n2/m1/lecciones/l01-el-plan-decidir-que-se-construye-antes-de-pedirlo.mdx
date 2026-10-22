@@ -1,0 +1,158 @@
+---
+titulo: "El plan: decidir qué se construye antes de pedirlo"
+resumen: "Antes de pedirle código al asistente, el plan acota la funcionalidad en cuatro secciones verificables: objetivo, alcance, fuera de alcance y criterios de entrega. La lección convierte esas secciones en requisitos del fichero, no en costumbres: ejecutas `plan.js` sobre el mini-proyecto «total de factura» y lo ves certificar las 4; después le borras «Fuera de alcance» con un `perl` y el validador se niega a continuar — `Error: … faltan secciones del plan — Fuera de alcance`, código 1."
+nivel: "n2"
+modulo: "m1"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Acotar una funcionalidad en objetivo, alcance, fuera de alcance y criterios de entrega"
+  - "Validar la estructura del plan con `leerPlan` y leer su rechazo al faltar secciones"
+  - "Diferenciar un alcance que se discute de un criterio de entrega que se ejecuta"
+prerrequisitos:
+  - "n1/m6/l06-entregable-coleccion-personal-de-fallos"
+actualizado: "2026-10-22"
+tags:
+  - "plan"
+  - "alcance"
+  - "ciclo-ai-native"
+fuentes:
+  - titulo: "Wikipedia — Análisis de requisitos"
+    url: "https://es.wikipedia.org/wiki/An%C3%A1lisis_de_requisitos"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **plan AI-native** no es una descripción del proyecto: es la decisión de qué se va a construir, escrita antes de pedir nada. El módulo exige cuatro secciones en `proyecto/PLAN.md` — **Objetivo**, **Alcance**, **Fuera de alcance** y **Criterios de entrega** — y `leerPlan` las trata como requisitos: si falta una, lanza. La demo `plan.js` sobre el mini-proyecto «total de factura» cierra con **`plan: 4 secciones — objetivo, alcance, fuera de alcance y criterios de entrega`** y `codigo=0`. En el ejercicio le borras «Fuera de alcance» al fichero y el validador responde **`Error: proyecto/PLAN.md: faltan secciones del plan — Fuera de alcance`** con `codigo=1`: un plan que no acota, no es un plan.
+
+## Conceptos
+
+### Cuatro secciones, cuatro decisiones distintas
+
+El análisis de requisitos lleva décadas insistiendo en que el alcance de un sistema debe fijarse antes de construirlo (fuente consultada el 2026-10-22). El ciclo AI-native lo traduce a cuatro secciones con tareas distintas, que son las que `SECCIONES_PLAN` valida en orden:
+
+| Sección              | Decisión que obliga                            | Frase que la cierra                         |
+| -------------------- | ---------------------------------------------- | ------------------------------------------- |
+| Objetivo             | Qué función se entrega y qué problema resuelve | «Entregar `totalFactura(lineas)`: …»        |
+| Alcance              | Qué reglas internas tendrá                     | «El descuento se aplica al importe; …»      |
+| Fuera de alcance     | Qué NO se hace, para no descubrirlo a mitad    | «Múltiples monedas, fechas, almacenamiento» |
+| Criterios de entrega | Cómo se sabrá terminado (y son ejecutables)    | «Spec con 4 criterios; suite en verde»      |
+
+La tercera sección es la que más se esquiva y la que más discusiones ahorra: sin «fuera de alcance», cada respuesta vuelve a discutir lo ya descartado. La cuarta es la que conecta el plan con el resto del ciclo: sus criterios se cumplen ejecutando, no opinando.
+
+### El plan como fichero que se puede romper
+
+`leerPlan(ruta)` de `ciclo.js` no juzga el plan por su prosa: extrae los encabezados `## …` y exige que las cuatro secciones de `SECCIONES_PLAN` estén presentes. Si falta alguna, lanza con la lista de faltantes (salida real, Node v24.22.0, 2026-10-22):
+
+```text
+leyendo el plan de proyecto/PLAN.md:
+ ✓ Objetivo
+ ✓ Alcance
+ ✓ Fuera de alcance
+ ✓ Criterios de entrega
+plan: 4 secciones — objetivo, alcance, fuera de alcance y criterios de entrega
+```
+
+El plan del mini-proyecto es el `proyecto/PLAN.md` del módulo: acota «total de factura» a líneas con importe, impuesto y descuento, redondeo con `Math.round` estándar, y deja explícito que la validación de entradas inválidas la decidirá la iteración de l05. Esa decisión, escrita hoy, es la que evita la discusión de mañana.
+
+## Ejercicio
+
+Certifica el plan intacto, después bórrale la sección «Fuera de alcance» y mira al validador negarse. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/ciclo.js" "$ORIG/plan.js" "$TALLER/"
+cd "$TALLER"
+node plan.js proyecto/PLAN.md; echo "codigo=$?"
+perl -0pi -e 's/## Fuera de alcance\n\n- Múltiples monedas[^\n]*\n- Almacenamiento[^\n]*\n- Validación[^\n]*\n\n//' proyecto/PLAN.md
+node plan.js proyecto/PLAN.md; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución lista las 4 secciones con su `✓` y cierra con `codigo=0`;
+- tras el `perl`, la segunda termina en rojo con `Error: proyecto/PLAN.md: faltan secciones del plan — Fuera de alcance` y `codigo=1`;
+- puedes explicar por qué «fuera de alcance» es tan obligatoria como «objetivo»: el validador no distingue secciones importantes de prescindibles.
+
+Pista: el `perl` retira el encabezado `## Fuera de alcance` y sus tres viñetas; si el patrón no casa, el fichero no cambia y la segunda ejecución sigue en verde — `codigo=0` te delataría.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+leyendo el plan de proyecto/PLAN.md:
+ ✓ Objetivo
+ ✓ Alcance
+ ✓ Fuera de alcance
+ ✓ Criterios de entrega
+plan: 4 secciones — objetivo, alcance, fuera de alcance y criterios de entrega
+codigo=0
+```
+
+Tras el `perl`:
+
+```text
+leyendo el plan de proyecto/PLAN.md:
+file:///…/ciclo.js:27
+    throw new Error(`${ruta}: faltan secciones del plan — ${faltantes.join(", ")}`);
+          ^
+
+Error: proyecto/PLAN.md: faltan secciones del plan — Fuera de alcance
+    at leerPlan (file:///…/ciclo.js:27:11)
+    at file:///…/plan.js:9:23
+Node.js v24.22.0
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **El error nombra la faltante, no la línea**: `leerPlan` compara los encabezados contra `SECCIONES_PLAN` y devuelve `faltantes.join(", ")`. El diagnóstico no es «algo anda mal en el PLAN.md»: es «te falta Fuera de alcance», que ya es una orden de trabajo.
+2. **La traza apunta a `plan.js:9`**: la llamada a `leerPlan` es la que lanza. El validador no imprime veredictos a medias — o el plan tiene sus cuatro secciones o no hay plan.
+3. **`plan.js` no continúa tras el error**: la primera línea que imprime es `leyendo el plan de …` y la siguiente ya es la traza. Ningún `✓` sale para un plan incompleto: no hay medias luces.
+
+Errores típicos al resolverlo:
+
+- **Restaurar la sección con un texto vacío**: `## Fuera de alcance` sin viñetas pasaría el validador (sólo exige el encabezado) pero no es un plan: la sección vacía no acota nada. El plan del módulo muestra el formato — viñetas que descartan cosas concretas.
+- **Ejecutar desde otra carpeta**: el ejercicio parte de `ejemplos/` (`ORIG="$(pwd)"`); si ejecutas `node plan.js` desde el taller sin la ruta `proyecto/PLAN.md`, buscará un plan donde no lo hay.
+- **Reutilizar el taller sin borrarlo**: la segunda ejecución depende del `perl`; si repites el ejercicio sobre un taller ya mutilado, el `perl` ya no encuentra nada y la salida enmascara el resultado.
+
+## Cómo verificarlo
+
+1. Prepara el taller con `proyecto/`, `ciclo.js` y `plan.js` (comandos del ejercicio).
+
+2. Certifica el plan intacto:
+
+   ```sh
+   node plan.js proyecto/PLAN.md; echo "codigo=$?"
+   ```
+
+   Esperado: los 4 `✓` (Objetivo, Alcance, Fuera de alcance, Criterios de entrega), la marca `plan: 4 secciones — …` y `codigo=0`.
+
+3. Aplica el `perl` y vuelve a ejecutar:
+
+   Esperado: `Error: proyecto/PLAN.md: faltan secciones del plan — Fuera de alcance` y `codigo=1`.
+
+4. Comprueba que el validador es reutilizable: la librería `ciclo.js` se usa igual en las otras cinco demos del módulo — el plan es la primera pieza del ciclo, pero el validador es el mismo de siempre.
+
+## Errores comunes
+
+- **Escribir el plan como prosa de un párrafo**: el validador exige encabezados; la lección exige decisiones. Un plan sin «fuera de alcance» no está incompleto de forma: está incompleto de criterio.
+- **Dejar los criterios de entrega para el final**: son la cuarta sección porque se deciden con el plan, no cuando «ya casi está». Si los escribes al final, escribirás lo que el código hace, no lo que se pidió.
+- **Confundir alcance con criterios de entrega**: el alcance describe reglas («el descuento se aplica al importe»); el criterio de entrega dice cómo se comprueba («suite `node --test` en verde»). Uno se discute, el otro se ejecuta.
+- **Creer que pasar el validador certifica el plan**: `leerPlan` sólo exige que las cuatro secciones existan. La calidad de sus decisiones la discute el ciclo completo — este módulo es el que enseña a llenarlas.
+
+## Fuentes
+
+- [Wikipedia: Análisis de requisitos](https://es.wikipedia.org/wiki/An%C3%A1lisis_de_requisitos) — consultado el 2026-10-22. El marco clásico de fijar qué se construye (y qué no) antes de construirlo: el plan AI-native es esa disciplina reducida a cuatro secciones que además se pueden validar.
+
+## Siguientes pasos
+
+- Ejecuta `node plan.js` sobre el plan real del módulo una última vez y guarda el `codigo=0`: esa es la primera luz verde del ciclo.
+- Siguiente lección: [La especificación: convertir la idea en criterios ejecutables](/curriculo/n2/m1/l02-la-especificacion-convertir-la-idea-en-criterios-ejecutables/) — el plan acota; la spec convierte el alcance en criterios que se ejecutan, entrada y esperado en mano.

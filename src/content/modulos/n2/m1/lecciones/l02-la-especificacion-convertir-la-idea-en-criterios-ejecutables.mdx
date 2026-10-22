@@ -1,0 +1,167 @@
+---
+titulo: "La especificación: convertir la idea en criterios ejecutables"
+resumen: "Una idea que no se puede ejecutar no se puede comprobar. La lección convierte el alcance del plan en `spec.md`: un contrato (`Función: totalFactura(lineas)`) y criterios C1…Cn, cada uno con `entrada:` y `esperado:` parseables en JSON. Ejecutas `spec.js` y ves los 4 criterios del mini-proyecto listados con sus valores; después añades un C5 bien formado — el importe negativo se rechaza — y luego le borras su «esperado» para ver a `leerSpec` lanzar: un criterio sin entrada y esperado es prosa, y el ciclo no la lee."
+nivel: "n2"
+modulo: "m1"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 50
+objetivos:
+  - "Redactar un contrato de función con su entrada y su salida"
+  - "Declarar criterios ejecutables con `entrada` y `esperado` parseables"
+  - "Ver rechazada una spec con criterios que no se pueden ejecutar"
+prerrequisitos:
+  - "n2/m1/l01-el-plan-decidir-que-se-construye-antes-de-pedirlo"
+actualizado: "2026-10-22"
+tags:
+  - "spec"
+  - "criterios-ejecutables"
+  - "specification-by-example"
+fuentes:
+  - titulo: "Martin Fowler — Specification by Example"
+    url: "https://martinfowler.com/bliki/SpecificationByExample.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La **spec** del módulo es un fichero que se puede ejecutar: `proyecto/spec.md` declara el contrato — `Función: totalFactura(lineas)` — y sus **criterios C1…C4**, cada uno con una línea `entrada:` (argumentos en JSON) y una línea `esperado:` (resultado en JSON o `{"error": "RangeError"}`). `spec.js` los extrae con `leerSpec` y cierra con **`spec: 4 criterios ejecutables — cada uno con entrada y esperado`** y `codigo=0`. En el ejercicio añades un C5 bien formado — el importe negativo se rechaza — y el lector lo lista como quinto; cuando le borras su `esperado:`, `leerSpec` lanza **`Error: … el criterio debe declarar «entrada» y «esperado» parseables`** con `codigo=1`: Specification by Example, sin excepciones (fuente consultada el 2026-10-22).
+
+## Conceptos
+
+### De la prosa al ejemplo ejecutable
+
+La idea de escribir especificaciones como ejemplos concretos que además verifican el sistema tiene un nombre consolidado — Specification by Example (fuente consultada el 2026-10-22). El módulo lleva la idea un paso más allá del texto: cada criterio de `spec.md` es una línea de dos mitades que un programa parsea:
+
+```text
+### C2 · el descuento se aplica antes que el impuesto
+entrada: [[{"importe": 100, "impuesto": 21, "descuento": 10}]]
+esperado: 108.9
+```
+
+Las convenciones, tomadas del patrón de entrada-esperado de los módulos anteriores:
+
+- **`entrada:` es un array de argumentos**: `[[{…}]]` significa «llamar con un argumento, la lista de una línea». Por eso la lista vacía es `[[]]` — un argumento que es `[]` — y no `[]`, que sería llamar sin argumentos (la errata que el propio validador cazó al construir este módulo).
+- **`esperado:` es JSON**: el valor de retorno comparado con `isDeepStrictEqual`. Si se espera una excepción, se declara `{"error": "RangeError"}` y el ejecutor comprueba el constructor del error lanzado.
+- **La numeración es el rastreo**: `C2` en la spec es `C2` en la suite; un fallo se puede rastrear hasta su criterio sin traducir nada.
+
+### leerSpec: el lector que no se conforma
+
+`leerSpec(ruta)` extrae el contrato (el nombre de la función entre acentos graves), divide el texto en bloques `### Cn · título` y exige en cada bloque su `entrada:` y su `esperado:` parseables con `JSON.parse`. La salida de `spec.js` sobre la spec intacta (salida real, Node v24.22.0, 2026-10-22):
+
+```text
+leyendo la spec de proyecto/spec.md:
+ contrato: totalFactura
+ C1 · total de una línea sin impuesto ni descuento — entrada [[{"importe":100,"impuesto":0,"descuento":0}]] → 100
+ C2 · el descuento se aplica antes que el impuesto — entrada [[{"importe":100,"impuesto":21,"descuento":10}]] → 108.9
+ C3 · la lista vacía totaliza cero — entrada [[]] → 0
+ C4 · una línea a cero no aporta nada — entrada [[{"importe":0,"impuesto":21,"descuento":50}]] → 0
+spec: 4 criterios ejecutables — cada uno con entrada y esperado
+```
+
+Los cuatro criterios cubren el plan de l01: el caso normal (C1), el orden descuento→impuesto (C2), la lista vacía (C3) y la línea a cero (C4). La validación de entradas imposibles queda — como decidió el plan — para la iteración de l05.
+
+## Ejercicio
+
+Añade un C5 bien formado a la spec y observa al lector listar cinco criterios; después bórrale el `esperado:` y míralo lanzar. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/ciclo.js" "$ORIG/spec.js" "$TALLER/"
+cd "$TALLER"
+cat >> proyecto/spec.md <<'EOF'
+
+### C5 · el importe negativo se rechaza
+entrada: [[{"importe": -1, "impuesto": 0, "descuento": 0}]]
+esperado: {"error": "RangeError"}
+EOF
+node spec.js proyecto/spec.md; echo "codigo=$?"
+perl -0pi -e 's/^esperado: \{"error": "RangeError"\}$//m' proyecto/spec.md
+node spec.js proyecto/spec.md; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución lista C1…C5 — con el C5 mostrando `→ {"error":"RangeError"}` — y cierra con `spec: 5 criterios ejecutables …` y `codigo=0`;
+- tras el `perl` (que deja a C5 sin línea `esperado`), la segunda termina en rojo con `Error: proyecto/spec.md: el criterio debe declarar «entrada» y «esperado» parseables — bloque «C5 · el importe negativo se rechaza…»` y `codigo=1`;
+- puedes explicar por qué C3 es `[[]]` y no `[]`: la `entrada` es un array de argumentos, y al total de una factura vacía se llega pasando una lista vacía, no pasando nada.
+
+Pista: el `perl` sólo borra la línea `esperado:` del C5 (anclada al fin de línea con `$`); si casara con otra, el lector seguiría en verde y lo sabrías por el `codigo=0`.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+leyendo la spec de proyecto/spec.md:
+ contrato: totalFactura
+ C1 · total de una línea sin impuesto ni descuento — entrada [[{"importe":100,"impuesto":0,"descuento":0}]] → 100
+ C2 · el descuento se aplica antes que el impuesto — entrada [[{"importe":100,"impuesto":21,"descuento":10}]] → 108.9
+ C3 · la lista vacía totaliza cero — entrada [[]] → 0
+ C4 · una línea a cero no aporta nada — entrada [[{"importe":0,"impuesto":21,"descuento":50}]] → 0
+ C5 · el importe negativo se rechaza — entrada [[{"importe":-1,"impuesto":0,"descuento":0}]] → {"error":"RangeError"}
+spec: 5 criterios ejecutables — cada uno con entrada y esperado
+codigo=0
+```
+
+Tras el `perl`:
+
+```text
+Error: proyecto/spec.md: el criterio debe declarar «entrada» y «esperado» parseables — bloque «C5 · el importe negativo se rechaza
+entr…»
+    at leerSpec (file:///…/ciclo.js:45:13)
+    at file:///…/spec.js:8:32
+Node.js v24.22.0
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **C5 se parsea como espera un error**: `→ {"error":"RangeError"}` es un esperado como cualquier otro — el ejecutor de l03 y l04 ya sabe que entonces debe lanzar `RangeError`. La spec no necesita un lenguaje nuevo para las excepciones: necesita JSON coherente.
+2. **El error encabeza el bloque, no la línea**: `leerSpec` recorta los primeros 40 caracteres del bloque culpable (`«C5 · el importe negativo se rechaza entr…»`). El diagnóstico te dice qué criterio leer, no dónde picar.
+3. **El lector no admite «criterios de prosa»**: no hay modo de declarar un criterio «a ojo». O tiene `entrada` y `esperado` parseables, o la spec no se lee. Esa negativa es lo que hace que el resto del ciclo (golden cases, verificación, certificación) pueda confiar en la spec.
+
+Errores típicos al resolverlo:
+
+- **Dejar la línea `esperado:` con prosa** (`esperado: 108,9 euros`): `JSON.parse("108,9 euros")` revienta; el formato es JSON estricto, con punto decimal y sin unidades.
+- **Escribir `entrada: [[…]]` con la lista vacía fuera**: para «una factura sin líneas» el argumento es `[]` dentro del array: `[[]]`. Es la errata que el propio módulo sufrió al construirse — el validador la cazó antes de que nadie la leyera.
+- **Numerar criterios con letras o repetir `C2`**: el lector acepta cualquier `Cn`, pero la suite y el rastreo de fallos usan esa numeración; repetir ids convierte un fallo en un misterio.
+- **Creer que la spec valida el comportamiento**: `leerSpec` sólo valida la forma. Que los criterios sean correctos es cosa del plan (l01) y del ciclo entero (l05).
+
+## Cómo verificarlo
+
+1. Prepara el taller con `proyecto/`, `ciclo.js` y `spec.js` (comandos del ejercicio).
+
+2. Ejecuta con el C5 añadido:
+
+   ```sh
+   node spec.js proyecto/spec.md; echo "codigo=$?"
+   ```
+
+   Esperado: los 6 `C1…C5` listados — C5 con `→ {"error":"RangeError"}` — `spec: 5 criterios ejecutables …` y `codigo=0`.
+
+3. Borra el `esperado:` del C5 (el `perl`) y vuelve a ejecutar:
+
+   Esperado: `Error: … el criterio debe declarar «entrada» y «esperado» parseables — bloque «C5 · …»` y `codigo=1`.
+
+4. Comprueba que la spec intacta del módulo sigue certificando: `node spec.js` desde `ejemplos/` lista C1…C4 con `codigo=0` — la spec del proyecto es un fichero más del repositorio, versionado con el resto.
+
+## Errores comunes
+
+- **Escribir la spec como resumen narrativo**: «la función debe calcular bien el total» no es un criterio. Si no tiene entrada y esperado, el ciclo no lo lee — y tú tampoco deberías contar que lo cumplirá.
+- **Copiar los criterios de la suite sin traducirlos**: la suite prueba la implementación; la spec acuerda el comportamiento con quien la pide. Pueden coincidir en los valores, pero viven en ficheros distintos con responsabilidades distintas.
+- **Declarar criterios que la implementación ya hizo**: el orden del ciclo es plan → spec → implementación. Si la spec nace mirando el código, sólo documenta lo que hay; el ejercicio de l05 muestra lo que aporta crecer antes.
+- **Olvidar el contrato**: los criterios sin `Función: totalFactura(lineas)` no tienen a quién llamarse; `leerSpec` lanza por eso antes que por nada.
+
+## Fuentes
+
+- [Martin Fowler: Specification by Example](https://martinfowler.com/bliki/SpecificationByExample.html) — consultado el 2026-10-22. La idea que estructura la lección: la especificación como ejemplos concretos que además son la verificación — aquí, criterios con entrada y esperado parseables.
+
+## Siguientes pasos
+
+- Ejecuta `node spec.js` sobre la spec intacta una última vez y guarda el `codigo=0`: la spec ya es un artefacto que se ejecuta.
+- Siguiente lección: [La implementación: pedir el código que la spec pide](/curriculo/n2/m1/l03-la-implementacion-pedir-el-codigo-que-la-spec-pide/) — con la spec en la mano, la implementación se pide contra un contrato y se juzga por sus golden cases, no por su pinta.

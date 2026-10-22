@@ -1,0 +1,146 @@
+---
+titulo: "La implementación: pedir el código que la spec pide"
+resumen: "El asistente entrega código plausible; el contrato decide si es correcto. La lección ejecuta los golden cases de la spec contra `proyecto/presupuesto.js` con `golden.js`: 4 de 4 cumplidos en la implementación intacta. Después le borras al parche el descuento — el fallo clásico de «olvidé una regla» — y el comprobador señala `✗ C2 — el descuento se aplica antes que el impuesto: esperaba 108.9, devolvió 121` con `codigo=1`. La implementación no se revisa: se ejecuta contra lo prometido."
+nivel: "n2"
+modulo: "m1"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Pedir una implementación contra un contrato con nombre, entrada y salida"
+  - "Comprobar la implementación ejecutando los golden cases de la spec"
+  - "Diagnosticar el criterio incumplido que revela la regla olvidada"
+prerrequisitos:
+  - "n2/m1/l02-la-especificacion-convertir-la-idea-en-criterios-ejecutables"
+actualizado: "2026-10-22"
+tags:
+  - "implementacion"
+  - "golden-cases"
+  - "contrato"
+fuentes:
+  - titulo: "Node.js — ECMAScript modules"
+    url: "https://nodejs.org/api/esm.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La implementación del módulo es `proyecto/presupuesto.js`: un módulo ESM que exporta `totalFactura(lineas)` — descuento al importe, impuesto sobre la base descontada, `Math.round(total * 100) / 100` al final (los módulos de Node y su `export` son la referencia: fuente consultada el 2026-10-22). Pero el fichero no se juzga por su lectura: `golden.js` ejecuta los criterios de la spec contra él y cierra con **`implementación conforme: totalFactura exportada; 4 de 4 golden cases cumplidos`** y `codigo=0`. En el ejercicio le borras al código el descuento y el comprobador se queda en **`✗ C2 — … esperaba 108.9, devolvió 121`**, `3 de 4 golden cases cumplidos`, `codigo=1`: el código compila, parece bien, y una regla del contrato simplemente no está.
+
+## Conceptos
+
+### Pedir contra un contrato, no contra un deseo
+
+Cuando pediste la implementación (al asistente o a ti mismo), el encargo bueno era el que la spec hace posible: nombre exacto, forma de entrada, salida redondeada y los cuatro golden cases como anexo. La implementación del módulo cabe entera en su fichero (salida real, Node v24.22.0, 2026-10-22):
+
+```js
+export function totalFactura(lineas) {
+  let total = 0;
+  for (const { importe, impuesto = 0, descuento = 0 } of lineas) {
+    const base = importe - (importe * descuento) / 100;
+    total += (base * (100 + impuesto)) / 100;
+  }
+  return Math.round(total * 100) / 100;
+}
+```
+
+Dos decisiones de la spec sobreviven en el código: el **orden** (primero descuento, después impuesto — C2) y el **redondeo sobre la suma**, no por línea. Un asistente que no tenga la spec puede escribir algo plausible que invierta el orden o redondee cada línea; con la spec, la discrepancia sale ejecutada.
+
+### Los golden cases deciden
+
+`ejecutarCriterios(spec, dir)` de `ciclo.js` importa el módulo con `import()` dinámico (referencia de ESM: fuente consultada el 2026-10-22), llama a la función del contrato con el `spread` de la `entrada` y compara con `isDeepStrictEqual`; si el esperado pide `{"error": …}`, comprueba el constructor del error lanzado. La salida de `golden.js` sobre la implementación intacta (salida real, Node v24.22.0, 2026-10-22):
+
+```text
+comprobando proyecto/ contra los golden cases de la spec:
+ ✓ C1 — total de una línea sin impuesto ni descuento: 100
+ ✓ C2 — el descuento se aplica antes que el impuesto: 108.9
+ ✓ C3 — la lista vacía totaliza cero: 0
+ ✓ C4 — una línea a cero no aporta nada: 0
+implementación conforme: totalFactura exportada; 4 de 4 golden cases cumplidos
+```
+
+El comprobador es también el guardián del contrato en el otro sentido: `funcionesNoDeclaradas` devuelve los exports que la spec no nombra (comportamiento inventado), y l06 lo usará para negar la certificación — el rojo `errores/impl-sin-spec.js` de este módulo es exactamente ese caso.
+
+## Ejercicio
+
+Rompe la implementación de una forma plausible — olvidar el descuento — y mira al golden case de C2 señalarlo. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/proyecto" "$TALLER/"
+cp "$ORIG/ciclo.js" "$ORIG/golden.js" "$TALLER/"
+cd "$TALLER"
+perl -0pi -e 's/const base = importe - \(importe \* descuento\) \/ 100;/const base = importe;/' proyecto/presupuesto.js
+node golden.js proyecto; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la salida marca `✗ C2 — el descuento se aplica antes que el impuesto: esperaba 108.9, devolvió 121`;
+- cierra con `implementación conforme: totalFactura exportada; 3 de 4 golden cases cumplidos` y `codigo=1`;
+- puedes explicar por qué sólo cae C2: C1 (sin descuento), C3 (lista vacía) y C4 (importe 0) dan igual con o sin la regla olvidada — un bug de una línea se esconde en los criterios que no la tocan.
+
+Pista: el `perl` sustituye exactamente la línea del descuento; si el patrón no casa, la implementación queda intacta y verías `4 de 4` con `codigo=0` — el delator de que no rompiste nada.
+
+## Solución explicada
+
+La salida del ejercicio, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+comprobando proyecto/ contra los golden cases de la spec:
+ ✓ C1 — total de una línea sin impuesto ni descuento: 100
+ ✗ C2 — el descuento se aplica antes que el impuesto: esperaba 108.9, devolvió 121
+ ✓ C3 — la lista vacía totaliza cero: 0
+ ✓ C4 — una línea a cero no aporta nada: 0
+implementación conforme: totalFactura exportada; 3 de 4 golden cases cumplidos
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **La discrepancia se imprime completa**: `esperaba 108.9, devolvió 121` no es «algo falla»: son los dos números de la discusión. Con ellos sabes que el impuesto se aplicó sobre 100 en vez de sobre 90 — la regla olvidada está escrita en la diferencia.
+2. **Los ✓ permanecen**: C1, C3 y C4 siguen en verde. El comprobador no condena la implementación entera; señala exactamente qué criterio quedó sin cumplir, que es lo único que hay que arreglar.
+3. **`3 de 4` es una medida, no una nota**: la cuenta se puede comparar entre iteraciones. En l05 la verás crecer de 4/5 a 5/5 — el ciclo se lleva con números, no con impresiones.
+
+Errores típicos al resolverlo:
+
+- **Arreglar C2 a costa de C1**: la tentación de «sumar el descuento al final» puede dejar el total correcto para un caso y roto para otro. El arreglo es la regla de la spec — descuento primero, impuesto después — y la suite completa lo confirma.
+- **Creer que `golden.js` es la suite**: los golden cases comprueban la implementación contra la spec; la suite (`node --test`, l04) prueba cómo se prueba. Ambas luces, dos ficheros; ninguna sustituye a la otra.
+- **Ejecutar `golden.js` sin la carpeta `proyecto/`**: el comprobador lee `spec.md` e importa `presupuesto.js` del directorio que le pases; sin la copia completa muere con traza (ENOENT) en vez de dar su veredicto.
+
+## Cómo verificarlo
+
+1. Prepara el taller con `proyecto/`, `ciclo.js` y `golden.js` (comandos del ejercicio).
+
+2. Comprueba primero la implementación intacta:
+
+   ```sh
+   node golden.js proyecto; echo "codigo=$?"
+   ```
+
+   Esperado: los 4 `✓`, `implementación conforme: totalFactura exportada; 4 de 4 golden cases cumplidos` y `codigo=0`.
+
+3. Aplica el `perl` y vuelve a ejecutar:
+
+   Esperado: `✗ C2 — … esperaba 108.9, devolvió 121`, `3 de 4 golden cases cumplidos` y `codigo=1`.
+
+4. Lee la diferencia: `121` es `100 × 1,21` — el impuesto sin el descuento. Nombrar la regla olvidada a partir de los dos números es parte del ejercicio.
+
+## Errores comunes
+
+- **Juzgar la implementación por leerla**: el código plausible es el fallo típico de n1/m6; los golden cases son la respuesta del ciclo. Si la frase «se ve bien» no va acompañada de `4 de 4`, no está verificada.
+- **Tocar la spec para que coincida con el código**: si C2 dice 108.9 y el código devuelve 121, el acuerdo es 108.9 — la spec la acordaron (l01 y l02); el código, no. Cambiar el esperado es romper el contrato por la puerta trasera.
+- **Redondear por línea «para ir más seguro»**: la spec declara el redondeo sobre la suma; una implementación que redondee cada línea puede pasar C1 y fallar en C3/C4 con decimales distintos. El contrato decide, no la costumbre.
+- **Olvidar los defaults**: `impuesto = 0, descuento = 0` hacen que C1 funcione con líneas sin esos campos. Quitarlos rompe el comportamiento que la spec da por supuesto — y lo verás salir en los criterios.
+
+## Fuentes
+
+- [Node.js: ECMAScript modules](https://nodejs.org/api/esm.html) — consultado el 2026-10-22. El marco de `export`/`import` que usa el módulo: la implementación es un módulo ESM que se importa dinámicamente desde el comprobador y cuyo único export es la función del contrato.
+
+## Siguientes pasos
+
+- Vuelve a ejecutar `node golden.js proyecto` sobre la implementación intacta y guarda el `4 de 4` con `codigo=0`: la implementación cumple lo prometido.
+- Siguiente lección: [La verificación: la suite y los criterios deciden](/curriculo/n2/m1/l04-la-verificacion-la-suite-y-los-criterios-deciden/) — los golden cases son una luz; la suite es la otra. l04 cierra el contrato con las dos.
