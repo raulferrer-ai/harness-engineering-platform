@@ -1,0 +1,205 @@
+---
+titulo: "El pre-commit: el mismo runner en el camino del commit"
+resumen: "Git invoca solo los hooks que encuentra en `.git/hooks/` y el `pre-commit` se ejecuta antes de crear el commit: si sale con estado distinto de cero, `git commit` aborta (documentación oficial de Git). El hook del módulo son tres líneas — `node comprobar.js` — y `ejemplos/instalar-hook.js` lo instala con modo `755` en un repo temporal: el commit limpio pasa con las 4 reglas en verde, y `errores/commit-bloqueado.js` muestra el commit de `src/informe.js` sin prueba bloqueado con `git exit 1`."
+nivel: "n1"
+modulo: "m5"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Conocer el mecanismo de hooks de git: dónde viven, cómo se invocan y qué los hace ejecutables"
+  - "Instalar un pre-commit que ejecute el runner del módulo y verificar ambos desenlaces"
+  - "Interpretar la salida real del hook y respetar sus límites (--no-verify, entorno, rutas)"
+prerrequisitos:
+  - "n1/m5/l03-rojo-visible-la-infraccion-no-pasa-en-silencio"
+actualizado: "2026-10-22"
+tags:
+  - "automatizacion"
+  - "hooks"
+  - "pre-commit"
+  - "git"
+fuentes:
+  - titulo: "Git — githooks (pre-commit)"
+    url: "https://git-scm.com/docs/githooks"
+    fecha: "2026-10-22"
+  - titulo: "Node.js Docs — Child process"
+    url: "https://nodejs.org/api/child_process.html"
+    fecha: "2026-10-22"
+  - titulo: "pre-commit.com — A framework for managing and maintaining multi-language pre-commit hooks"
+    url: "https://pre-commit.com/"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **hook de git** es un fichero ejecutable que git invoca por sí mismo en momentos determinados del flujo. El `pre-commit` se ejecuta **antes de crear el commit** y, según la documentación oficial, «salir con un estado distinto de cero hace que el comando `git commit` aborta antes de crear un commit» (fuente consultada el 2026-10-22). El hook del módulo es el runner de l02 en el camino del commit: `node comprobar.js`. `ejemplos/instalar-hook.js` lo escribe en `.git/hooks/pre-commit` con modo `755` de un repo temporal y confirma el desenlace limpio — `4 reglas en verde` y `commit creado (c701c86)` —; `errores/commit-bloqueado.js` confirma el rojo — el hook informa `✗ r1: src/informe.js sin test/informe.test.js` y git devuelve `git exit 1` sin commit.
+
+## Conceptos
+
+### Dónde vive el hook y por qué no está en el repo
+
+Git busca los hooks en `.git/hooks/` — un directorio **local**, no versionado. La documentación de git lo dice sin rodeos: los hooks no se copian durante `git clone` (fuente consultada el 2026-10-22). Esa es la primera trampa del pre-commit: si el hook solo vive en tu `.git`, cada clone del equipo arranca sin él. El módulo ataca eso de frente: el texto del hook es un string del código (`HOOK_PRE_COMMIT`, en `reglas.js`), que se **versiona** y se instala con una función (`instalarHook()`) que lo escribe y le pone modo `755`:
+
+```sh
+#!/bin/sh
+# Pre-commit del módulo n1/m5: el runner de las reglas, antes de crear el commit.
+node comprobar.js
+```
+
+Tres líneas, cero dependencias. El hook no piensa, no decide y no imprime su propio veredicto: delega entero en el runner. El framework pre-commit automatiza este patrón a escala — declaras los hooks en un fichero del repo y la herramienta los instala en cada clone (fuente consultada el 2026-10-22); aquí lo haces a mano para ver cada pieza.
+
+### Qué promete el pre-commit oficial
+
+De la especificación de `githooks` (consultada el 2026-10-22) conviene recordar cuatro cosas:
+
+1. Es **invocado por `git commit`** — nada más; no se ejecuta si haces commit con otro comando.
+2. **No recibe parámetros** y se ejecuta antes de obtener el mensaje de commit y de crear el commit.
+3. **Estado distinto de cero → `git commit` aborta** antes de crear el commit. Ese es el gancho entero de la lección.
+4. Se puede saltar con **`--no-verify`**. El pre-commit es un pasamanos automático, no un muro: la decisión última sigue siendo humana — y el bypass queda registrado en el historial de la conversación, no escondido.
+
+### El mismo runner, ahora con git delante
+
+`instalar-hook.js` monta un repo temporal — `git init -q -b main`, usuario local de prueba, copia de `proyecto/`, `reglas.js` y `comprobar.js`, hook instalado — y ejecuta un commit limpio. Las demos invocan git con `spawnSync` de la librería `node:child_process` (`ejecutarGit()`, en `reglas.js`; documentación de child process consultada el 2026-10-22), que devuelve `{ stdout, stderr, estado }` por separado — y ahí hay un detalle real que la demo captura: **la salida del hook aparece por el `stderr` de git, y el resumen del commit por el `stdout`**, con el hook siempre antes.
+
+```sh
+node instalar-hook.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+repo temporal listo: proyecto/, reglas.js, comprobar.js y .git/hooks/pre-commit (modo 755)
+$ git commit -m "reglas del repositorio con pre-commit"
+reglas del repositorio: 4 declaradas en …/n1m5-hook-w3HBag/proyecto/reglas.json
+ ✓ r1 — cada src/*.js tiene su test/*.test.js y viceversa — 2 parejas src↔test
+ ✓ r2 — toda prueba importa node:test y node:assert/strict — 2 pruebas con node:test y node:assert/strict
+ ✓ r3 — ningún TODO en src/ — 0 apariciones de TODO en src/
+ ✓ r4 — todo .js de src/ y test/ termina con salto de línea — 4 ficheros cerrados con salto de línea
+4 reglas en verde — el runner permite el commit
+[main (root-commit) c701c86] reglas del repositorio con pre-commit
+ 7 files changed, 218 insertions(+)
+…
+commit creado (c701c86) — el pre-commit ejecutó las 4 reglas antes de escribirlo
+```
+
+El hook corrió **antes** de que existiera el commit: las cuatro reglas se ejecutaron sobre el staging area del repo y, al devolver `0`, git creó el commit `c701c86`. El rojo es su simétrico, `errores/commit-bloqueado.js`: mismo repo, más un `src/informe.js` sin prueba — el hook devuelve `1` y git termina con `git exit 1` sin ningún commit.
+
+## Ejercicio
+
+Reproduce los dos desenlaces en un repo tuyo temporal: primero el commit bloqueado, después el commit dejado pasar por el mismo hook.
+
+```sh
+EJEMPLOS="$(pwd)"
+REPO=$(mktemp -d)
+cp -R "$EJEMPLOS/proyecto" "$EJEMPLOS/reglas.js" "$EJEMPLOS/comprobar.js" "$REPO/"
+git -C "$REPO" init -q -b main
+git -C "$REPO" config user.name "Ejercicio l04"
+git -C "$REPO" config user.email "ejercicio@example.invalid"
+REPO="$REPO" node --input-type=module -e 'import { instalarHook } from "./reglas.js"; console.log("hook instalado:", instalarHook(process.env.REPO));'
+cat "$REPO/.git/hooks/pre-commit"
+git -C "$REPO" add .
+printf 'export function informe() {\n  return "sin prueba";\n}\n' > "$REPO/proyecto/src/informe.js"
+git -C "$REPO" add .
+git -C "$REPO" commit -m "añade informe sin prueba"; echo "codigo=$?"
+cat > "$REPO/proyecto/test/informe.test.js" <<'EOF'
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { informe } from "../src/informe.js";
+
+test("informe devuelve sin prueba", () => {
+  assert.equal(informe(), "sin prueba");
+});
+EOF
+git -C "$REPO" add .
+git -C "$REPO" commit -m "añade informe con su prueba"; echo "codigo=$?"
+rm -rf "$REPO"
+```
+
+Esto se cumple cuando:
+
+- `cat` imprime el hook con su `#!/bin/sh` y su `node comprobar.js`;
+- el primer `commit` imprime el rojo `✗ r1: src/informe.js sin test/informe.test.js` y `1 de 4 reglas en rojo — el runner no permite el commit` con `codigo=1`, y el repo queda **sin ningún commit** (`git -C "$REPO" log` daría error);
+- el segundo `commit`, tras crear la prueba que faltaba, imprime `4 reglas en verde` y el resumen `[main (root-commit) …] añade informe con su prueba` con `codigo=0`;
+- pruebas el límite honesto: `git commit --no-verify` en el estado rojo crea el commit igualmente — el hook es un pasamanos, y lo sabes porque lo has visto saltarse.
+
+Pista: `git -C "$REPO"` evita cambiarte de carpeta; el hook, en cambio, se ejecuta siempre desde la raíz del repo — por eso `comprobar.js` resuelve sus rutas desde su propio fichero y no desde el `pwd`.
+
+## Solución explicada
+
+La secuencia, en el repo temporal (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+hook instalado: …/.git/hooks/pre-commit
+#!/bin/sh
+# Pre-commit del módulo n1/m5: el runner de las reglas, antes de crear el commit.
+node comprobar.js
+ ✗ r1: src/informe.js sin test/informe.test.js
+1 de 4 reglas en rojo — el runner no permite el commit
+codigo=1
+…
+4 reglas en verde — el runner permite el commit
+[main (root-commit) 44d8493] añade informe con su prueba
+ 9 files changed, 233 insertions(+)
+codigo=0
+```
+
+Cuatro cosas a mirar:
+
+1. **El modo `755` no es decorativo**: un hook sin permiso de ejecución lo ignora git con un aviso (`hook was found but not executable`). `instalarHook()` hace `chmodSync(ruta, 0o755)` justo después de escribirlo; la demo verifica el modo con `statSync` antes del primer commit.
+2. **El hook corre sobre lo que vas a commitear, no sobre el disco a secas**: git invoca el pre-commit en el estado **staged**. En este mini-proyecto el runner lee el árbol de trabajo — suficiente para el ejercicio, y honesto decirlo: herramientas como lint-staged existen precisamente para atar las comprobaciones al área de staging.
+3. **El fallo del hook se propaga entero**: `node comprobar.js` termina con `1` → el `sh` del hook termina con `1` → `git commit` aborta. Si el hook escribiera `node comprobar.js || true`, la cadena se rompería en la primera pieza y el commit pasaría con el rojo impreso y nadie mirando. Ese «arreglar» el hook es el error número uno del mundo real del pre-commit.
+4. **La salida del hook es de git**: el `stderr`/`stdout` separados de `ejecutarGit()` muestran el orden real — primero las reglas (por `stderr`), después el resumen del commit (por `stdout`). Quien automatice contra git debe leer ambos.
+
+Errores típicos al resolverlo:
+
+- **Instalar el hook y olvidar el `chmod`**: el commit pasa con un aviso que se pierde entre el ruido. Comprueba el modo, como la demo.
+- **Escribir el hook con rutas absolutas de tu máquina** (`node /Users/tu/proyecto/comprobar.js`): romperá en el clon del compañero y en CI. `node comprobar.js` relativa a la raíz del repo es lo portable.
+- **Tratar `--no-verify` como trampa prohibida**: es parte de la especificación y tu equipo lo usará algún día. Lo que debe incomodar no es el bypass, es el bypass **silencioso** — combínalo con la regla de `n1/m4`: commit sin verificar = sesión sin comando.
+- **Creer que el hook se copia con el repo**: no se copia en el clone (documentación de git). Sin el paso de instalación — aquí `instalarHook()`, en proyectos grandes el manager de hooks — tu equipo no tiene hook.
+
+## Cómo verificarlo
+
+1. Prepara el repo temporal con proyecto, reglas, runner e hook (comandos del ejercicio).
+
+2. Comprueba el contenido y el modo del hook instalado:
+
+   ```sh
+   cat "$REPO/.git/hooks/pre-commit"
+   stat -f "%Lp" "$REPO/.git/hooks/pre-commit"
+   ```
+
+   Esperado: las tres líneas del hook y `755`.
+
+3. Bloquea el commit infractor:
+
+   ```sh
+   git -C "$REPO" commit -m "añade informe sin prueba"; echo "codigo=$?"
+   git -C "$REPO" log --oneline | wc -l
+   ```
+
+   Esperado: el rojo de `r1`, `1 de 4 reglas en rojo — el runner no permite el commit`, `codigo=1` y `0` commits en el repo.
+
+4. Crea la prueba que falta y repite el commit:
+
+   Esperado: `4 reglas en verde — el runner permite el commit`, resumen del commit `añade informe con su prueba` y `codigo=0`.
+
+5. Comprueba el límite declarado — `git -C "$REPO" commit --no-verify` sobre una infracción lo crea — y anótalo en tu memoria de equipo: el hook corta la pereza, no la autonomía.
+
+## Errores comunes
+
+- **Poner la lógica de las reglas en el hook**: el hook debe ser «llamar al runner». Reglas embebidas en `sh` no se prueban, no se reutilizan y se desincronizan del repo.
+- **No probar el desenlace rojo en la instalación**: instalar y hacer un commit limpio deja la mitad del camino sin verificar. El bloqueo es el 50 % del valor — pruébalo cada vez que cambies el hook.
+- **Asumir que el hook corre en tu entorno completo**: el hook no hereda tu shell, tus variables ni tu `PATH` de desarrollo. `node` debe estar en el `PATH` del hook; en CI o en otra máquina, esa es la primera avería.
+- **Instalar el hook una vez y olvidarlo en el clone nuevo**: el hook no viaja con el repo. Que tu equipo lo instale — y que el `README` lo diga — es parte del entregable del módulo.
+
+## Fuentes
+
+- [Git — githooks, sección pre-commit](https://git-scm.com/docs/githooks) — consultado el 2026-10-22. Invocado por `git-commit`, sin parámetros, antes de crear el commit; estado distinto de cero aborta el commit; `--no-verify` lo salta; los hooks no se copian en `git clone`.
+- [Node.js Docs: Child process](https://nodejs.org/api/child_process.html) — consultado el 2026-10-22. `spawnSync` ejecuta git desde las demos y devuelve `stdout`, `stderr` y código de estado por separado.
+- [pre-commit.com: A framework for managing and maintaining multi-language pre-commit hooks](https://pre-commit.com/) — consultado el 2026-10-22. El patrón industrial de lo que has construido a mano: hooks declarados en el repo, instalados en cada clone.
+
+## Siguientes pasos
+
+- Siguiente lección: [l05 «Declarado contra implementado: el drift de las reglas»](/curriculo/n1/m5/l05-declarado-contra-implementado-el-drift-de-las-reglas/) — el hook ya corta; ahora la amenaza que queda dentro del propio sistema: reglas declaradas sin comprobación y comprobaciones sin regla.
+- Proyecto longitudinal: el hook y su instalación pasan al entregable de l06, donde se certificarán los dos desenlaces dentro de la verificación final.

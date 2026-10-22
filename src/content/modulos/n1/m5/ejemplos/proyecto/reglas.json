@@ -1,0 +1,9 @@
+{
+  "titulo": "Reglas del repositorio — mini-proyecto n1/m5",
+  "reglas": [
+    { "id": "r1", "descripcion": "cada src/*.js tiene su test/*.test.js y viceversa" },
+    { "id": "r2", "descripcion": "toda prueba importa node:test y node:assert/strict" },
+    { "id": "r3", "descripcion": "ningún TODO en src/" },
+    { "id": "r4", "descripcion": "todo .js de src/ y test/ termina con salto de línea" }
+  ]
+}

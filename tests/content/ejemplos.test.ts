@@ -1,5 +1,6 @@
 import {
   copyFileSync,
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -50,6 +51,14 @@ import { afterAll, describe, expect, it } from "vitest";
  *   permitida de comandos, comprobador reejecutable del registro y veredicto
  *   del entregable— más 4 rojos deliberados (chat sin comando, parche roto,
  *   comando fuera de la lista y registro que declara «verificada» con código 1);
+ * - H17 añade `n1/m5` (automatizar lo repetible): el fixture `proyecto/` con
+ *   sus 4 reglas declaradas en `reglas.json` e implementadas en `reglas.js` y
+ *   sus 6 pruebas, y demos que convierten convenciones en reglas — presentador
+ *   de convenciones, runner que decide con 0/1, rojos esperados en variantes
+ *   rotas, pre-commit instalado en repos temporales, validador de deriva y
+ *   certificador del entregable— más 4 rojos deliberados (proyecto infractor
+ *   ante el runner, commit bloqueado por el hook, regla declarada sin
+ *   comprobación y comprobación sin regla declarada);
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -95,6 +104,10 @@ const dirEjemplosN1M3 = fileURLToPath(
 
 const dirEjemplosN1M4 = fileURLToPath(
   new URL("../../src/content/modulos/n1/m4/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosN1M5 = fileURLToPath(
+  new URL("../../src/content/modulos/n1/m5/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -1585,6 +1598,248 @@ describe("ejemplos del módulo n1/m4: flujos de trabajo con asistente (solo libr
   });
 });
 
+describe("ejemplos del módulo n1/m5: automatizar lo repetible (reglas + pre-commit)", () => {
+  const gitDisponible = spawnSync("git", ["--version"], { encoding: "utf8" }).status === 0;
+
+  interface DemoN1M5 {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  // H17: el fixture proyecto/ (4 reglas declaradas e implementadas, 6 pruebas)
+  // y las demos que convierten convenciones en reglas: presentación, runner,
+  // rojos esperados, pre-commit en repos temporales, validador de deriva y
+  // certificación del entregable. Las demos con git se saltan si no hay git.
+  const demos: DemoN1M5[] = [
+    {
+      fichero: "convenciones.js",
+      marcas: ["4 reglas de 4 con comprobación — todas son ejecutables"],
+      descripcion: "l01: las 4 convenciones declaradas y comprobadas",
+    },
+    {
+      fichero: "comprobar.js",
+      marcas: ["4 reglas en verde — el runner permite el commit"],
+      descripcion: "l02: el runner ejecuta las 4 reglas y permite el commit",
+    },
+    {
+      fichero: "ver-rojos.js",
+      marcas: ["3 infracciones detectadas, ninguna pasó en silencio"],
+      descripcion: "l03: las tres variantes rotas detectadas con sus reglas",
+    },
+    {
+      fichero: "validar-reglas.js",
+      marcas: ["deriva: 0 — declarado y ejecutado coinciden"],
+      descripcion: "l05: sin deriva entre declarado e implementado",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero], {
+        cwd: dirEjemplosN1M5,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  const demosConGit: DemoN1M5[] = [
+    {
+      fichero: "instalar-hook.js",
+      marcas: ["modo 755", "4 reglas en verde — el runner permite el commit", "commit creado ("],
+      descripcion: "l04: el hook instalado deja pasar el commit limpio",
+    },
+    {
+      fichero: "entregable.js",
+      marcas: [
+        "reglas: 4 declaradas, 4 comprobaciones, deriva 0",
+        "commit limpio: pasado (git exit 0)",
+        "commit con src/informe.js sin prueba: bloqueado (git exit 1)",
+        "entregable válido: reglas del repositorio + pre-commit",
+      ],
+      descripcion: "l06: las tres condiciones del entregable certificadas",
+    },
+  ];
+
+  it.skipIf(!gitDisponible).each(demosConGit)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero], {
+        cwd: dirEjemplosN1M5,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    60_000,
+  );
+
+  it("errores/incumplimiento-detectado.js termina en 1 con r1 en rojo (rojo de l02/l03)", () => {
+    const rojo = ejecutarNode(["errores/incumplimiento-detectado.js"], dirEjemplosN1M5);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ r1: src/total.js sin test/total.test.js");
+    expect(rojo.stdout).toContain("1 de 4 reglas en rojo — el runner no permite el commit");
+    expect(rojo.stdout).toContain("$ node comprobar.js  →  exit 1");
+  });
+
+  it.skipIf(!gitDisponible)(
+    "errores/commit-bloqueado.js termina en 1 con el commit abortado (rojo de l04)",
+    () => {
+      const rojo = spawnSync(process.execPath, ["errores/commit-bloqueado.js"], {
+        cwd: dirEjemplosN1M5,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(rojo.status).toBe(1);
+      expect(rojo.stdout).toContain("✗ r1: src/informe.js sin test/informe.test.js");
+      expect(rojo.stdout).toContain("1 de 4 reglas en rojo — el runner no permite el commit");
+      expect(rojo.stdout).toContain("git exit 1");
+      expect(rojo.stdout).toContain(
+        "commit bloqueado por el pre-commit: src/informe.js sin test/informe.test.js",
+      );
+    },
+    60_000,
+  );
+
+  it("errores/regla-sin-comprobacion.js termina en 1 con la deriva declarada (rojo de l05)", () => {
+    const rojo = ejecutarNode(["errores/regla-sin-comprobacion.js"], dirEjemplosN1M5);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ r5: regla declarada sin comprobación");
+    expect(rojo.stdout).toContain(
+      "el validador se niega a ejecutar una regla que sólo existe en papel",
+    );
+  });
+
+  it("errores/comprobacion-sin-regla.js termina en 1 con la deriva invertida (rojo de l05)", () => {
+    const rojo = ejecutarNode(["errores/comprobacion-sin-regla.js"], dirEjemplosN1M5);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ r4: comprobación implementada sin regla declarada");
+    expect(rojo.stdout).toContain(
+      "una comprobación sin regla declarada es código muerto con apariencia de control",
+    );
+  });
+
+  it("las suites del mini-proyecto pasan en verde y el proyecto entero ejecuta 6 pruebas", () => {
+    for (const fichero of ["saludo.test.js", "total.test.js"]) {
+      const verde = ejecutarNode(["--test", `test/${fichero}`], join(dirEjemplosN1M5, "proyecto"));
+      expect(verde.status, verde.stderr).toBe(0);
+      expect(verde.stdout).toContain("fail 0");
+    }
+    const completo = ejecutarNode(["--test"], join(dirEjemplosN1M5, "proyecto"));
+    expect(completo.status, completo.stdout).toBe(0);
+    expect(completo.stdout).toContain("tests 6");
+    expect(completo.stdout).toContain("pass 6");
+    expect(completo.stdout).toContain("fail 0");
+  });
+
+  it("l02: el runner sobre una copia con prueba borrada sale con 1 y nombra el archivo", () => {
+    const carpeta = carpetaTemporal();
+    cpSync(join(dirEjemplosN1M5, "proyecto"), join(carpeta, "proyecto"), { recursive: true });
+    copyFileSync(join(dirEjemplosN1M5, "reglas.js"), join(carpeta, "reglas.js"));
+    copyFileSync(join(dirEjemplosN1M5, "comprobar.js"), join(carpeta, "comprobar.js"));
+    rmSync(join(carpeta, "proyecto", "test", "total.test.js"));
+
+    const rojo = spawnSync(process.execPath, ["comprobar.js"], {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ r1: src/total.js sin test/total.test.js");
+    expect(rojo.stdout).toContain("1 de 4 reglas en rojo — el runner no permite el commit");
+  });
+
+  it("l05: ids duplicados en reglas.json son deriva declarada por el validador", () => {
+    const carpeta = carpetaTemporal();
+    cpSync(join(dirEjemplosN1M5, "proyecto"), join(carpeta, "proyecto"), { recursive: true });
+    copyFileSync(join(dirEjemplosN1M5, "reglas.js"), join(carpeta, "reglas.js"));
+    copyFileSync(join(dirEjemplosN1M5, "validar-reglas.js"), join(carpeta, "validar-reglas.js"));
+    const rutaReglas = join(carpeta, "proyecto", "reglas.json");
+    writeFileSync(
+      rutaReglas,
+      readFileSync(rutaReglas, "utf8").replace(
+        '{ "id": "r2", "descripcion": "toda prueba importa node:test y node:assert/strict" },',
+        '{ "id": "r1", "descripcion": "regla duplicada por error" },',
+      ),
+    );
+
+    const rojo = spawnSync(process.execPath, ["validar-reglas.js"], {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("ids duplicados en reglas.json: r1, r1, r3, r4");
+  });
+
+  it.skipIf(!gitDisponible)(
+    "l04: el hook instalado bloquea la infracción y deja pasar el arreglo (ejercicio real)",
+    () => {
+      const repo = carpetaTemporal();
+      cpSync(join(dirEjemplosN1M5, "proyecto"), join(repo, "proyecto"), { recursive: true });
+      for (const fichero of ["reglas.js", "comprobar.js"]) {
+        copyFileSync(join(dirEjemplosN1M5, fichero), join(repo, fichero));
+      }
+      spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+      spawnSync("git", ["config", "user.name", "Test n1/m5"], { cwd: repo });
+      spawnSync("git", ["config", "user.email", "test@example.invalid"], { cwd: repo });
+      spawnSync(
+        process.execPath,
+        [
+          "--input-type=module",
+          "-e",
+          `import { instalarHook } from "./reglas.js"; instalarHook(process.cwd());`,
+        ],
+        {
+          cwd: repo,
+          encoding: "utf8",
+          timeout: 30_000,
+        },
+      );
+      spawnSync("git", ["add", "."], { cwd: repo });
+      writeFileSync(
+        join(repo, "proyecto", "src", "informe.js"),
+        'export function informe() {\n  return "sin prueba";\n}\n',
+      );
+      spawnSync("git", ["add", "."], { cwd: repo });
+
+      const bloqueado = spawnSync("git", ["commit", "-m", "añade informe sin prueba"], {
+        cwd: repo,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(bloqueado.status).toBe(1);
+      expect(`${bloqueado.stdout}${bloqueado.stderr}`).toContain("1 de 4 reglas en rojo");
+
+      writeFileSync(
+        join(repo, "proyecto", "test", "informe.test.js"),
+        'import { test } from "node:test";\nimport assert from "node:assert/strict";\nimport { informe } from "../src/informe.js";\n\ntest("informe devuelve sin prueba", () => {\n  assert.equal(informe(), "sin prueba");\n});\n',
+      );
+      spawnSync("git", ["add", "."], { cwd: repo });
+      const permitido = spawnSync("git", ["commit", "-m", "añade informe con su prueba"], {
+        cwd: repo,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(permitido.status, `${permitido.stdout}${permitido.stderr}`).toBe(0);
+      expect(`${permitido.stdout}${permitido.stderr}`).toContain(
+        "4 reglas en verde — el runner permite el commit",
+      );
+    },
+    120_000,
+  );
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -1829,6 +2084,38 @@ describe("cobertura de ejemplos", () => {
           "sesiones/chat-ejemplo.md",
           "errores/registro-sin-verificar.json",
         ],
+      ),
+    ).toEqual([...enManifiesto].sort());
+  });
+
+  it("n1/m5: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // El mini-proyecto `proyecto/` es el objeto de las reglas: sus fuentes y
+    // sus pruebas se verifican por la suite `node --test` y por el runner;
+    // `reglas.json` es la declaración que leen presentador, runner y validador.
+    const enManifiesto = [
+      "convenciones.js",
+      "comprobar.js",
+      "ver-rojos.js",
+      "instalar-hook.js",
+      "validar-reglas.js",
+      "entregable.js",
+      "reglas.js",
+      "errores/incumplimiento-detectado.js",
+      "errores/commit-bloqueado.js",
+      "errores/regla-sin-comprobacion.js",
+      "errores/comprobacion-sin-regla.js",
+      "proyecto/src/saludo.js",
+      "proyecto/src/total.js",
+      "proyecto/test/saludo.test.js",
+      "proyecto/test/total.test.js",
+      "proyecto/reglas.json",
+    ];
+
+    expect(
+      archivosVerificables(
+        dirEjemplosN1M5,
+        ["proyecto/src", "proyecto/test"],
+        ["proyecto/reglas.json"],
       ),
     ).toEqual([...enManifiesto].sort());
   });

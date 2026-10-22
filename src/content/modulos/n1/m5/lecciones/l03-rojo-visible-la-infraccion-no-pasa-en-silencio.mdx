@@ -1,0 +1,174 @@
+---
+titulo: "Rojo visible: la infracción no pasa en silencio"
+resumen: "Una regla que solo se ha visto en verde no se conoce. `ejemplos/ver-rojos.js` copia el mini-proyecto a temporales, los rompe de tres formas controladas — borrar una prueba, dejar un TODO, crear un `src/` sin prueba — y ejecuta el runner contra cada variante: `r1` y `r3` salen en rojo con el archivo nombrado, y el script termina en verde porque los tres fallos eran esperados. El rojo «de verdad» vive en `errores/incumplimiento-detectado.js`: el mismo runner con `codigo=1`."
+nivel: "n1"
+modulo: "m5"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Producir infracciones reales de cada regla en copias temporales y verlas detectadas"
+  - "Distinguir el rojo esperado (demo verde) del rojo real (script con código 1)"
+  - "Exigir mensajes de rojo accionables: regla, archivo y contra-pieza que falta"
+prerrequisitos:
+  - "n1/m5/l02-el-runner-la-regla-se-ejecuta-y-decide"
+actualizado: "2026-10-22"
+tags:
+  - "automatizacion"
+  - "reglas"
+  - "rojos"
+fuentes:
+  - titulo: "Git — githooks (pre-commit)"
+    url: "https://git-scm.com/docs/githooks"
+    fecha: "2026-10-22"
+  - titulo: "Node.js Docs — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Para confiar en una regla hay que verla **fregar contra infracciones reales**. `ejemplos/ver-rojos.js` crea tres copias temporales del mini-proyecto y las rompe de formas distintas — borra `test/saludo.test.js`, añade un `TODO` en `src/total.js`, crea `src/fechas.js` sin prueba —; contra cada copia ejecuta `comprobarProyecto()` y recoge la incidencia de la regla esperada: `r1: src/saludo.js sin test/saludo.test.js`, `r3: src/total.js contiene TODO`, `r1: src/fechas.js sin test/fechas.test.js`. La demo cierra con `3 infracciones detectadas, ninguna pasó en silencio` y **código `0`**: los tres fallos eran esperados y verificados. El rojo que sale con código `1` es `errores/incumplimiento-detectado.js`, y así es como lo consumirá el hook de l04 (fuente consultada el 2026-10-22).
+
+## Conceptos
+
+### Tres infracciones, tres reglas, un runner
+
+El runner de l02 ya decidió sobre el proyecto intacto. Esta lección lo pone contra el enemigo: las infracciones que el equipo comete de verdad. `ver-rojos.js` las produce en directorios temporales — `mkdtempSync(join(tmpdir(), "n1m5-rojo-"))` — para no tocar el proyecto de referencia, y para poder producir cuantas variantes quiera:
+
+| Variante | Rotura                              | Regla | Rojo esperado                           |
+| -------- | ----------------------------------- | ----- | --------------------------------------- |
+| A        | `rm test/saludo.test.js`            | `r1`  | `src/saludo.js sin test/saludo.test.js` |
+| B        | `// TODO` añadido en `src/total.js` | `r3`  | `src/total.js contiene TODO`            |
+| C        | `src/fechas.js` creado sin prueba   | `r1`  | `src/fechas.js sin test/fechas.test.js` |
+
+Ejecútala:
+
+```sh
+node ver-rojos.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+variante A (borrado test/saludo.test.js): r1: src/saludo.js sin test/saludo.test.js
+variante B (TODO en src/total.js): r3: src/total.js contiene TODO
+variante C (src/fechas.js sin prueba): r1: src/fechas.js sin test/fechas.test.js
+3 infracciones detectadas, ninguna pasó en silencio
+```
+
+Fíjate en que A y C infringen la misma regla `r1` por lados distintos: una fuente se queda sin prueba y una prueba se queda sin fuente… en C, al revés — una fuente nueva sin prueba. `r1` es simétrica y el detalle del rojo nombra al culpable con su contra-pieza exacta: no «falla r1», sino «`src/fechas.js` sin `test/fechas.test.js`».
+
+### El rojo esperado y el rojo real
+
+La distinción central de la lección:
+
+- **Rojo esperado** (`ver-rojos.js`, salida `0`): el script _provoca_ el fallo, _comprueba_ que la regla esperada aparece en las incidencias (`incidencias.find(incidencia => incidencia.startsWith("r1:"))`) y lo informa. El rojo está dentro de una verificación verde — igual que en `n1/m4` las sesiones inválidas se esperaban dentro de la demo de anatomía. Si una variante dejara de provocar su rojo, `incidenciaDe()` devolvería `(sin incidencia)` y el nombre de la variante delataría el problema.
+- **Rojo real** (`errores/incumplimiento-detectado.js`, salida `1`): el runner se ejecuta tal cual, sin expectativas, y el proceso termina con código de salida `1`:
+
+  ```text
+   ✗ r1: src/total.js sin test/total.test.js
+  1 de 4 reglas en rojo — el runner no permite el commit
+  $ node comprobar.js  →  exit 1
+  ```
+
+Ambos rojos usan la misma función `comprobarProyecto()`. Lo que cambia es quién decide el desenlace: la demo decide que el fallo es bueno y sale con `0`; el rojo deja que el runner decida y acredita su `1`.
+
+### El rojo que enseña a arreglar
+
+Un rojo solo es útil si nombra la infracción. La documentación de Git sobre hooks es tajante con el destino de los fallos: salir con un estado distinto de cero hace que `git commit` **aborta antes de crear el commit** (fuente consultada el 2026-10-22) — es decir, el rojo se pone en el camino, y quien lo ve necesita saber qué arreglar sin investigar. Del mismo modo, el test runner de Node identifica la prueba que falló y su aserción, no solo «algo falló» (fuente consultada el 2026-10-22). El `detalle` de cada comprobación de `reglas.js` sigue esa disciplina: archivo, patrón y contra-pieza. Si tu rojo solo dice «regla r3 fallida», tu equipo acabará mirando el código de la regla a ciegas — y acabará desactivándola.
+
+## Ejercicio
+
+Extiende la demo con una cuarta variante que infrinja `r2` — un test que deja de importar `node:test` — y verifica que la detecta.
+
+```sh
+EJEMPLOS="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$EJEMPLOS/proyecto" "$TALLER/"
+cp "$EJEMPLOS/reglas.js" "$EJEMPLOS/comprobar.js" "$EJEMPLOS/ver-rojos.js" "$TALLER/"
+cd "$TALLER"
+perl -0pi -e 's/      \},\n    \];/      },\n      {\n        nombre: "variante D (test\/saludo.test.js sin node:test)",\n        idRegla: "r2",\n        aplicar: (dir) => {\n          const ruta = join(dir, "test", "saludo.test.js");\n          writeFileSync(ruta, readFileSync(ruta, "utf8").replace(`import \{ test \} from "node:test";\\n`, ""));\n        },\n      },\n    ];/s' ver-rojos.js
+node ver-rojos.js; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la nueva línea de la salida dice `variante D (test/saludo.test.js sin node:test): r2: test/saludo.test.js sin node:test o node:assert/strict`;
+- el resumen cambia a `4 infracciones detectadas, ninguna pasó en silencio` con `codigo=0`;
+- puedes explicar por qué borrar solo el import de `node:test` activa `r2` pero no `r4` (el fichero sigue terminando en salto de línea);
+- rompes algo a propósito — por ejemplo cambias `join` por una función inexistente en la variante D — y ves la demo quedarse sin incidencia esperada en lugar de pasar de largo.
+
+Pista: la inserción coloca el nuevo caso justo antes del cierre del array `casos`, y `ver-rojos.js` ya importa `readFileSync` y `writeFileSync` de `node:fs`.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+variante A (borrado test/saludo.test.js): r1: src/saludo.js sin test/saludo.test.js
+variante B (TODO en src/total.js): r3: src/total.js contiene TODO
+variante C (src/fechas.js sin prueba): r1: src/fechas.js sin test/fechas.test.js
+variante D (test/saludo.test.js sin node:test): r2: test/saludo.test.js sin node:test o node:assert/strict
+4 infracciones detectadas, ninguna pasó en silencio
+codigo=0
+```
+
+Tres cosas a mirar:
+
+1. **La variante D ataca la importación, no el contenido**: quitar `import { test } from "node:test";` deja un fichero que todavía se ejecuta — y fallaría al llegar a `test(...)`. `r2` es preventiva: el archivo no llega a ejecutarse porque su declaración ya incumple la convención. Reglas preventivas y reactivas conviven: `r2` evita el fallo confuso, `node --test` lo pillaría igual.
+2. **Cada caso lleva su `idRegla` esperada**: `incidenciaDe(dir, idRegla)` filtra por el prefijo `r2:`. Si la rotura activara otra regla (por ejemplo, si al borrar el import dejara el fichero sin cierre y entrara `r4`), la demo lo diría con `(sin incidencia)` para esa regla — no se tragaria el fallo silenciosamente.
+3. **Los temporales se limpian en `finally`**: el `try/finally` de `demostrarRojo()` borra los directorios aunque una comprobación lance excepción. Un demo que acumula `n1m5-rojo-*` en `/tmp` deja basura en la máquina de cada lector.
+
+Errores típicos al resolverlo:
+
+- **Añadir la variante sin declarar su `idRegla`**: el resultado sería `(sin incidencia)` y la demo seguiría imprimiendo «4 infracciones detectadas». Declara siempre qué rojo esperas; el texto final debe contar detecciones reales.
+- **Romper varias reglas en una misma variante**: pierdes la atribución. Una rotura, una regla: así el mensaje del runner se puede auditar regla a regla.
+- **Copiar el proyecto «a pelo» sin la estructura `src/` + `test/`**: `cpSync` con `recursive: true` conserva el árbol; si la copia sale plana, `r1` se quejará de pruebas huérfanas y el rojo será de la demo, no del caso.
+- **Ver el rojo y no mirar el `detalle`**: «r1 en rojo» no es información. Lo accionable es `src/fechas.js sin test/fechas.test.js`: la regla ya te dice el primer paso del arreglo.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el proyecto, `reglas.js`, `comprobar.js` y `ver-rojos.js` (comandos del ejercicio).
+
+2. Ejecuta la demo intacta y cuenta sus detecciones:
+
+   ```sh
+   node ver-rojos.js | tail -1
+   echo "codigo=$?"
+   ```
+
+   Esperado: `3 infracciones detectadas, ninguna pasó en silencio` y `codigo=0`.
+
+3. Añade la variante D (el `perl`) y repite:
+
+   Esperado: la línea de la variante D con `r2: test/saludo.test.js sin node:test o node:assert/strict`, `4 infracciones detectadas, ninguna pasó en silencio` y `codigo=0`.
+
+4. Ejecuta el rojo real de la lección:
+
+   ```sh
+   node errores/incumplimiento-detectado.js; echo "codigo=$?"
+   ```
+
+   Esperado: la tabla con `✗ r1`, la incidencia `✗ r1: src/total.js sin test/total.test.js`, `1 de 4 reglas en rojo — el runner no permite el commit`, la línea `$ node comprobar.js  →  exit 1` y `codigo=1`.
+
+5. Escribe tu propia variante para la regla más importante de tu proyecto real: si no sabes provocarla en diez líneas, todavía no sabes qué la protege.
+
+## Errores comunes
+
+- **Confiar en la demo verde sin rojos detrás**: una regla solo probada en verde puede estar sin implementar de verdad — el clásico `return { ok: true }` de guardia. Ver-rojos es la prueba de tus pruebas.
+- **Contar las infracciones en el mensaje final a mano**: el resumen debe contar `lineas.length` (las detecciones reales), no un número escrito. Si un día añades una quinta variante, el mensaje no debe quedar desactualizado.
+- **Dejar los temporales en `/tmp`**: `mkdtempSync` crea directorios que nada borra si olvidas el `finally`. En CI, eso es basura entre ejecuciones; en tu máquina, un cumpleaños de carpetas `n1m5-rojo-*`.
+- **Confundir «la demo sale con 0» con «el proyecto está bien»**: `ver-rojos.js` es verde porque sus fallos son esperados, no porque el proyecto esté arreglado. El veredicto sobre el proyecto es el de `comprobar.js` — y sobre el commit, el del hook de l04.
+
+## Fuentes
+
+- [Git — githooks, sección pre-commit](https://git-scm.com/docs/githooks) — consultado el 2026-10-22. El pre-commit es invocado por `git-commit` y «salir con un estado distinto de cero hace que el comando `git commit` aborta antes de crear un commit»: el destino final de estos rojos.
+- [Node.js Docs: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. La disciplina del mensaje de fallo: identificar prueba y aserción, no solo «falló».
+
+## Siguientes pasos
+
+- Siguiente lección: [l04 «El pre-commit: el mismo runner en el camino del commit»](/curriculo/n1/m5/l04-el-pre-commit-el-mismo-runner-en-el-camino-del-commit/) — los rojos ya salen y el runner ya decide; ahora colocar ese `1` exactamente donde git hace el commit, para que la infracción no pueda pasar.
+- Proyecto longitudinal: `ver-rojos.js` se queda en la caja de herramientas del entregable — en l06 certificarás que el hook bloquea de verdad con un commit infractor real.
