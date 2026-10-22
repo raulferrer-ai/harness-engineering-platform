@@ -1,0 +1,160 @@
+---
+titulo: "Dependencias: lo que la entrega añade al proyecto"
+resumen: "Cada dependencia nueva que una entrega mete al proyecto es superficie que hay que sostener mañana. Comparas el manifiesto antes/después de las tres entregas y compruebas si el código entregado usa de verdad lo que declara: la entrega fechas añade dayjs, su código no lo importa en ninguna parte, y el veredicto es DEVOLVER con la dependencia sobrante nombrada."
+nivel: "n1"
+modulo: "m3"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Comparar las dependencias declaradas antes y después de cada entrega"
+  - "Comprobar que toda dependencia nueva aparece usada en el código entregado"
+  - "Devolver la entrega con dependencias sobrantes en lugar de instalarlas a ciegas"
+prerrequisitos:
+  - "n1/m3/l02-las-pruebas-de-la-entrega-y-su-descripcion"
+actualizado: "2026-10-22"
+tags:
+  - "dependencias"
+  - "manifiesto"
+  - "npm"
+  - "revision"
+fuentes:
+  - titulo: "npm Docs — package.json: dependencies"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-json"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una entrega no solo cambia código: puede añadir **dependencias** al proyecto, y cada una es una promesa de mantenimiento. `ejemplos/dependencias.js` compara las dependencias declaradas antes y después de las tres entregas y las contrasta con el código entregado: gastos e informes no añaden ninguna; **fechas añade `dayjs` que su código no importa en ninguna parte** — sobrante en el manifiesto. El rojo `errores/dependencia-sobrante.js` lo devuelve con código 1 y el nombre de la dependencia en el mensaje.
+
+## Conceptos
+
+### El manifiesto también se revisa
+
+El `package.json` de un proyecto declara sus dependencias en el campo `dependencies`: pares de nombre y versión que el proyecto necesita para funcionar (fuente consultada el 2026-10-22). Cuando una entrega propone añadir una, el manifiesto cambia — y ese cambio es parte del diff que revisas, tanto como las líneas de código. La regla del curso es simple:
+
+1. **Toda dependencia nueva debe declararse** en el manifiesto de la entrega.
+2. **Toda dependencia declarada debe usarse** en el código que se entrega.
+3. **Lo que no se usa, no se añade.**
+
+La condición 3 es la que casi nunca se revisa, y es la que este módulo ejecutará.
+
+### El declarado contra el usado
+
+En el fixture, cada entrega declara en `entregas/datos.js` sus `dependenciasAntes` y `dependenciasDespues` — el manifiesto antes y después de la entrega. `dependencias.js` calcula las nuevas (`dependenciasNuevas`) y luego hace la comprobación que importa: ¿aparece el nombre del paquete como cadena en el código entregado? La búsqueda es textual y deliberadamente literal — un `import ... from "dayjs"` o un `require("dayjs")` deja el nombre entre comillas en el fuente; si la dependencia se usa, su nombre está ahí:
+
+```sh
+node dependencias.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+✓ gastos: sin dependencias nuevas
+✓ informes: sin dependencias nuevas
+✗ fechas: nueva dependencia «dayjs» — el código NO la importa (sobrante)
+toda dependencia nueva debe justificar su uso en el código que se entrega; lo que no se usa, no se añade
+```
+
+La entrega `fechas` arregla `esBisiesto` con aritmética de módulos — cinco líneas de librería estándar — y aun así su manifiesto declara `dayjs`. Es un restos de borrador: el asistente empezó por una solución con paquetes y entregó otra sin limpiar el manifiesto. Si no lo pillaras, el proyecto se quedaría sosteniendo un paquete que nadie importa.
+
+### Por qué una línea de manifiesto pesa
+
+Cada dependencia declarada es, en el mundo real: una superficie de instalación, un origen de vulnerabilidades a vigilar, una versión que puede romper en una actualización y un archivo de bloqueo que crece. `n0/m4` ya trabajaste el proyecto sin dependencias ni lockfile — esa es la posición por defecto de este curso. Una entrega que añade una dependencia sin que su código la use no solo es desorden: es un gasto permanente por un beneficio cero. Por eso la devolución no es «quita la dependencia si te apetece»: es un criterio del checklist (el 3 de l05) con su incidencia nombrada.
+
+### El rojo: devolver con el nombre en la boca
+
+`errores/dependencia-sobrante.js` aplica exactamente el criterio a la entrega `fechas` y no se limita a informar — devuelve:
+
+```text
+nueva dependencia declarada: «dayjs» — el código NO la importa
+DEVOLVER: «dayjs» no aparece en el código de la entrega (sobrante en el manifiesto)
+```
+
+Código de salida 1. Fíjate en la forma del mensaje: no dice «no me gusta», dice **qué** sobra y **por qué**. Una devolución sin el nombre de la incidencia obliga al asistente (o a ti, mañana) a adivinar; una devolución nombrada se corrige de una pasada.
+
+## Ejercicio
+
+Devuelve la dependencia sobrante y verifica el manifiesto limpio.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/entregas ../ejemplos/dependencias.js ../ejemplos/errores .
+node errores/dependencia-sobrante.js
+echo "codigo=$?"
+perl -0pi -e 's/dependenciasDespues: \["dayjs"\]/dependenciasDespues: []/' entregas/datos.js
+node dependencias.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- el rojo imprime `nueva dependencia declarada: «dayjs» — el código NO la importa`, el mensaje `DEVOLVER` y `codigo=1`;
+- el `perl` vacía la lista de dependencias nuevas de `fechas`;
+- la segunda ejecución imprime `✓ fechas: sin dependencias nuevas` como tercera línea y `codigo=0`.
+
+Pista: el `perl` trabaja sobre `entregas/datos.js`, el manifiesto declarado del fixture — no sobre el código de la entrega, que no usaba `dayjs` en ningún sitio.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- el rojo sobre el fixture intacto ---
+nueva dependencia declarada: «dayjs» — el código NO la importa
+DEVOLVER: «dayjs» no aparece en el código de la entrega (sobrante en el manifiesto)
+codigo=1
+
+--- manifiesto corregido ---
+✓ gastos: sin dependencias nuevas
+✓ informes: sin dependencias nuevas
+✓ fechas: sin dependencias nuevas
+toda dependencia nueva debe justificar su uso en el código que se entrega; lo que no se usa, no se añade
+codigo=0
+```
+
+Por qué la comprobación textual es suficiente aquí: en ESM, usar un paquete obliga a importarlo con su nombre entre comillas — no hay forma legal de llamar a `dayjs` sin que su nombre aparezca en el fuente. `codigoImporta` busca `["']dayjs["']` en el código entregado; si no está, el paquete no se usa. El límite honesto del método: una dependencia declarada y **usada** de más (importada pero innecesaria) no la caza este criterio — eso ya es juicio de diseño y se discute en la revisión, no en el checklist.
+
+Errores típicos al resolverlo:
+
+- **Instalar a ciegas lo que el manifiesto declara**: si ejecutas `npm install` antes de revisar, la dependencia sobrante ya está en `node_modules` y en el lockfile. Primero el criterio, después la instalación.
+- **Quitar el import en vez del manifiesto**: la dirección correcta es la contraria. El código de `fechas` no importa `dayjs`; lo que sobra es la declaración.
+- **Buscar el nombre con un grep que case de más**: `dayjs` como subcadena casaría con `dayjs2` o con un comentario que lo mencione. La comprobación exige el nombre entre comillas, que es como aparece en un `import` real.
+- **Asumir «es solo una línea»**: una línea de manifiesto es una promesa de mantenimiento perpetua. `n0/m4` ya te enseñó el proyecto que no debe nada a nadie; la revisión defiende esa posición.
+
+## Cómo verificarlo
+
+1. Prepara el taller con las entregas, el comprobador y el rojo (comandos del ejercicio).
+
+2. Ejecuta el rojo sobre el fixture intacto:
+
+   ```sh
+   node errores/dependencia-sobrante.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: el mensaje `DEVOLVER` con «dayjs» nombrado y `codigo=1`.
+
+3. Corrige el manifiesto y vuelve a ejecutar el comprobador (pasos 3 y 4 del ejercicio).
+
+   Esperado: tres líneas `✓` y `codigo=0`.
+
+4. Revisa una entrega real tuya o del asistente: si su manifiesto declara dependencias, comprueba una por una que su nombre aparece entre comillas en el código entregado. Las que no aparezcan, devuélvelas nombradas.
+
+## Errores comunes
+
+- **Revisar solo el código y no el manifiesto**: el diff de líneas no muestra el `package.json` si la entrega lo tocó en otro fichero. El criterio 3 mira el manifiesto declarado explícitamente; no lo olvides al diseñar tus propios checklists.
+- **Dependencia usada pero no declarada**: el caso inverso — el código importa un paquete que el manifiesto no declara — rompe la instalación de un proyecto limpio. Este criterio la busca en la dirección del uso; si tu entrega puede añadir imports, verifica también esa vuelta.
+- **«La quito en el siguiente commit»**: la dependencia sobrante que se pospone se instala, se bloquea y se olvida. Devuélvela en esta entrega; el siguiente commit debe ser el que la entrega correcta ya trae.
+- **Cazar fantasmas en comentarios**: un nombre entre comillas dentro de un comentario textual casaría la búsqueda. Para entregas pequeñas el margen de error es nimio; si la entrega es grande, lee el diff del manifiesto con los ojos además del comprobador.
+
+## Fuentes
+
+- [npm Docs: package.json — dependencies](https://docs.npmjs.com/cli/v11/configuring-npm/package-json) — consultado el 2026-10-22. El campo `dependencies` declara los pares nombre-versión de los que el proyecto depende para funcionar.
+
+## Siguientes pasos
+
+- Siguiente lección: [l04 «Edge cases: ataca la entrega en sus fronteras»](/curriculo/n1/m3/l04-edge-cases-ataca-la-entrega-en-sus-fronteras/) — el manifiesto está limpio y las pruebas pasan; ahora se ejecutan las fronteras que la tarea exigía, incluidas las que la suite de la entrega no cubre.
+- Proyecto longitudinal: el criterio «declarado = usado» pasará al checklist ejecutable de l05 como criterio 3, con la misma incidencia nombrada.

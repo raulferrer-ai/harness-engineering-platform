@@ -36,6 +36,13 @@ import { afterAll, describe, expect, it } from "vitest";
  *   verifican encargos — anatomía, contexto mínimo, criterios primero,
  *   alcance, serie validada y medida— más sus rojos deliberados; las suites
  *   de `tareas/` se ejecutan con `node --test` desde los drivers;
+ * - H15 añade `n1/m3` (revisar el código generado): el fixture `entregas/`
+ *   con tres entregas (antes/después, suite y manifiesto declarado) y demos
+ *   que revisan — dif LCS, ejecución de suites de la entrega, dependencias
+ *   declaradas contra usadas, batería de casos límite, checklist de cuatro
+ *   criterios con veredicto ACEPTAR/DEVOLVER e informe sobre las tres
+ *   entregas— más 5 rojos deliberados (código que no carga, prosa refutada,
+ *   dependencia sobrante y caso límite que devuelve basura en silencio);
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -73,6 +80,10 @@ const dirEjemplosM7 = fileURLToPath(
 
 const dirEjemplosN1M2 = fileURLToPath(
   new URL("../../src/content/modulos/n1/m2/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosN1M3 = fileURLToPath(
+  new URL("../../src/content/modulos/n1/m3/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -1212,6 +1223,175 @@ describe("ejemplos del módulo n1/m2: tareas pequeñas (solo librería estándar
   });
 });
 
+describe("ejemplos del módulo n1/m3: revisar el código generado (solo librería estándar)", () => {
+  interface DemoN1M3 {
+    fichero: string;
+    marcas: string[];
+    argumentos?: string[];
+    descripcion: string;
+  }
+
+  // H15: el fixture entregas/ (tres entregas con antes/después, suite y
+  // manifiesto declarado) y las demos que lo revisan: dif LCS, suites de la
+  // entrega, dependencias declaradas contra usadas, casos límite de la tarea,
+  // el checklist de 4 criterios y el informe sobre las tres entregas.
+  const demos: DemoN1M3[] = [
+    {
+      fichero: "diff.js",
+      marcas: [
+        "diff: 2 líneas añadidas, 3 quitadas, 4 iguales",
+        "✓ el código entregado se carga sin errores",
+      ],
+      descripcion: "l01: el dif de gastos y su código cargado",
+    },
+    {
+      fichero: "pruebas-entrega.js",
+      marcas: [
+        "gastos: pass 4 · fail 0 → suite en verde",
+        "informes: pass 3 · fail 1 → suite en rojo",
+      ],
+      descripcion: "l02: las tres suites ejecutadas con su pass/fail",
+    },
+    {
+      fichero: "dependencias.js",
+      marcas: [
+        "✓ gastos: sin dependencias nuevas",
+        "✗ fechas: nueva dependencia «dayjs» — el código NO la importa (sobrante)",
+      ],
+      descripcion: "l03: la dependencia sobrante de fechas señalada",
+    },
+    {
+      fichero: "casos-limite.js",
+      marcas: ["informes: 2 de 3 casos límite en verde", "fechas: 4 de 4 casos límite en verde"],
+      descripcion: "l04: la batería de fronteras con informes en rojo",
+    },
+    {
+      fichero: "checklist.js",
+      marcas: ["veredicto: ACEPTAR (0 incidencias)"],
+      descripcion: "l05: el checklist acepta la entrega limpia",
+    },
+    {
+      fichero: "checklist.js",
+      argumentos: ["informes"],
+      marcas: ["veredicto: DEVOLVER (2 incidencia(s))"],
+      descripcion: "l05: el checklist devuelve informes con dos incidencias",
+    },
+    {
+      fichero: "checklist.js",
+      argumentos: ["fechas"],
+      marcas: [
+        "✗ criterio (dependencias): dependencia(s) declarada(s) sin usarse: dayjs",
+        "veredicto: DEVOLVER (1 incidencia(s))",
+      ],
+      descripcion: "l05: el checklist devuelve fechas por su dependencia",
+    },
+    {
+      fichero: "revisar-entregas.js",
+      marcas: ["resumen: 1 aceptada(s), 2 devuelta(s)", "✓ ACEPTAR  gastos"],
+      descripcion: "l06: el informe completo sobre las tres entregas",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero, ...(demo.argumentos ?? [])], {
+        cwd: dirEjemplosN1M3,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  it("errores/despues-roto.js termina en 1 con SyntaxError (rojo de l01)", () => {
+    const rojo = ejecutarNode(["errores/despues-roto.js"], dirEjemplosN1M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("SyntaxError");
+    expect(rojo.stderr).toContain("Unexpected end of input");
+  });
+
+  it("errores/comprobar-carga.js devuelve la entrega que no carga (rojo de l01)", () => {
+    const rojo = ejecutarNode(["errores/comprobar-carga.js"], dirEjemplosN1M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("entrega que no carga: SyntaxError: Unexpected end of input");
+  });
+
+  it("errores/revision-cegada.js refuta la prosa con la suite (rojo de l02)", () => {
+    const rojo = ejecutarNode(["errores/revision-cegada.js"], dirEjemplosN1M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("suite ejecutada: pass 3 · fail 1");
+    expect(rojo.stderr).toContain(
+      "claim REFUTADO: la descripción dice «las 4 pruebas pasan» pero 1 falla",
+    );
+  });
+
+  it("errores/dependencia-sobrante.js devuelve la dependencia sin usar (rojo de l03)", () => {
+    const rojo = ejecutarNode(["errores/dependencia-sobrante.js"], dirEjemplosN1M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("nueva dependencia declarada: «dayjs» — el código NO la importa");
+    expect(rojo.stderr).toContain("DEVOLVER: «dayjs» no aparece en el código de la entrega");
+  });
+
+  it("errores/caso-limite-silencioso.js devuelve la basura silenciosa (rojo de l04)", () => {
+    const rojo = ejecutarNode(["errores/caso-limite-silencioso.js"], dirEjemplosN1M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("lo que devuelve la entrega: top=-Infinity, media=NaN");
+    expect(rojo.stderr).toContain(
+      "DEVOLVER: el caso límite devuelve valores incorrectos en silencio",
+    );
+  });
+
+  it("las suites de las entregas: gastos y fechas en verde, informes con fail 1", () => {
+    for (const id of ["gastos", "fechas"]) {
+      const verde = ejecutarNode(["--test", `entregas/${id}.test.js`], dirEjemplosN1M3);
+      expect(verde.status, verde.stderr).toBe(0);
+      expect(verde.stdout).toContain("fail 0");
+    }
+    const rojo = ejecutarNode(["--test", "entregas/informes.test.js"], dirEjemplosN1M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("pass 3");
+    expect(rojo.stdout).toContain("fail 1");
+  });
+
+  it("l06: con los dos arreglos aplicados, la revisión completa queda en 3 ACEPTAR", () => {
+    const carpeta = carpetaTemporal();
+    for (const fichero of readdirSync(dirEjemplosN1M3)) {
+      if (fichero.endsWith(".js"))
+        copyFileSync(join(dirEjemplosN1M3, fichero), join(carpeta, fichero));
+    }
+    mkdirSync(join(carpeta, "entregas"));
+    for (const fichero of readdirSync(join(dirEjemplosN1M3, "entregas"))) {
+      copyFileSync(join(dirEjemplosN1M3, "entregas", fichero), join(carpeta, "entregas", fichero));
+    }
+
+    const informes = join(carpeta, "entregas", "informes-despues.js");
+    writeFileSync(
+      informes,
+      readFileSync(informes, "utf8").replace(
+        "export function resumen(importes) {\n  const top",
+        "export function resumen(importes) {\n  if (importes.length === 0) return { top: null, media: 0 };\n  const top",
+      ),
+    );
+    const datos = join(carpeta, "entregas", "datos.js");
+    writeFileSync(
+      datos,
+      readFileSync(datos, "utf8").replace(
+        'dependenciasDespues: ["dayjs"]',
+        "dependenciasDespues: []",
+      ),
+    );
+
+    const verde = ejecutarNode(["revisar-entregas.js"], carpeta);
+    expect(verde.status, verde.stderr).toBe(0);
+    expect(verde.stdout).toContain("resumen: 3 aceptada(s), 0 devuelta(s)");
+  });
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -1390,6 +1570,37 @@ describe("cobertura de ejemplos", () => {
     ];
 
     expect(archivosVerificables(dirEjemplosN1M2, ["tareas"])).toEqual([...enManifiesto].sort());
+  });
+
+  it("n1/m3: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // Las entregas del fixture son los objetos revisados: antes/después, la
+    // suite de la entrega y `datos.js` (manifiesto y casos límite declarados)
+    // se verifican desde las demos de revisión y desde sus propias suites.
+    const enManifiesto = [
+      "diff.js",
+      "pruebas-entrega.js",
+      "dependencias.js",
+      "casos-limite.js",
+      "checklist.js",
+      "revisar-entregas.js",
+      "errores/despues-roto.js",
+      "errores/comprobar-carga.js",
+      "errores/revision-cegada.js",
+      "errores/dependencia-sobrante.js",
+      "errores/caso-limite-silencioso.js",
+      "entregas/datos.js",
+      "entregas/gastos-antes.js",
+      "entregas/gastos-despues.js",
+      "entregas/gastos.test.js",
+      "entregas/informes-antes.js",
+      "entregas/informes-despues.js",
+      "entregas/informes.test.js",
+      "entregas/fechas-antes.js",
+      "entregas/fechas-despues.js",
+      "entregas/fechas.test.js",
+    ];
+
+    expect(archivosVerificables(dirEjemplosN1M3, ["entregas"])).toEqual([...enManifiesto].sort());
   });
 
   it("m6: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {

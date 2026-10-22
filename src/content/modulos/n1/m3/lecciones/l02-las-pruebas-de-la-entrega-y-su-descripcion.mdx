@@ -1,0 +1,160 @@
+---
+titulo: "Las pruebas de la entrega y su descripción"
+resumen: "La suite que trae la entrega es su evidencia ejecutada; su descripción es su versión de los hechos. Ejecutas las suites de las tres entregas — gastos 4/4 en verde, informes 3 de 4, fechas 4/4 — y enfrentas la prosa con la ejecución: la descripción de informes dice «las 4 pasan» y el runner de Node dice «fail 1». El claim queda refutado con la misma salida que lo contradice."
+nivel: "n1"
+modulo: "m3"
+orden: 2
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Ejecutar la suite de la entrega con node --test y leer su resumen pass/fail"
+  - "Distinguir una suite en rojo (entrega devuelta) de una suite en verde (revisión abierta)"
+  - "Contrastar las afirmaciones de la descripción con la ejecución real"
+prerrequisitos:
+  - "n1/m3/l01-el-diff-es-la-unidad-de-revision"
+actualizado: "2026-10-22"
+tags:
+  - "pruebas"
+  - "claims"
+  - "node-test"
+  - "revision"
+fuentes:
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+  - titulo: "Anthropic — Develop tests"
+    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/develop-tests"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La entrega trae una suite; tú la ejecutas. `ejemplos/pruebas-entrega.js` corre las tres suites del fixture con `node --test` y cuenta su resumen: **gastos pass 4 · fail 0 (verde), informes pass 3 · fail 1 (rojo), fechas pass 4 · fail 0 (verde)**. Una suite en rojo devuelve la entrega sin más trámite. Pero una suite en verde no la cierra: solo prueba lo que la propia entrega decidió probar. La descripción, además, miente a veces — la de informes dice «las 4 pasan» y el runner dice `fail 1`.
+
+## Conceptos
+
+### La suite de la entrega es evidencia ejecutada
+
+`ejemplos/entregas/` contiene tres entregas completas. Cada una trae su suite `*.test.js` escrita con `node:test` y `node:assert/strict` — el mismo equipo que ya usaste en `n0/m6` — y sus pruebas importan el módulo **entregado** (`*-despues.js`), no el original. `pruebas-entrega.js` ejecuta cada suite con `spawnSync(process.execPath, ["--test", fichero])`, parsea el resumen del runner (`ℹ pass N`, `ℹ fail N`) y lo imprime:
+
+```sh
+node pruebas-entrega.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+gastos: pass 4 · fail 0 → suite en verde
+informes: pass 3 · fail 1 → suite en rojo
+fechas: pass 4 · fail 0 → suite en verde
+una suite en rojo devuelve la entrega; una suite en verde no cierra la revisión: faltan dependencias y casos límite
+```
+
+La regla de la primera mitad es dura: **fail > 0 devuelve la entrega**. No hay «falla menor» ni «es solo un caso raro» en una entrega ajena — quien entrega corre su suite antes de entregar, o no entrega. Anthropic lo formula como práctica: desarrolla pruebas con el asistente y verifica los resultados, porque los modelos se desvían en silencio (fuente consultada el 2026-10-22).
+
+### Verde no es «terminado»
+
+La segunda mitad de la regla es la que este módulo existe para grabar: la suite de la entrega solo cubre lo que su autor decidió probar. La entrega `fechas` está en verde 4/4 y aun así se devolverá en l03 por una dependencia sobrante; la entrega `informes` tiene el caso de la lista vacía — exigido por la tarea — fuera de su suite, y l04 lo ejecutará igualmente. **La suite de la entrega es una pieza de evidencia, no el veredicto.**
+
+### La prosa contra la ejecución
+
+Cada entrega del fixture lleva su descripción en prosa (`descripcion` en `entregas/datos.js`) — es lo que el asistente escribiría en su mensaje de entrega. La descripción de `informes` dice: «Corregido el cálculo del top y redondeada la media. Añadidas 4 pruebas; las 4 pasan.» La suite ejecutada dice `pass 3 · fail 1`. El rojo `errores/revision-cegada.js` hace exactamente lo que no debes hacer — creer la prosa — y luego cruza la afirmación con la ejecución:
+
+```text
+descripción de la entrega: «Corregido el cálculo del top y redondeada la media. Añadidas 4 pruebas; las 4 pasan.»
+suite ejecutada: pass 3 · fail 1
+claim REFUTADO: la descripción dice «las 4 pruebas pasan» pero 1 falla
+```
+
+Código de salida 1. Es el mismo patrón que ya aplicaste a los claims del asistente en `n1/m1/l05`, ahora sobre la capa de la entrega: **la descripción se cita, la suite se ejecuta**, y cuando discrepan, manda la ejecución.
+
+### El fallo real de informes
+
+¿Por qué falla la cuarta prueba de `informes`? La entrega cambió el cálculo del top a `Math.max(...importes)` y la media a un `reduce` con redondeo — pero nadie miró la lista vacía: `Math.max()` es `-Infinity` y `0/0` es `NaN`. La prueba «una lista vacía devuelve top null y media 0» — escrita por la propia entrega — recibe un objeto `{ top: -Infinity, media: NaN }`. La suite de la entrega se devora a sí misma: el asistente escribió el test correcto y entregó el código que lo incumple.
+
+## Ejercicio
+
+Ejecuta las suites, arregla `informes` y vuelve a verde.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/entregas ../ejemplos/pruebas-entrega.js .
+node pruebas-entrega.js
+node --test entregas/informes.test.js | grep -E "^ℹ (pass|fail)"
+perl -0pi -e 's/export function resumen\(importes\) \{\n  const top/export function resumen(importes) {\n  if (importes.length === 0) return { top: null, media: 0 };\n  const top/' entregas/informes-despues.js
+node --test entregas/informes.test.js | grep -E "^ℹ (pass|fail)"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime `informes: pass 3 · fail 1 → suite en rojo`;
+- el `grep` inicial imprime `ℹ pass 3` y `ℹ fail 1`;
+- el `perl` añade la guarda de lista vacía al principio de `resumen`;
+- el `grep` final imprime `ℹ pass 4` y `ℹ fail 0`.
+
+Pista: el arreglo es una línea al principio de la función — la frontera vacía se atiende antes de calcular nada. En l04 esa misma frontera pasará por la batería de casos límite.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- las tres suites ---
+gastos: pass 4 · fail 0 → suite en verde
+informes: pass 3 · fail 1 → suite en rojo
+fechas: pass 4 · fail 0 → suite en verde
+
+--- suite de informes antes del arreglo ---
+ℹ pass 3
+ℹ fail 1
+
+--- suite de informes después del arreglo ---
+ℹ pass 4
+ℹ fail 0
+```
+
+Por qué el arreglo funciona: `resumen([])` ahora devuelve `{ top: null, media: 0 }` antes de llegar a `Math.max()` y al `reduce` — la frontera se atiende en la puerta, con la guarda que la propia suite de la entrega ya esperaba. Fíjate en qué **no** hizo el arreglo: no tocó la prueba para que dejara de fallar. Ajustar el test al código roto es literalmente cegarse: la prueba era correcta, el código no.
+
+Errores típicos al resolverlo:
+
+- **Arreglar el test en vez del código**: la prueba falla porque el código incumple el criterio de la tarea. Cambiar la prueba por el código es falsificar la evidencia.
+- **Creer el «las 4 pasan» de la descripción**: la descripción se escribe después (o antes) de ejecutar, y a veces ni se ejecuta. El claim solo vale con la salida del runner al lado.
+- **Detenerse en la primera suite verde**: gastos está en verde y aun así queda todo lo demás por mirar. El verde de la suite es el criterio 2 de 4; el veredicto entero llega con el checklist de l05.
+- **Parsear el TAP a mano con un `grep` frágil**: `pruebas-entrega.js` toma la **última** coincidencia de `pass`/`fail` del resumen, porque las subpruebas anidadas emiten sus propias líneas. Un `grep` casual se come el resumen equivocado.
+
+## Cómo verificarlo
+
+1. Prepara el taller con las entregas y el ejecutor de suites (comandos del ejercicio).
+
+2. Ejecuta las tres suites:
+
+   ```sh
+   node pruebas-entrega.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `informes: pass 3 · fail 1 → suite en rojo` en medio de dos suites en verde, y `codigo=0` — el ejecutor informa, no juzga; el juicio es del checklist (l05).
+
+3. Aplica el arreglo y verifica el verde de informes (pasos 3 y 4 del ejercicio).
+
+   Esperado: `ℹ pass 4` / `ℹ fail 0`.
+
+4. Ejecuta la suite de una entrega tuya reciente con `node --test <suite>`. Si no existe suite de la entrega, no tienes evidencia ejecutada: escribe al menos la prueba del criterio principal antes de aceptar nada.
+
+## Errores comunes
+
+- **Suite ajena modificada**: arreglar la suite de la entrega para que pase es la forma más rápida de «verde». La suite se lee, se ejecuta y — si hay duda — se copia a una carpeta aparte para experimentar; el entregado no se toca.
+- **Un solo fallo tratado como dos**: `fail 1` en `informes` y el caso límite roto de l04 son el **mismo** bug visto por dos vías. Al arreglarlo, ambas vueltas a verde; no busques dos problemas donde hay uno.
+- **Ejecutar la suite sin leer su resumen**: `node --test` imprime `pass` y `fail` también cuando algo va mal; el error está en no fijarse. El resumen parseado por `pruebas-entrega.js` elimina la parte de «fijarse».
+- **Olvidar que la suite de la entrega es suya**: cubre lo que su autor quiso cubrir. Tus casos límite (l04) y tus dependencias (l03) van más allá de lo que su suite decide probar — por eso el checklist no se detiene en el criterio 2.
+
+## Fuentes
+
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. Ejecución con `node --test`, resumen `pass`/`fail` y código de salida como veredicto.
+- [Anthropic: Develop tests](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/develop-tests) — consultado el 2026-10-22. Desarrollar pruebas con el asistente y verificar los resultados: los modelos se desvían en silencio.
+
+## Siguientes pasos
+
+- Siguiente lección: [l03 «Dependencias: lo que la entrega añade al proyecto»](/curriculo/n1/m3/l03-dependencias-lo-que-la-entrega-anade-al-proyecto/) — las pruebas se ejecutan; ahora se revisa lo que la entrega mete al proyecto: dependencias declaradas y usadas de verdad.
+- Proyecto longitudinal: la suite ejecutada de esta lección es el criterio 2 del checklist de l05; los claims de la descripción quedan bajo el mismo patrón de refutación de `n1/m1/l05`.

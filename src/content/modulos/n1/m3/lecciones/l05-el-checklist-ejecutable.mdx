@@ -1,0 +1,194 @@
+---
+titulo: "El checklist ejecutable"
+resumen: "Los cuatro criterios de este módulo — diff, pruebas, dependencias y casos límite — se componen en un único motor: `checklist.js` recibe una entrega y devuelve ACEPTAR o DEVOLVER con cada incidencia nombrada. Ejecutas el checklist contra las tres entregas: gastos sale ACEPTAR con los cuatro criterios en verde, informes sale DEVOLVER con dos incidencias y fechas con una. La revisión deja de ser una opinión y pasa a ser una salida."
+nivel: "n1"
+modulo: "m3"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Componer los cuatro criterios de revisión en un solo ejecutable con veredicto"
+  - "Interpretar un veredicto ACEPTAR/DEVOLVER con incidencias nombradas"
+  - "Aplicar el checklist a entregas individuales desde la línea de comandos"
+prerrequisitos:
+  - "n1/m3/l04-edge-cases-ataca-la-entrega-en-sus-fronteras"
+actualizado: "2026-10-22"
+tags:
+  - "checklist"
+  - "revision"
+  - "veredicto"
+fuentes:
+  - titulo: "GitHub Docs — About pull request reviews"
+    url: "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+`ejemplos/checklist.js` es el motor de revisión del módulo: recibe una entrega, ejecuta sus cuatro criterios en orden — **diff cargable y legible, suite de la entrega en verde, dependencias declaradas usadas, casos límite de la tarea en verde** — y devuelve `ACEPTAR` si las cuatro pasan o `DEVOLVER` con el detalle de cada incidencia. Sobre las tres entregas: **gastos ACEPTAR (0 incidencias), informes DEVOLVER (2), fechas DEVOLVER (1)**. Las decisiones de revisión de GitHub — «Approve» o «Request changes» — hechas binarias y ejecutables.
+
+## Conceptos
+
+### Cuatro criterios, un veredicto
+
+Las lecciones anteriores aislaron cuatro comprobaciones; el checklist las compone en un orden fijo, cada una con su nombre y su detalle:
+
+| #   | Criterio       | De dónde viene | Falla cuando...                                                      |
+| --- | -------------- | -------------- | -------------------------------------------------------------------- |
+| 1   | `diff`         | l01            | el código no carga, o el cambio supera las 50 líneas cambiadas       |
+| 2   | `pruebas`      | l02            | la suite de la entrega termina con `fail > 0` o estado distinto de 0 |
+| 3   | `dependencias` | l03            | una dependencia nueva no aparece usada en el código entregado        |
+| 4   | `casos límite` | l04            | un caso exigido por la tarea no devuelve su valor esperado           |
+
+`revisarEntrega` devuelve los cuatro criterios con su `ok` y su `detalle`; las incidencias son los criterios caídos; el veredicto es `ACEPTAR` si no hay incidencias y `DEVOLVER` en caso contrario. Sin opinión, sin balance de pros y contras: una entrada, una salida. GitHub formalizó estas dos decisiones para las revisiones de PR — «Approve» señala que los cambios están listos para fusionar y «Request changes» pide al autor que atienda la respuesta antes (fuente consultada el 2026-10-22); el checklist las automatiza.
+
+### Una entrega en verde completo
+
+```sh
+node checklist.js gastos
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+revisando: gastos — Total de gastos con redondeo a dos decimales
+✓ criterio (diff): el código carga y el cambio es legible (5 líneas cambiadas)
+✓ criterio (pruebas): pass 4 · fail 0
+✓ criterio (dependencias): sin dependencias nuevas
+✓ criterio (casos límite): 3 de 3 en verde
+veredicto: ACEPTAR (0 incidencias)
+```
+
+Cinco líneas cambiadas (2 añadidas, 3 quitadas — el dif de l01), suite 4/4, sin dependencias y tres fronteras verdes. Esta es la única entrega del fixture que pasa las cuatro puertas.
+
+### Las devoluciones nombradas
+
+```sh
+node checklist.js informes
+node checklist.js fechas
+```
+
+Salida real (2026-10-22):
+
+```text
+revisando: informes — Resumen de importes con top y media
+✓ criterio (diff): el código carga y el cambio es legible (13 líneas cambiadas)
+✗ criterio (pruebas): suite en rojo: 1 prueba(s) fallan de 4
+✓ criterio (dependencias): sin dependencias nuevas
+✗ criterio (casos límite): caso [[]] → AssertionError: Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   media: NaN,
++   top: -Infinity
+-   media: 0,
+-   top: null
+  }
+
+veredicto: DEVOLVER (2 incidencia(s))
+
+revisando: fechas — Detección de años bisiestos con la regla completa
+✓ criterio (diff): el código carga y el cambio es legible (5 líneas cambiadas)
+✓ criterio (pruebas): pass 4 · fail 0
+✗ criterio (dependencias): dependencia(s) declarada(s) sin usarse: dayjs
+✓ criterio (casos límite): 4 de 4 en verde
+veredicto: DEVOLVER (1 incidencia(s))
+```
+
+Dos formatos de incidencia distintos, y eso es el punto del checklist: la suite roja de informes se nombra con sus números, la dependencia de fechas con su nombre, el caso límite con su llamada y su error. **Una devolución sin incidencia nombrada obliga a adivinar; esta obliga a leer.** Y fíjate en lo que el checklist no hace: discutir el enfoque, el estilo ni el nombre de las variables. Los cuatro criterios son comprobables; el gusto se discute aparte, si acaso.
+
+### El umbral del diff, hecho criterio
+
+El criterio 1 no solo carga el código: mide el cambio con el dif de l01 y exige que no supere `LIMITE_DIFF = 50` líneas cambiadas — «el diff de una tarea se lee entero», convertido de lema a número. Las tres entregas del fixture quedan muy por debajo (5, 13 y 5); una entrega de 200 líneas cambiará a `DEVOLVER` con `diff de 200 líneas cambiadas (el curso lee diffs de hasta 50)` sin que nadie tenga que opinar.
+
+## Ejercicio
+
+Revisa las tres entregas con el checklist y clasifica sus veredictos.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/entregas .
+cp ../ejemplos/diff.js ../ejemplos/pruebas-entrega.js ../ejemplos/dependencias.js .
+cp ../ejemplos/casos-limite.js ../ejemplos/checklist.js .
+node checklist.js gastos
+node checklist.js informes | tail -1
+node checklist.js fechas | tail -1
+node checklist.js no-existe; echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime los cuatro criterios con `✓` y `veredicto: ACEPTAR (0 incidencias)`;
+- la segunda imprime `veredicto: DEVOLVER (2 incidencia(s))`;
+- la tercera imprime `veredicto: DEVOLVER (1 incidencia(s))`;
+- la cuarta imprime `no existe la entrega «no-existe» (disponibles: gastos, informes, fechas)` y `codigo=1`.
+
+Pista: el checklist acepta cualquier `id` del fixture; el argumento desconocido termina en rojo con la lista de disponibles — una herramienta de revisión no debe inventar entregas.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- node checklist.js gastos ---
+revisando: gastos — Total de gastos con redondeo a dos decimales
+✓ criterio (diff): el código carga y el cambio es legible (5 líneas cambiadas)
+✓ criterio (pruebas): pass 4 · fail 0
+✓ criterio (dependencias): sin dependencias nuevas
+✓ criterio (casos límite): 3 de 3 en verde
+veredicto: ACEPTAR (0 incidencias)
+
+--- node checklist.js informes | tail -1 ---
+veredicto: DEVOLVER (2 incidencia(s))
+
+--- node checklist.js fechas | tail -1 ---
+veredicto: DEVOLVER (1 incidencia(s))
+
+--- node checklist.js no-existe ---
+no existe la entrega «no-existe» (disponibles: gastos, informes, fechas)
+codigo=1
+```
+
+Cómo se compone el motor: `checklist.js` importa las cuatro piezas de las lecciones anteriores — `cargarModulo`, `diff` y `estadisticas` de l01; `ejecutarSuite` de l02; `dependenciasNuevas` y `codigoImporta` de l03; `probarEntrega` de l04 — y las orquesta sin reimplementar nada. Cada criterio aporta su `{ nombre, ok, detalle }`; las incidencias se filtran con `criterios.filter((c) => !c.ok)`. La revisión reutilizable no es código nuevo: es código **compuesto**, y por eso mismo es mantenible.
+
+Errores típicos al resolverlo:
+
+- **Cambiar el orden de los criterios por conveniencia**: el diff va primero porque es el más barato — si el código no carga, los otros tres criterios dan datos sobre una entrega inválida. Criterios baratos antes que caros.
+- **Un solo criterio como veredicto**: «las pruebas pasan, se acepta» es el error de l02 empaquetado. El checklist tiene cuatro puertas por una razón: cada una falla sola en entregas reales — fechas es la prueba.
+- **Veredicto sin detalle**: `DEVOLVER` a secas no se corrige. El detalle nombrado («dayjs», «caso `[[]]`», «1 prueba falla de 4») es lo que convierte la devolución en el siguiente commit.
+- **Ejecutar el checklist una sola vez y archivarlo**: la entrega se corrige y se vuelve a enviar; el checklist se corre de nuevo sobre la **nueva** entrega. Es barato — decenas de milisegundos — así que corre siempre.
+
+## Cómo verificarlo
+
+1. Prepara el taller con las entregas y los módulos del checklist (comandos del ejercicio).
+
+2. Revisa las tres entregas (pasos 3 a 5 del ejercicio).
+
+   Esperado: `ACEPTAR (0 incidencias)` para gastos y dos `DEVOLVER` con 2 y 1 incidencias.
+
+3. Comprueba el argumento desconocido (paso 6).
+
+   Esperado: mensaje de disponibilidad y `codigo=1`.
+
+4. Cronometra el checklist completo sobre una entrega tuya: `time node checklist.js <id>`. Si tu revisión manual de la misma entrega tarda minutos y el checklist milisegundos, empieza a ejecutar el checklist siempre y reserva tu atención para lo que sus cuatro criterios no cubren.
+
+## Errores comunes
+
+- **Criterios no ejecutables mezclados en el checklist**: «el código está bien estructurado» no puede fallar con un detalle. Todo lo que entra al checklist tiene que poder devolver `ok` y `detalle` con evidencia; lo demás se queda fuera.
+- **Herramienta que juzga e informa a la vez con código 1**: el checklist termina en 0 porque su trabajo es producir el veredicto; la devolución es el contenido, no un error del proceso. Los rojos de `errores/` sí terminan en 1: son rechazos puntuales, no informes.
+- **Copia del criterio en vez de importarlo**: reescribir el parseo de `pass`/`fail` dentro del checklist duplica la lógica de l02 y la desincroniza. El motor importa; si mañana cambias el formato del resumen, se cambia en un sitio.
+- **Checklist ciego a lo que no mide**: estilo, nombrado, enfoque. Si esos te importan, discúrrelos en la revisión — no finjas que el checklist los juzga.
+
+## Fuentes
+
+- [GitHub Docs: About pull request reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews) — consultado el 2026-10-22. «Approve» y «Request changes» como las dos decisiones que el checklist automatiza.
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. Base de ejecución del criterio 2: `node --test`, resumen y código de salida.
+
+## Siguientes pasos
+
+- Siguiente lección: [l06 «Entregable: checklist aplicado a 3 entregas»](/curriculo/n1/m3/l06-entregable-checklist-aplicado-a-3-entregas/) — el checklist recorre las tres entregas de una vez y produce el informe de revisión completo: 1 aceptada, 2 devueltas.
+- Proyecto longitudinal: guarda el patrón `{ nombre, ok, detalle }` — cualquier revisión reutilizable de tus proyectos futuros se construye igual: criterios que devuelven evidencia, y un veredicto que no opina.
