@@ -5,5 +5,24 @@ modulo: "m3"
 objetivos:
   - "Aplicar criterios de revisión: diffs, pruebas, dependencias, edge cases"
 entregable: "Checklist de revisión aplicado a 3 entregas"
-actualizado: "2026-10-19"
+actualizado: "2026-10-22"
 ---
+
+## Para quién es este módulo
+
+Tras `n1/m1` sabes qué es un modelo de lenguaje y tras `n1/m2` sabes pedirle tareas pequeñas con criterios ejecutables. Pero la entrega llega igualmente: código, suite y una descripción en prosa. Este módulo es la tercera pieza del arco — **revisar lo que el asistente entrega**. Aprendes a tratar el diff como la unidad de revisión (l01), a ejecutar la suite de la entrega y a contrastarla con su descripción (l02), a revisar las dependencias que la entrega mete al proyecto (l03), a atacar la entrega en sus fronteras con los casos límite que la tarea exigía (l04) y a componer los cuatro criterios en un checklist ejecutable (l05) que en l06 aplicas a tres entregas completas con su informe de revisión. Público objetivo: quien cierra `n1/m2/l06` con su serie validada. Duración estimada: unas 5 horas repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas el **checklist de revisión aplicado a 3 entregas**: un informe con un veredicto por entrega (`ACEPTAR` o `DEVOLVER`) y cada incidencia nombrada con su criterio y su evidencia, producido por `ejemplos/revisar-entregas.js` (código `0`). La carpeta `ejemplos/` reúne **6 scripts verdes** con solo librería estándar — el dif LCS, el ejecutor de suites, el comprobador de dependencias, la batería de casos límite, el checklist y el informe — más **5 rojos deliberados**: la entrega que no carga, la revisión cegada por la prosa, la dependencia sobrante y el caso límite que devuelve basura en silencio (los cinco con código `1`). El directorio `entregas/` contiene las tres entregas de referencia — gastos, informes y fechas — con sus versiones antes/después, sus suites y su manifiesto declarado. Todo se ejecuta offline, sin dependencias, red ni claves: las entregas del módulo son también un ejemplo de lo que enseñan.
+
+## Lecciones
+
+| #   | Lección                                                                                                                     | Tiempo |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [El diff es la unidad de revisión](/curriculo/n1/m3/l01-el-diff-es-la-unidad-de-revision/)                                  | 45 min |
+| 2   | [Las pruebas de la entrega y su descripción](/curriculo/n1/m3/l02-las-pruebas-de-la-entrega-y-su-descripcion/)              | 50 min |
+| 3   | [Dependencias: lo que la entrega añade al proyecto](/curriculo/n1/m3/l03-dependencias-lo-que-la-entrega-anade-al-proyecto/) | 50 min |
+| 4   | [Edge cases: ataca la entrega en sus fronteras](/curriculo/n1/m3/l04-edge-cases-ataca-la-entrega-en-sus-fronteras/)         | 55 min |
+| 5   | [El checklist ejecutable](/curriculo/n1/m3/l05-el-checklist-ejecutable/)                                                    | 50 min |
+| 6   | [Entregable: checklist aplicado a 3 entregas](/curriculo/n1/m3/l06-entregable-checklist-aplicado-a-3-entregas/)             | 60 min |

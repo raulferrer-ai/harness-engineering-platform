@@ -1,0 +1,193 @@
+---
+titulo: "Entregable: checklist aplicado a 3 entregas"
+resumen: "El cierre del módulo es el entregable del CURRICULUM: el checklist de cuatro criterios aplicado a las tres entregas de una vez. `revisar-entregas.js` recorre gastos, informes y fechas y produce el informe de revisión completo — 1 aceptada, 2 devueltas con sus incidencias nombradas — y el ejercicio corrige las dos devueltas hasta conseguir 3 aceptadas y 0 devueltas con la revisión completa en verde."
+nivel: "n1"
+modulo: "m3"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Aplicar el checklist completo a varias entregas y leer el informe de revisión"
+  - "Convertir cada incidencia nombrada en su corrección concreta"
+  - "Reejecutar la revisión hasta el verde completo sin tocar los criterios"
+prerrequisitos:
+  - "n1/m3/l05-el-checklist-ejecutable"
+actualizado: "2026-10-22"
+tags:
+  - "entregable"
+  - "checklist"
+  - "revision"
+  - "veredicto"
+fuentes:
+  - titulo: "GitHub Docs — About pull request reviews"
+    url: "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+  - titulo: "npm Docs — package.json: dependencies"
+    url: "https://docs.npmjs.com/cli/v11/configuring-npm/package-json"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Este es el entregable del módulo: **el checklist aplicado a 3 entregas**. `ejemplos/revisar-entregas.js` recorre las tres entregas del fixture con los cuatro criterios y emite el informe completo — **1 aceptada (gastos), 2 devueltas (informes con 2 incidencias, fechas con 1)**. El ejercicio corrige las dos devueltas con dos arreglos puntuales y reejecuta la revisión hasta `resumen: 3 aceptada(s), 0 devuelta(s)`. La revisión entera del módulo, desde la primera llamada de tu terminal, cabe en menos de un segundo.
+
+## Conceptos
+
+### El informe de revisión
+
+`revisar-entregas.js` no hace matemática nueva: importa `revisarEntrega` del checklist de l05, itera las entregas declaradas en `entregas/datos.js` y acumula su resumen:
+
+```sh
+node revisar-entregas.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+revisión de 3 entregas con el checklist de 4 criterios
+✓ ACEPTAR  gastos     (0 incidencias)
+✗ DEVOLVER informes   (2 incidencia(s))
+     ↳ pruebas: suite en rojo: 1 prueba(s) fallan de 4 | casos límite: caso [[]] → AssertionError: Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   media: NaN,
++   top: -Infinity
+-   media: 0,
+-   top: null
+  }
+
+✗ DEVOLVER fechas     (1 incidencia(s))
+     ↳ dependencias: dependencia(s) declarada(s) sin usarse: dayjs
+resumen: 1 aceptada(s), 2 devuelta(s)
+```
+
+Tres entregas, tres veredictos, todas las incidencias nombradas con su criterio y su evidencia. Este es el formato de una revisión que produce trabajo: cada `↳` es una orden de reparación concreta, no una sugerencia. GitHub distingue entre revisar para comentar y revisar para **pedir cambios** que el autor debe atender antes de fusionar (fuente consultada el 2026-10-22); el informe anterior es «Request changes» con instrucciones de ejecución.
+
+### De la incidencia al arreglo
+
+Las dos devoluciones del informe se corrigen con una línea cada una:
+
+- **informes** (`caso límite [[]]` y su prueba en rojo): la guarda de lista vacía que ya ensayaste en l02 y l04 — `if (importes.length === 0) return { top: null, media: 0 };` al principio de `resumen`.
+- **fechas** (`dependencia(s) declarada(s) sin usarse: dayjs`): vaciar `dependenciasDespues` del manifiesto declarado — el código no usaba el paquete, solo lo decía.
+
+Ninguna corrección toca los criterios ni el motor. Ese es el último hábito del módulo: **la entrega se corrige; el checklist no se ablanda**. Si un criterio te devuelve una entrega tres veces, el criterio está en lo alto — o la entrega, en las profundidades.
+
+### La revisión completa en verde
+
+Tras los dos arreglos, la misma revisión — mismo comando, mismos criterios:
+
+```text
+revisión de 3 entregas con el checklist de 4 criterios
+✓ ACEPTAR  gastos     (0 incidencias)
+✓ ACEPTAR  informes   (0 incidencias)
+✓ ACEPTAR  fechas     (0 incidencias)
+resumen: 3 aceptada(s), 0 devuelta(s)
+```
+
+Tres aceptadas, cero devueltas, código de salida 0. Lo que cambió entre las dos salidas no es el módulo: son las entregas. Y fíjate en el presupuesto: el checklist completo tarda decenas de milisegundos por entrega — ejecutarlo siempre es más barato que decidir si esta vez merece la pena.
+
+### El arco completo del nivel 1
+
+Con esta revisión cierras el arco de `n1`: en `n1/m1` aprendiste a desconfiar del asistente y a verificar sus claims; en `n1/m2` aprendiste a formularle tareas pequeñas con criterios ejecutables; aquí, en `n1/m3`, has aprendido a revisar lo que entrega. Las tres piezas del trabajo verificable con IA — **pedir, verificar, revisar** — son las tres herramientas que te llevas, y las tres son ejecutables, no opinables.
+
+## Ejercicio
+
+Revisa las tres entregas, corrige las devueltas y reejecuta hasta el verde.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/entregas .
+cp ../ejemplos/*.js .
+node revisar-entregas.js
+perl -0pi -e 's/export function resumen\(importes\) \{\n  const top/export function resumen(importes) {\n  if (importes.length === 0) return { top: null, media: 0 };\n  const top/' entregas/informes-despues.js
+perl -0pi -e 's/dependenciasDespues: \["dayjs"\]/dependenciasDespues: []/' entregas/datos.js
+node revisar-entregas.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime `✓ ACEPTAR gastos`, `✗ DEVOLVER informes (2 incidencia(s))` con su `↳`, `✗ DEVOLVER fechas (1 incidencia(s))` con su `↳` y `resumen: 1 aceptada(s), 2 devuelta(s)`;
+- los dos `perl` aplican los arreglos de informes y fechas;
+- la segunda ejecución imprime las tres líneas `✓ ACEPTAR` y `resumen: 3 aceptada(s), 0 devuelta(s)`;
+- `codigo=0`.
+
+Pista: los arreglos son los mismos que en l02, l03 y l04 — la revisión de un módulo entero se corrige con las herramientas de sus lecciones.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- revisión inicial ---
+revisión de 3 entregas con el checklist de 4 criterios
+✓ ACEPTAR  gastos     (0 incidencias)
+✗ DEVOLVER informes   (2 incidencia(s))
+     ↳ pruebas: suite en rojo: 1 prueba(s) fallan de 4 | casos límite: caso [[]] → AssertionError: Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   media: NaN,
++   top: -Infinity
+-   media: 0,
+-   top: null
+  }
+
+✗ DEVOLVER fechas     (1 incidencia(s))
+     ↳ dependencias: dependencia(s) declarada(s) sin usarse: dayjs
+resumen: 1 aceptada(s), 2 devuelta(s)
+
+--- revisión tras los dos arreglos ---
+revisión de 3 entregas con el checklist de 4 criterios
+✓ ACEPTAR  gastos     (0 incidencias)
+✓ ACEPTAR  informes   (0 incidencias)
+✓ ACEPTAR  fechas     (0 incidencias)
+resumen: 3 aceptada(s), 0 devuelta(s)
+codigo=0
+```
+
+Por qué la segunda pasada queda en verde entero: los dos arreglos tocan las raíces que alimentaban tres incidencias distintas — la guarda de lista vacía apaga el caso límite **y** la prueba en rojo de la suite (era el mismo bug), y la limpieza del manifiesto apaga la dependencia sobrante. Una incidencia corregida bien suele apagar más de una bandera; eso es señal de que atacaste la causa y no el síntoma.
+
+Errores típicos al resolverlo:
+
+- **«Arreglar» el checklist para que acepte**: cambiar `LIMITE_DIFF`, saltarse un criterio o filtrar la entrega incómoda convierte la revisión en un trámite. El motor no se toca; se ejecuta.
+- **Corregir el síntoma de cada incidencia por separado**: si arreglas la prueba de la suite quitándola y luego el caso límite aparte, llevas dos cambios para un bug. Lee las incidencias juntas: informes tiene dos banderas y una causa.
+- **Aceptar la primera entrega sin ejecutar el checklist**: gastos era aceptable — pero «lo veía» no es un criterio. Las tres pasaron por las cuatro puertas; el `✓` de gastos es la única diferencia entre revisar y mirar.
+- **No reejecutar tras corregir**: la revisión es el antes y el después; sin la segunda pasada no sabes si tu arreglo apagó la incidencia o abrió otra. Cuesta menos de un segundo.
+
+## Cómo verificarlo
+
+1. Prepara el taller con las entregas y los módulos de revisión (comandos del ejercicio).
+
+2. Ejecuta la revisión inicial (paso 3 del ejercicio).
+
+   Esperado: `resumen: 1 aceptada(s), 2 devuelta(s)` con las tres incidencias nombradas.
+
+3. Aplica los dos arreglos y reejecuta (pasos 4 a 6).
+
+   Esperado: tres `✓ ACEPTAR`, `resumen: 3 aceptada(s), 0 devuelta(s)` y `codigo=0`.
+
+4. Añade una cuarta entrega tuya — un `*-antes.js`, un `*-despues.js`, su suite y su entrada en `entregas/datos.js` — y vuelve a ejecutar la revisión. Si tu entrega nueva sale `ACEPTAR` con los cuatro criterios, has pasado la revisión del curso; si sale `DEVOLVER`, el `↳` te dice exactamente qué reparar.
+
+## Errores comunes
+
+- **Revisión de una sola pasada**: el entregable no es el primer informe — es el par informe-inicial + informe-final. La segunda salida es la que demuestra que entendiste cada incidencia.
+- **Corregir sin nombrar**: si al corregir no puedes apuntar qué incidencia apagas con cada cambio, estás probando a ver si pasa. El `↳` de la devolución es tu lista de trabajo — úsala.
+- **Entregas aceptadas sin evidencia guardada**: la salida del checklist es la evidencia de la revisión; guárdala (o ejecútala en el CI de tu proyecto) en lugar de recordarla.
+- **Olvidar el presupuesto**: decenas de milisegundos por entrega. El coste de ejecutar el checklist siempre es cero redondeado; el coste de saltártelo es recibir `NaN` en producción.
+
+## Fuentes
+
+- [GitHub Docs: About pull request reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews) — consultado el 2026-10-22. Aprobar o pedir cambios como decisiones de revisión, y la exigencia de atender los cambios pedidos antes de fusionar.
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. Motor de ejecución de las suites de las entregas bajo revisión.
+- [npm Docs: package.json — dependencies](https://docs.npmjs.com/cli/v11/configuring-npm/package-json) — consultado el 2026-10-22. El campo `dependencies` como manifiesto que la entrega debe mantener limpio.
+
+## Siguientes pasos
+
+- Módulo siguiente: [n1/m4 «Flujos de trabajo con asistente»](/curriculo/n1/m4/) — con pedir (m2), verificar (m1) y revisar (m3) en el cinturón, el siguiente paso del nivel 1 son los flujos de trabajo: chat, edición inline y asistente de terminal sin perder el control.
+- Proyecto longitudinal: las tres piezas de `n1` — encargo formulado, verificación de 10 minutos y checklist de revisión — son el flujo completo de trabajo verificable con IA: pídelo pequeño, verifícalo tú, revísalo siempre.

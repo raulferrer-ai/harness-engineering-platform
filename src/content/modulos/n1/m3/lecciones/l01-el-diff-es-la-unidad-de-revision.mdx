@@ -1,0 +1,171 @@
+---
+titulo: "El diff es la unidad de revisión"
+resumen: "Revisar una entrega no es leer su descripción: es leer el cambio. Calculas el diff entre la versión anterior y la entregada, compruebas que el código se carga y que el cambio se lee entero de punta a punta. Ejecutas el dif sobre la entrega de gastos — 2 líneas añadidas, 3 quitadas — y rompes una entrega para verla devuelta con SyntaxError antes de siquiera discutir su contenido."
+nivel: "n1"
+modulo: "m3"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Tratar el diff (antes → después) como la unidad que se revisa, no la prosa"
+  - "Comprobar que el código entregado se carga antes de evaluar nada más"
+  - "Aplicar el umbral de legibilidad: el diff de una tarea se lee completo"
+prerrequisitos:
+  - "n1/m2/l06-entregable-serie-de-tareas-de-10-minutos-con-pruebas"
+actualizado: "2026-10-22"
+tags:
+  - "revision"
+  - "diff"
+  - "entrega"
+fuentes:
+  - titulo: "GitHub Docs — About pull request reviews"
+    url: "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews"
+    fecha: "2026-10-22"
+  - titulo: "OpenAI — Prompt engineering: Coding"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La unidad que revisas de una entrega del asistente es su **diff**: el antes, el después y nada más. `ejemplos/diff.js` calcula el dif de la entrega `gastos` (línea a línea, con programación dinámica y solo librería estándar) y comprueba que el código entregado se carga: **2 líneas añadidas, 3 quitadas, 4 iguales**, y carga sin errores. Una entrega cuyo código ni siquiera se carga — le falta una llave — se devuelve con `SyntaxError` sin discutir su prosa.
+
+## Conceptos
+
+### Una entrega tiene tres capas, y la primera es el código
+
+En `n1/m2` aprendiste a pedir entregas verificables. Ahora llega lo que llega: la entrega del asistente. Compón una entrega por tres capas, en este orden de inspección:
+
+1. **El código** (el diff): ¿se carga?, ¿qué líneas cambió?, ¿cabe leerlo entero?
+2. **La suite**: las pruebas que la acompañan, ejecutadas (l02).
+3. **La descripción**: la prosa con la que el asistente explica el cambio — la capa menos fiable de todas (l02 la pone a prueba).
+
+Las revisiones de código de GitHub tienen exactamente tres decisiones posibles: comentar, aprobar o **pedir cambios** («Comment», «Approve», «Request changes»), y su finalidad declarada es garantizar la calidad del código antes de fusionar (fuente consultada el 2026-10-22). Este módulo traduce «Approve / Request changes» a `ACEPTAR` y `DEVOLVER`, y las dos primeras lecciones cubren la capa del código.
+
+### El diff calculado, no improvisado
+
+`ejemplos/diff.js` implementa un dif de líneas por **programación dinámica**: calcula la subsecuencia común más larga (LCS) entre las dos versiones y deriva de ella qué líneas se quitan y qué líneas se ponen. Con solo librería estándar y para los tamaños de una tarea pequeña es exacto y suficiente. La salida para la entrega `gastos`:
+
+```sh
+node diff.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+entrega: gastos — Total de gastos con redondeo a dos decimales
+- // Versión original del módulo de gastos (lo que había antes de la entrega).
+- // Bug real: suma.toFixed(2) devuelve un string, no un número.
++ // Entrega: el total ahora devuelve un número redondeado a dos decimales.
+- return suma.toFixed(2);
++ return Math.round(suma * 100) / 100;
+diff: 2 líneas añadidas, 3 quitadas, 4 iguales
+✓ el código entregado se carga sin errores
+```
+
+Dos líneas añadidas, tres quitadas. El cambio entero cabe en una pantalla: eso es lo que significa «revisable». El umbral del curso es de **50 líneas cambiadas**: por encima, la entrega pide partirse en dos tareas — el checklist de l05 lo hace criterio ejecutable.
+
+### Cargar el código: la puerta de entrada
+
+Antes de contar líneas ni leer comentarios, `diff.js` intenta **importar** el módulo entregado con `cargarModulo`. Si la entrega no carga, no hay diff que discutir: hay un error de sintaxis que devolver. OpenAI lo advierte en su sección de coding: valida los parches con cuidado, porque las herramientas de aplicación pueden devolver «Done» aunque el cambio falle (fuente consultada el 2026-10-22). Un archivo con una llave sin cerrar es un «Done» que no carga — y el cargador lo descubre en milisegundos.
+
+### El rojo: la entrega que no carga
+
+`ejemplos/errores/despues-roto.js` es una entrega con la llave final de la función borrada. `errores/comprobar-carga.js` la pasa por el mismo cargador:
+
+```text
+entrega que no carga: SyntaxError: Unexpected end of input
+```
+
+Código de salida 1. El revisor no comenta el estilo ni discute el enfoque: devuelve la entrega en la puerta. Cualquier revisión posterior a un `SyntaxError` es tiempo perdido.
+
+## Ejercicio
+
+Copia una entrega a un taller, rompe su sintaxis y detecta la rotura.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/entregas .
+cp ../ejemplos/diff.js .
+node diff.js | head -3
+perl -0pi -e 's/\}\n\z//' entregas/gastos-despues.js
+cat > comprobar.js <<'EOF'
+import { cargarModulo } from "./diff.js";
+
+const carga = await cargarModulo(new URL("./entregas/gastos-despues.js", import.meta.url).href);
+if (!carga.ok) {
+  console.error(`entrega que no carga: ${carga.error.name}: ${carga.error.message}`);
+  process.exit(1);
+}
+console.log("carga correcta");
+EOF
+node comprobar.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- `node diff.js | head -3` imprime la cabecera de la entrega y las dos primeras líneas quitadas;
+- `perl` borra la última llave del fichero entregado;
+- `node comprobar.js` imprime `entrega que no carga: SyntaxError: Unexpected end of input` y `codigo=1`;
+- puedes explicar por qué el cargador manda sobre cualquier otro criterio.
+
+Pista: `perl -0pi -e 's/\}\n\z//'` opera sobre el fichero entero (`-0`) e inserta el resultado en el sitio (`-i`); `\z` ancla al final del fichero, así que solo se va la última llave.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+entrega: gastos — Total de gastos con redondeo a dos decimales
+- // Versión original del módulo de gastos (lo que había antes de la entrega).
+- // Bug real: suma.toFixed(2) devuelve un string, no un número.
+entrega que no carga: SyntaxError: Unexpected end of input
+codigo=1
+```
+
+Por qué la detección es así de temprana: `cargarModulo` hace un `import()` dinámico dentro de un `try/catch`. Un error de sintaxis se produce en la fase de parseo del módulo, antes de ejecutar una sola línea del código — el `catch` recoge el `SyntaxError` con su mensaje literal y el revisor lo devuelve. No hace falta un linter ni un analizador: el propio runtime de Node es el filtro.
+
+Errores típicos al resolverlo:
+
+- **Revisar a pesar de no cargar**: si el código tiene un `SyntaxError`, no comentes ni una línea más; devuelve. Comentar sobre código que no ejecuta es discutir una versión inexistente.
+- **Confundir «se ve bien» con «carga»**: el editor mostrará el archivo con resaltado de sintaxis incluso rotto. La única evidencia de que carga es un `import` exitoso — ejecútalo.
+- **Romper la entrega original en vez de la copia**: el `perl` del ejercicio actúa sobre el taller; si lo aplicas a `ejemplos/entregas/`, rompes el fixture del curso. Trabaja siempre sobre copia.
+- **Umbral de 50 líneas como número mágico**: es la regla del curso para tareas pequeñas. La intención es la que importa: un diff que no cabe en una pantalla de revisión ya no se revisa — se esquiva.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la entrega y el dif (comandos del ejercicio).
+
+2. Ejecuta el dif sobre la entrega intacta:
+
+   ```sh
+   node diff.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `diff: 2 líneas añadidas, 3 quitadas, 4 iguales`, la línea `✓ el código entregado se carga sin errores` y `codigo=0`.
+
+3. Ejecuta la fase rota (pasos 3 a 5 del ejercicio).
+
+   Esperado: `SyntaxError: Unexpected end of input` y `codigo=1`.
+
+4. Elige una entrega real tuya (o una entrega del asistente de estas semanas), guarda la versión anterior y la entregada, y calcula su dif con la misma lógica — o con `diff` de la terminal. Si el cambio no cabe leerlo entero, esa entrega necesita partirse antes de revisarse.
+
+## Errores comunes
+
+- **Empezar por la descripción**: la prosa del asistente es la capa que más suena a verdad y menos evidencia aporta. Empieza por el código; la descripción se contrasta al final (l02).
+- **Difs gigantes aceptados «porque es una sola tarea»**: 200 líneas cambiadas en una tarea de 10 minutos no es una tarea: son cinco. El umbral de l05 lo rechazará con un mensaje, no con una opinión.
+- **Revisar el archivo completo en vez del cambio**: el diff es la unidad porque aístra lo que cambió. Leer el fichero entero diluye el cambio en contexto que el asistente no tocó.
+- **Olvidar que el dif no carga nada por sí solo**: `diff.js` separa las dos comprobaciones (líneas y carga) porque son fallos distintos: una entrega puede cargar y ser enorme, o ser minúscula y no cargar. El checklist de l05 las une en el criterio 1.
+
+## Fuentes
+
+- [GitHub Docs: About pull request reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews) — consultado el 2026-10-22. Las decisiones de revisión (Comment, Approve, Request changes) y su finalidad: garantizar la calidad del código antes de fusionar.
+- [OpenAI: Prompt engineering (Coding)](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Validar los parches con cuidado: la herramienta puede devolver «Done» aunque el cambio falle.
+
+## Siguientes pasos
+
+- Siguiente lección: [l02 «Las pruebas de la entrega y su descripción»](/curriculo/n1/m3/l02-las-pruebas-de-la-entrega-y-su-descripcion/) — el diff ya se lee; ahora se ejecuta la suite que la entrega trae y se contrasta con lo que su descripción afirma.
+- Proyecto longitudinal: el cargador y el dif de esta lección son los dos primeros criterios del checklist ejecutable de l05; en l06 se aplican a tres entregas completas.

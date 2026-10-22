@@ -1,0 +1,184 @@
+---
+titulo: "Edge cases: ataca la entrega en sus fronteras"
+resumen: "La suite de la entrega prueba lo que su autor decidió probar; las fronteras que la tarea exigía las revisas tú. Ejecutas la batería de casos límite declarada en la tarea contra las tres entregas: gastos 3 de 3, fechas 4 de 4, e informes devuelve { top: -Infinity, media: NaN } en la lista vacía — basura en silencio, sin excepción que la delate. El código que no revienta pero devuelve mentiras es el fallo más caro de revisar."
+nivel: "n1"
+modulo: "m3"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Ejecutar contra la entrega los casos límite que la tarea original exigía"
+  - "Reconocer el fallo silencioso: valores incorrectos sin excepción"
+  - "Devolver la entrega por un caso límite aunque su suite esté en verde"
+prerrequisitos:
+  - "n1/m3/l03-dependencias-lo-que-la-entrega-anade-al-proyecto"
+actualizado: "2026-10-22"
+tags:
+  - "edge-cases"
+  - "casos-limite"
+  - "fronteras"
+  - "revision"
+fuentes:
+  - titulo: "OpenAI — Prompt engineering"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Los **edge cases** (casos límite) son las fronteras de una función: listas vacías, un solo elemento, valores negativos, el cero, los extremos del rango. `ejemplos/casos-limite.js` ejecuta la batería que la tarea original exigía — declarada en `entregas/datos.js` — contra el código entregado de las tres entregas: **gastos 3 de 3, fechas 4 de 4, informes 2 de 3**. La frontera rota de informes no lanza excepción: devuelve `{ top: -Infinity, media: NaN }` en silencio. El rojo `errores/caso-limite-silencioso.js` la enseña y la devuelve con código 1.
+
+## Conceptos
+
+### La frontera que la suite no cubre
+
+En `n0/m6/l01` ya construiste baterías de fronteras para tu propio código. Aquí el objeto es ajeno: la entrega `informes` tiene su suite en verde... casi — en rojo, por una prueba que ella misma escribió. Pero aun si estuviera en verde 4/4, la entrega se devolvería: su suite no cubre lo que la **tarea** exigía, y la tarea manda. La batería del fixture está en `entregas/datos.js`, con los `casosLimite` que cada encargo declaraba (prerrequisito: `n1/m2/l03`, criterios ejecutables). `casos-limite.js` los ejecuta con `assert.deepStrictEqual` contra la función que la entrega expone:
+
+```sh
+node casos-limite.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+✓ gastos: [[]] → 0
+✓ gastos: [[{"importe":1.25},{"importe":2.3}]] → 3.55
+✓ gastos: [[{"importe":-5},{"importe":12.5}]] → 7.5
+gastos: 3 de 3 casos límite en verde
+✓ informes: [[10,20,30]] → {"top":30,"media":20}
+✗ informes: [[]] → AssertionError: Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   media: NaN,
++   top: -Infinity
+-   media: 0,
+-   top: null
+  }
+
+✓ informes: [[5]] → {"top":5,"media":5}
+informes: 2 de 3 casos límite en verde
+✓ fechas: [2024] → true
+✓ fechas: [1900] → false
+✓ fechas: [2000] → true
+✓ fechas: [2023] → false
+fechas: 4 de 4 casos límite en verde
+un caso límite en rojo devuelve la entrega aunque la suite propia esté en verde: la tarea exigía esas fronteras
+```
+
+### El fallo silencioso: el peor de todos
+
+Mira lo que `resumen([])` devuelve de verdad: `top: -Infinity`, `media: NaN`. **No lanza ninguna excepción** — `Math.max()` sin argumentos es `-Infinity` y `0/0` es `NaN`, y el objeto sale entero y silencioso. Un fallo que revienta se delata solo; un fallo que devuelve basura viaja hasta el informe del cliente, el JSON de la API o el cálculo de nómina de turno. La aserción `deepStrictEqual` es lo único que lo delata, y por eso la batería compara valores esperados en vez de solo «no lanza».
+
+OpenAI recomienda pedir a los modelos que consideren los edge cases — formatos de entrada, condiciones de frontera — al generar código (fuente consultada el 2026-10-22). Pídeselos, sí; y después ejecútalos tú, porque el asistente que escribió `resumen` también «los consideró»: su suite tiene la prueba de la lista vacía. Lo que no hizo fue correr el código.
+
+### El rojo: enseñar la basura
+
+`errores/caso-limite-silencioso.js` llama a `resumen([])` sin red y compara con lo que la tarea exigía:
+
+```text
+caso límite de la tarea: resumen de lista vacía → { top: null, media: 0 }
+lo que devuelve la entrega: top=-Infinity, media=NaN
+DEVOLVER: el caso límite devuelve valores incorrectos en silencio
+```
+
+Código de salida 1. Es el mismo veredicto que daría una excepción, pero el argumento es más fuerte: el código **funciona**, no lanza nada, y devuelve mentiras. Si tu revisión solo buscara `TypeError` y `SyntaxError`, esta entrega pasaría la puerta.
+
+### Una frontera, dos devoluciones
+
+El bug de `informes` aparece dos veces en esta revisión: como `fail 1` de su propia suite (l02) y como caso límite roto aquí. Es el mismo defecto visto por dos vías, y las dos vuelven a verde con el mismo arreglo — la guarda de lista vacía. En entregas reales pasa al revés con frecuencia: la suite está en verde y **solo** la batería de fronteras lo descubre. Por eso el checklist de l05 las cuenta por separado: dos criterios, dos evidencias, una sola corrección.
+
+## Ejercicio
+
+Ejecuta la batería, repara la frontera de informes y vuelve a verde.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/entregas ../ejemplos/casos-limite.js .
+node casos-limite.js | grep "informes:"
+perl -0pi -e 's/export function resumen\(importes\) \{\n  const top/export function resumen(importes) {\n  if (importes.length === 0) return { top: null, media: 0 };\n  const top/' entregas/informes-despues.js
+node casos-limite.js | grep "informes:"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime el `✗ informes: [[]]`, `informes: 2 de 3 casos límite en verde` y los dos `✓` que sí pasan;
+- el `perl` añade la guarda de lista vacía al principio de `resumen`;
+- la segunda ejecución imprime `✓ informes: [[]] → {"top":null,"media":0}` e `informes: 3 de 3 casos límite en verde`.
+
+Pista: la guarda se coloca antes de `Math.max(...importes)` — la frontera se atiende en la puerta, con el valor exacto que la tarea declaraba: `top: null, media: 0`.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- batería sobre la entrega intacta (solo informes) ---
+✗ informes: [[]] → AssertionError: Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   media: NaN,
++   top: -Infinity
+-   media: 0,
+-   top: null
+  }
+
+✓ informes: [[5]] → {"top":5,"media":5}
+informes: 2 de 3 casos límite en verde
+
+--- batería tras el arreglo (solo informes) ---
+✓ informes: [[10,20,30]] → {"top":30,"media":20}
+✓ informes: [[]] → {"top":null,"media":0}
+✓ informes: [[5]] → {"top":5,"media":5}
+informes: 3 de 3 casos límite en verde
+```
+
+Por qué la AssertionError es tan explícita: `deepStrictEqual` imprime el diff real contra el esperado — `+ media: NaN, top: -Infinity` frente a `- media: 0, top: null`. Ese diff es tu orden de reparación: sabes qué frontera falló, qué valor dio y qué valor se esperaba, sin leer una línea del código de la entrega. Y por qué el arreglo no toca la batería: la batería es el criterio de la tarea; cambiarla por el código es cegarse, igual que en l02.
+
+Errores típicos al resolverlo:
+
+- **Probar solo «no revienta»**: `resumen([])` no revienta y está mal. La batería compara **valores**, no excepciones; un `try/catch` que celebra el silencio aprueba basura.
+- **Borrar el caso de la batería**: la tentación clásica cuando el arreglo «es complicado». La frontera la puso la tarea; si no la arreglas, devuelves la entrega — no el criterio.
+- **Arreglar en el código de la entrega pero no en la tarea original**: si `resumen` vive en tu proyecto, el arreglo va también a la copia que usa la aplicación. En el taller se arregla la entrega; en el proyecto, el módulo.
+- **Cubrir solo la frontera rota**: arregla la lista vacía y mira también la próxima: `[-5]`, `[0]`, `[Infinity]` si el dominio lo admite. La tarea declara sus casos; tu oficio añade los que el dominio sugiere.
+
+## Cómo verificarlo
+
+1. Prepara el taller con las entregas y la batería (comandos del ejercicio).
+
+2. Ejecuta la batería completa:
+
+   ```sh
+   node casos-limite.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `gastos: 3 de 3`, `informes: 2 de 3`, `fechas: 4 de 4` y `codigo=0` — la batería informa; el criterio del checklist juzga en l05.
+
+3. Aplica el arreglo y verifica el verde de informes (pasos 2 y 3 del ejercicio).
+
+   Esperado: `informes: 3 de 3 casos límite en verde`.
+
+4. Declara tres fronteras de una función tuya (o de una entrega que revises), escríbelas como `casosLimite` con su valor esperado y ejecúsalas con `assert.deepStrictEqual`. Si no puedes escribir el valor esperado de una frontera, la tarea no estaba bien formulada — vuelve a `n1/m2/l03`.
+
+## Errores comunes
+
+- **Confiar en el verde de la suite**: la suite de la entrega cubre su criterio; la batería cubre el tuyo. Los dos criterios existen porque las dos coberturas fallan de verdad — la entrega `informes` es la prueba.
+- **Celebra el silencio**: código sin excepciones no es código correcto. `NaN` e `Infinity` recorren tu sistema enterito sin que nada suene — hasta que el número llega a alguien.
+- **Un solo caso por función**: la lista vacía es la frontera canónica, pero cada dominio tiene la suya — el año 1900 de `fechas` fue exactamente el caso del siglo. La tarea declara de 1 a 5 criterios; úsalos.
+- **Batería escrita tras ver el código**: si escribes las fronteras después de leer la entrega, tiendes a cubrir lo que el código ya hace bien. La batería se escribe del criterio de la tarea, no del código — ese era el punto de `n1/m2/l03`.
+
+## Fuentes
+
+- [OpenAI: Prompt engineering](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Considerar los edge cases (formatos de entrada, condiciones de frontera) al pedir código; aquí se ejecutan además en la revisión.
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. La batería se apoya en `node:assert/strict` (`deepStrictEqual`) y en el mismo ecosistema de ejecución que las suites de las entregas.
+
+## Siguientes pasos
+
+- Siguiente lección: [l05 «El checklist ejecutable»](/curriculo/n1/m3/l05-el-checklist-ejecutable/) — los cuatro criterios de estas lecciones se componen en un único veredicto ejecutable: ACEPTAR o DEVOLVER con sus incidencias.
+- Proyecto longitudinal: la batería de esta lección es el criterio 4 del checklist; las fronteras que declares para tus tareas serán exactamente las que tu revisión ejecute después.
