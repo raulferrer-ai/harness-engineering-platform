@@ -1,0 +1,194 @@
+---
+titulo: "Declarado contra implementado: el drift de las reglas"
+resumen: "`reglas.json` dice qué reglas tiene el proyecto; `reglas.js` dice cómo se comprueban. Dos ficheros distintos significa dos formas de desincronizarse: una regla declarada sin comprobación es papel mojado, y una comprobación sin regla declarada es código muerto con apariencia de control. `ejemplos/validar-reglas.js` mira ambos sentidos — deriva 0 sobre el proyecto intacto — y los rojos `regla-sin-comprobacion.js` y `comprobacion-sin-regla.js` muestran cada desgarro con su incidencia y código 1."
+nivel: "n1"
+modulo: "m5"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Reconocer las dos direcciones del drift entre declaración e implementación de reglas"
+  - "Ejecutar el validador y leer sus incidencias en ambos sentidos"
+  - "Situar el validador como chequeo del sistema de reglas, separado del runner"
+prerrequisitos:
+  - "n1/m5/l04-el-pre-commit-el-mismo-runner-en-el-camino-del-commit"
+actualizado: "2026-10-22"
+tags:
+  - "automatizacion"
+  - "reglas"
+  - "deriva"
+fuentes:
+  - titulo: "GitHub Docs — About rulesets"
+    url: "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets"
+    fecha: "2026-10-22"
+  - titulo: "pre-commit.com — A framework for managing and maintaining multi-language pre-commit hooks"
+    url: "https://pre-commit.com/"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Separar la declaración (`reglas.json`) de la implementación (`reglas.js`) da claridad y crea un riesgo nuevo: el **drift**. Una regla puede declararse sin comprobación (papel mojado) o implementarse sin declararse (código muerto de control). `ejemplos/validar-reglas.js` comprueba los dos sentidos: sobre el proyecto intacto imprime `declaradas en reglas.json: 4 · comprobaciones en reglas.js: 4` y `deriva: 0 — declarado y ejecutado coinciden`. Los rojos del módulo provocan cada desgarro — `r5: regla declarada sin comprobación…` y `r4: comprobación implementada sin regla declarada…` — y ambos terminan con deriva 1 y código `1`.
+
+## Conceptos
+
+### El drift tiene dos direcciones
+
+En l01 declaraste una regla y la implementaste en el mismo ejercicio. En un proyecto real los dos pasos se separan en el tiempo y en las personas, y aparecen los dos desgarros:
+
+| Dirección                    | Síntoma                                        | Consecuencia real                             |
+| ---------------------------- | ---------------------------------------------- | --------------------------------------------- |
+| Declarada sin comprobación   | «la tenemos controlada» con código inexistente | la regla no protege nada                      |
+| Comprobación sin declaración | función que nadie pidió ni audita              | control invisible, que nadie mantiene ni mira |
+
+El primer desgarro es el que todo equipo sufre primero: se acuerda una convención en una revisión, alguien añade la entrada al JSON «y luego la implemento», y «luego» se instala. El segundo es más silencioso todavía: se refactoriza `reglas.js`, alguien deja una comprobación de una regla que se retiró del JSON, y esa función sigue ejecutándose — o no — sin que nada la relacione con ninguna convención viva.
+
+### El validador mira los dos lados
+
+`validar-reglas.js` añade una capa sobre el runner: **no ejecuta las reglas del proyecto, valida el sistema de reglas en sí mismo**. Su lógica, `validarReglas()`, recorre el JSON y el mapa de comprobaciones con tres chequeos:
+
+1. **Ids duplicados** en la declaración — dos `r1` no son dos reglas, son un lío.
+2. **Declarada sin comprobación** — cada `id` del JSON debe tener `COMPROBACIONES[id]`.
+3. **Comprobación sin declarar** — cada clave de `COMPROBACIONES` debe estar en el JSON.
+
+Sobre el proyecto intacto:
+
+```sh
+node validar-reglas.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+declaradas en reglas.json: 4 · comprobaciones en reglas.js: 4
+deriva: 0 — declarado y ejecutado coinciden
+```
+
+Y los dos rojos del módulo, cada uno con su desgarro:
+
+```text
+✗ r5: regla declarada sin comprobación — está en …/reglas.json, no en reglas.js
+el validador se niega a ejecutar una regla que sólo existe en papel
+```
+
+```text
+✗ r4: comprobación implementada sin regla declarada — está en reglas.js, no en …/reglas.json
+una comprobación sin regla declarada es código muerto con apariencia de control
+```
+
+### Por qué el drift es el problema de la automatización
+
+Toda automatización compra control y paga mantenimiento. La documentación de GitHub sobre rulesets muestra la versión sin drift: la declaración y la aplicación viven en el mismo sistema — el repo declara el ruleset en JSON y el servidor lo aplica, sin copia que desincronizarse (fuente consultada el 2026-10-22). En un hook local, declaración e implementación las mantienes tú en dos ficheros; el pre-commit.com resuelve esa tensión industrialmente, con los hooks declarados en el repo y revisados en el pull request — el drift se ve donde se mira el código (fuente consultada el 2026-10-22). La versión del módulo invierte lo mismo con cero dependencias: el validador se ejecuta en tu terminal y, en l06, dentro de la certificación del entregable. La regla que gobierna la lección es esta: **una regla solo cuenta si está declarada e implementada a la vez, y algo debe comprobarlo**.
+
+## Ejercicio
+
+Lleva una sexta regla por los tres estados del drift — declarada sola, en los dos lados, implementada sola — y mira al validador decidir en cada uno.
+
+```sh
+EJEMPLOS="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$EJEMPLOS/proyecto" "$TALLER/"
+cp "$EJEMPLOS/reglas.js" "$EJEMPLOS/validar-reglas.js" "$TALLER/"
+cd "$TALLER"
+perl -0pi -e 's/    \{ "id": "r4", "descripcion": "([^"]*)" \}\n  \]/    { "id": "r4", "descripcion": "$1" },\n    { "id": "r6", "descripcion": "ningún console.log en src\/" }\n  ]/' proyecto/reglas.json
+echo "--- paso 1: r6 declarada sin comprobación ---"
+node validar-reglas.js; echo "codigo=$?"
+perl -0pi -e 's/\n\};\s*$/\n  r6: {\n    comprobar(dirProyecto) {\n      const conLog = readdirSync(join(dirProyecto, "src"))\n        .filter((fichero) => fichero.endsWith(".js"))\n        .filter((fichero) => readFileSync(join(dirProyecto, "src", fichero), "utf8").includes("console.log"));\n      return conLog.length === 0\n        ? { ok: true, detalle: "0 console.log en src\/" }\n        : { ok: false, detalle: conLog.map((fichero) => `src\/\${fichero} contiene console.log`).join(" | ") };\n    },\n  },\n};\n/s' reglas.js
+echo "--- paso 2: r6 declarada e implementada ---"
+node validar-reglas.js; echo "codigo=$?"
+perl -0pi -e 's/,\n    \{ "id": "r6", "descripcion": "[^"]*" \}\n/\n/' proyecto/reglas.json
+echo "--- paso 3: r6 implementada sin declaración ---"
+node validar-reglas.js; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- el paso 1 imprime `declaradas en reglas.json: 5 · comprobaciones en reglas.js: 4`, la incidencia `✗ r6: regla declarada sin comprobación…` y `codigo=1`;
+- el paso 2 imprime `5 · 5` y `deriva: 0 — declarado y ejecutado coinciden` con `codigo=0`;
+- el paso 3 imprime `declaradas en reglas.json: 4 · comprobaciones en reglas.js: 5`, la incidencia `✗ r6: comprobación implementada sin regla declarada…` y `codigo=1`;
+- puedes explicar por qué el runner de l02 solo se quejaría del paso 1 («declarada sin comprobación») y pasaría de largo el paso 3.
+
+Pista: el segundo `perl` inserta `r6` antes del cierre de `COMPROBACIONES`; el tercero borra exactamente la línea de la declaración de `r6`, dejando su comprobación huérfana en `reglas.js`.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- paso 1: r6 declarada sin comprobación ---
+declaradas en reglas.json: 5 · comprobaciones en reglas.js: 4
+ ✗ r6: regla declarada sin comprobación — está en …/proyecto/reglas.json, no en reglas.js
+deriva: 1 — las reglas no coinciden con sus comprobaciones
+codigo=1
+--- paso 2: r6 declarada e implementada ---
+declaradas en reglas.json: 5 · comprobaciones en reglas.js: 5
+deriva: 0 — declarado y ejecutado coinciden
+codigo=0
+--- paso 3: r6 implementada sin declaración ---
+declaradas en reglas.json: 4 · comprobaciones en reglas.js: 5
+ ✗ r6: comprobación implementada sin regla declarada — está en reglas.js, no en …/proyecto/reglas.json
+deriva: 1 — las reglas no coinciden con sus comprobaciones
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **Los contadores cuentan antes de juzgar**: `declaradas … 5 · comprobaciones … 4` es el diagnóstico; la incidencia es el veredicto. Con las dos cifras a la vista, la dirección del drift se lee sin interpretar la incidencia.
+2. **La incidencia nombra los dos ficheros**: «está en el JSON, no en reglas.js» y al revés. El mensaje de deriva debe decir dónde actuar — añadir la comprobación o retirar la declaración —, no solo que algo cuadra mal.
+3. **El runner y el validador tienen responsabilidades separadas**: `comprobar.js` ejecuta las reglas **sobre el proyecto** y detecta la deriva declarada-sin-comprobación de paso (es una incidencia para él); `validar-reglas.js` examina **el sistema de reglas** y añade el sentido inverso. Duplicar el chequeo en los dos haría que el día que cambie uno, el otro mienta.
+
+Errores típicos al resolverlo:
+
+- **Validar solo un sentido**: comprobar que «toda declaración tiene comprobación» y olvidar el inverso deja sobrevivir al código huérfano — la comprobación que todos creen viva porque nadie la relaciona con ninguna regla.
+- **Meter el validador dentro del runner**: el runner se invoca en el hook de cada commit; el validador debe invocarse donde se **cambian las reglas** — en tu previsión de tareas y en el entregable de l06. Mezclarlos hace que el commit arrastre chequeos que no le tocan.
+- **Dejar la deriva «para limpiar luego»**: la deriva no se limpia sola; crece con cada refactor. La deriva 0 es un estado que se defiende con ejecuciones, no un objetivo que se alcanza una vez.
+- **Retirar una regla del JSON sin retirar su comprobación**: es literalmente el rojo `comprobacion-sin-regla.js`. Retirar una regla es tocar los dos ficheros — la misma disciplina que al añadirla.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el proyecto, `reglas.js` y `validar-reglas.js` (comandos del ejercicio).
+
+2. Comprueba el estado sano antes de tocar nada:
+
+   ```sh
+   node validar-reglas.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `declaradas en reglas.json: 4 · comprobaciones en reglas.js: 4`, `deriva: 0 — declarado y ejecutado coinciden` y `codigo=0`.
+
+3. Declara `r6` sin implementarla (paso 1):
+
+   Esperado: contadores `5 · 4`, la incidencia de `r6: regla declarada sin comprobación` y `codigo=1`.
+
+4. Implementa `r6` (paso 2): Esperado: contadores `5 · 5`, `deriva: 0` y `codigo=0`.
+
+5. Retira la declaración (paso 3): Esperado: contadores `4 · 5`, la incidencia de `r6: comprobación implementada sin regla declarada` y `codigo=1`.
+
+6. Ejecuta los rojos del módulo y compáralos con tus pasos:
+
+   ```sh
+   node errores/regla-sin-comprobacion.js; echo "codigo=$?"
+   node errores/comprobacion-sin-regla.js; echo "codigo=$?"
+   ```
+
+   Esperado: la misma incidencia por `r5` y por `r4` respectivamente, cada uno con `codigo=1`.
+
+## Errores comunes
+
+- **Dar por buena la deriva 0 de la semana pasada**: el validador es barato — ejecútalo cada vez que toques `reglas.json` o `reglas.js`, no «cuando acabe el módulo».
+- **Contar reglas a mano para «ver si cuadran»**: los contadores del validador existen para eso. Los ojos no detectan la clave que sobra en un mapa de cinco entradas.
+- **Confundir deriva con regla roja**: una regla en rojo es el proyecto infrigiendo una convención; la deriva es el sistema de reglas desincronizado. Dos problemas, dos mensajes — no los mezcles al diagnosticar.
+- **Retirar reglas que «ya no hacen falta» sin tocar el JSON**: la comprobación huérfana resultante sigue costando mantenimiento y sembrando confusión. Retirar una regla es una decisión declarada, no un descuido de código.
+
+## Fuentes
+
+- [GitHub Docs: About rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets) — consultado el 2026-10-22. Declaración (JSON del repo) y aplicación (servidor) en un mismo sistema: el modelo sin copia que desincronizarse.
+- [pre-commit.com: A framework for managing and maintaining multi-language pre-commit hooks](https://pre-commit.com/) — consultado el 2026-10-22. Los hooks declarados en el repo se revisan en el pull request: el drift se combate poniendo la declaración donde se mira el código.
+
+## Siguientes pasos
+
+- Siguiente lección: [l06 «Entregable: reglas del repositorio + pre-commit»](/curriculo/n1/m5/l06-entregable-reglas-del-repositorio-con-pre-commit/) — declarar, ejecutar, bloquear y validar se juntan: certificación completa del entregable en un repo temporal.
+- Proyecto longitudinal: `validar-reglas.js` entra en la certificación de l06 — el entregable no se declara válido con deriva distinta de cero.

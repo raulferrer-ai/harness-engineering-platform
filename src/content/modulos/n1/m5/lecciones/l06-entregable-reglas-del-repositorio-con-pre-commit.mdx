@@ -1,0 +1,179 @@
+---
+titulo: "Entregable: reglas del repositorio + pre-commit"
+resumen: "El entregable del módulo junta las cinco piezas — `reglas.json`, `reglas.js`, `comprobar.js`, `validar-reglas.js` y el hook instalado — y no se declara: se certifica. `ejemplos/entregable.js` monta un repo temporal, comprueba deriva 0, hace un commit limpio que el pre-commit deja pasar y un commit infractor que bloquea con `git exit 1`, y cierra con `entregable válido: reglas del repositorio + pre-commit`. El ejercicio repite la certificación completa con comandos de git y node en un repo nuevo."
+nivel: "n1"
+modulo: "m5"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Componer el entregable completo: declaración, implementación, runner, validador e instalación"
+  - "Certificar las tres condiciones del entregable en un repo temporal de verdad"
+  - "Entregar el sistema a un equipo: instalación declarada y verificación reejecutable"
+prerrequisitos:
+  - "n1/m5/l05-declarado-contra-implementado-el-drift-de-las-reglas"
+actualizado: "2026-10-22"
+tags:
+  - "automatizacion"
+  - "entregable"
+  - "pre-commit"
+  - "git"
+fuentes:
+  - titulo: "Git — githooks (pre-commit)"
+    url: "https://git-scm.com/docs/githooks"
+    fecha: "2026-10-22"
+  - titulo: "GitHub Docs — About rulesets"
+    url: "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable **«reglas del repositorio + pre-commit»** es un mini-proyecto con sus reglas declaradas e implementadas, un runner que las ejecuta, un validador que vigila el sistema de reglas y el hook `pre-commit` instalado en el repo. `ejemplos/entregable.js` lo certifica entero en un repo temporal: **deriva 0**, **commit limpio pasado** (`git exit 0`) y **commit infractor bloqueado** (`git exit 1`), cerrando con `entregable válido: reglas del repositorio + pre-commit`. Ninguna de las tres condiciones se afirma: las tres se ejecutan. El patrón es el mismo que el resto del curso — el entregable de `n1/m4` se certificaba reejecutando su registro; aquí se certifica el sistema de reglas ejecutándolo contra git.
+
+## Conceptos
+
+### Las cinco piezas del entregable
+
+Después de cinco lecciones, el sistema completo cabe en una imagen:
+
+| Pieza          | Archivo                 | Lección | Papel                                           |
+| -------------- | ----------------------- | ------- | ----------------------------------------------- |
+| Declaración    | `proyecto/reglas.json`  | l01     | qué convenciones tiene el proyecto              |
+| Implementación | `reglas.js`             | l01     | `COMPROBACIONES` + texto del hook + instalación |
+| Runner         | `comprobar.js`          | l02     | ejecuta las reglas y decide con `0`/`1`         |
+| Validador      | `validar-reglas.js`     | l05     | declaración y comprobación coinciden            |
+| Instalación    | `.git/hooks/pre-commit` | l04     | el runner en el camino del commit               |
+
+Un detalle de diseño que merece nombrarse: `reglas.js` concentra el texto del hook (`HOOK_PRE_COMMIT`), su instalación (`instalarHook`), la preparación de repos (`prepararRepoConReglas`) y el puente con git (`ejecutarGit`). No es casualidad — es el módulo que **versiona lo que git no copia en el clone** (la documentación de hooks lo advierte: los hooks no se replican en `git clone`; fuente consultada el 2026-10-22). El entregable, por eso, tiene un paso de instalación explícito en su definición.
+
+### La certificación: tres condiciones, ninguna en prosa
+
+`entregable.js` no imprime «está listo»; ejecuta las tres condiciones en un repo temporal — `mkdtempSync`, `git init -q -b main`, usuario local de prueba — y solo entonces declara el veredicto:
+
+```sh
+node entregable.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+reglas: 4 declaradas, 4 comprobaciones, deriva 0
+commit limpio: pasado (git exit 0)
+commit con src/informe.js sin prueba: bloqueado (git exit 1)
+entregable válido: reglas del repositorio + pre-commit
+```
+
+Cada línea es un chequeo con código real detrás: la deriva 0 sale de `validarReglas()`, el commit limpio de `git commit` con el hook en el camino, y el bloqueo de un commit infractor de verdad — se crea `src/informe.js` sin prueba, se hace `git add` y se intenta el commit. El `valido` final es la conjunción booleana de las tres; si una falla, la demo sale con código `1` y lo dice: `el entregable NO cumple sus tres condiciones`.
+
+### Entregarlo a un equipo
+
+El certificado de la demo es local; el entregable, en cambio, viaja. Y ahí la letra pequeña que las lecciones ya prepararon: el hook no se copia con el repo, así que el README del proyecto debe incluir su paso de instalación — una línea que ejecute `instalarHook()` — y la verificación que cualquier compañero puede reejecutar: `node comprobar.js` y `node validar-reglas.js`. Es la misma disciplina que los rulesets aplican en el servidor: la regla declarada vive donde se revisa el código y la aplicación es automática desde el primer momento (fuente consultada el 2026-10-22). Tu versión local gana lo mismo a escala de repo: convención declarada, comprobación ejecutable, veredicto en el camino del commit.
+
+## Ejercicio
+
+Certifica el entregable entero con comandos, en un repo temporal tuyo: instalación, deriva 0, commit limpio y commit infractor bloqueado.
+
+```sh
+EJEMPLOS="$(pwd)"
+REPO=$(mktemp -d)
+cp -R "$EJEMPLOS/proyecto" "$EJEMPLOS/reglas.js" "$EJEMPLOS/comprobar.js" "$EJEMPLOS/validar-reglas.js" "$REPO/"
+git -C "$REPO" init -q -b main
+git -C "$REPO" config user.name "Ejercicio l06"
+git -C "$REPO" config user.email "ejercicio@example.invalid"
+REPO="$REPO" node --input-type=module -e 'import { instalarHook } from "./reglas.js"; instalarHook(process.env.REPO); console.log("pre-commit instalado (modo 755)");'
+node validar-reglas.js "$REPO/proyecto"
+git -C "$REPO" add .
+git -C "$REPO" commit -q -m "reglas del repositorio con pre-commit"; echo "commit limpio: codigo=$?"
+printf 'export function informe() {\n  return "sin prueba";\n}\n' > "$REPO/proyecto/src/informe.js"
+git -C "$REPO" add .
+git -C "$REPO" commit -m "añade informe sin prueba" 2>&1 | tail -2
+echo "commit infractor: codigo=${pipestatus[1]}"
+rm -rf "$REPO"
+```
+
+Esto se cumple cuando:
+
+- el validador imprime `declaradas en reglas.json: 4 · comprobaciones en reglas.js: 4` y `deriva: 0 — declarado y ejecutado coinciden`;
+- el commit limpio imprime las cuatro reglas en verde (salida del hook) y `commit limpio: codigo=0`;
+- el commit infractor imprime `✗ r1: src/informe.js sin test/informe.test.js` y `1 de 4 reglas en rojo — el runner no permite el commit`, con `commit infractor: codigo=1`;
+- la suma de las tres líneas es el veredicto que imprimió `entregable.js`: las mismas tres condiciones, ejecutadas a mano.
+
+Pista: en zsh, `${pipestatus[1]}` captura el código de salida del primer comando del pipeline (el de `git commit`), no el de `tail`.
+
+## Solución explicada
+
+La secuencia, en el repo temporal (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+pre-commit instalado (modo 755)
+declaradas en reglas.json: 4 · comprobaciones en reglas.js: 4
+deriva: 0 — declarado y ejecutado coinciden
+reglas del repositorio: 4 declaradas en …/proyecto/reglas.json
+ ✓ r1 — cada src/*.js tiene su test/*.test.js y viceversa — 2 parejas src↔test
+ ✓ r2 — toda prueba importa node:test y node:assert/strict — 2 pruebas con node:test y node:assert/strict
+ ✓ r3 — ningún TODO en src/ — 0 apariciones de TODO en src/
+ ✓ r4 — todo .js de src/ y test/ termina con salto de línea — 4 ficheros cerrados con salto de línea
+4 reglas en verde — el runner permite el commit
+commit limpio: codigo=0
+ ✗ r1: src/informe.js sin test/informe.test.js
+1 de 4 reglas en rojo — el runner no permite el commit
+commit infractor: codigo=1
+```
+
+Cuatro cosas a mirar:
+
+1. **El orden de la certificación importa**: deriva 0 antes que nada — si el sistema de reglas está desincronizado, certificar su comportamiento es certificar una ruleta. Después el desenlace limpio, y al final el bloqueo, que es el que deja el repo con la infracción staged.
+2. **El commit infractor usa la misma infracción de siempre** — `src/informe.js` sin prueba — porque es el caso mínimo que activa `r1` sin efectos secundarios: el archivo cierra con salto de línea (`r4` en verde) y no contiene TODO (`r3` en verde). Una infracción limpia deja un solo rojo atribuible.
+3. **`-q` en el commit limpio no silencia al hook**: el resumen del commit se suprime, pero la salida del hook (por `stderr`) sigue apareciendo. Es una comprobación útil para scripts: el hook es ruidoso por diseño, y la demo lo deja ver.
+4. **El repo temporal es el banco de pruebas**: certificar en tu repo real dejaría commits de prueba y un hook instalado en un directorio `.git` que quizá no querías tocar. `mkdtempSync` + `rmSync` en `finally` dan certificación sin suciedad — el mismo hábito que en `n1/m4` con los registros.
+
+Errores típicos al resolverlo:
+
+- **Declarar el entregable «válido» sin ejecutar las tres condiciones**: el veredicto en prosa no es un veredicto. Si tu proceso no puede imprimir las tres líneas con sus códigos, no está certificado.
+- **Quedarse con el commit limpio como única prueba**: mitad del valor del pre-commit es el bloqueo. Un hook instalado que nunca se ha visto bloquear puede estar cojeando, sin permisos de ejecución o con `|| true`.
+- **Omitir la instalación del equipo**: el hook no viaja en el clone. Entregar el repo sin el paso de instalarlo es entregar un candado sin cerradura en la puerta del compañero.
+- **Certificar una sola vez y no reejecutarla**: como el registro de sesiones de `n1/m4`, el entregable se reejecuta con cada cambio de reglas. La certificación es un verbo, no un sello.
+
+## Cómo verificarlo
+
+1. Ejecuta la certificación oficial del módulo:
+
+   ```sh
+   node entregable.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: las cuatro líneas — `reglas: 4 declaradas, 4 comprobaciones, deriva 0`, `commit limpio: pasado (git exit 0)`, `commit con src/informe.js sin prueba: bloqueado (git exit 1)`, `entregable válido: reglas del repositorio + pre-commit` — y `codigo=0`.
+
+2. Reproduce la certificación a mano en tu repo temporal (comandos del ejercicio) y comprueba que las tres condiciones cuadran con las de la demo.
+
+3. Comprueba que el repo infractor se quedó sin commit nuevo:
+
+   ```sh
+   git -C "$REPO" log --oneline
+   ```
+
+   Esperado: solo el commit limpio `reglas del repositorio con pre-commit`.
+
+4. Rompe una condición a propósito — por ejemplo, retira `r4` del JSON del repo temporal — y verifica que la certificación deja de ser válida: `validarReglas` con deriva 1, y el veredicto final en rojo.
+
+5. Escribe en tu README real los dos párrafos del entregable: cómo se instala el hook (un comando) y cómo se verifica (dos comandos). Si no salen en dos párrafos, el sistema todavía no está entregado.
+
+## Errores comunes
+
+- **Certificar sin usuario local de git**: el repo temporal necesita `git config user.name/user.email`; sin ellos, el commit falla con un error de identidad que no tiene nada que ver con las reglas y despista el diagnóstico.
+- **Confundir «el commit infractor falla» con «el hook falla»**: el commit infractor debe fallar **por el hook** — con las reglas impresas —; si falla por otra causa (identidad, staging vacío), la certificación no prueba nada. Mira siempre el rojo del runner en la salida.
+- **Instalar el hook en el repo del módulo**: las demos trabajan en temporales precisamente para no tocar el repo del curso — ni el `.git` de este proyecto, donde un hook mal puesto afectaría a tus commits reales.
+- **Cambiar el entregable sin tocar la certificación**: si añades una regla, la certificación debe seguir imprimiendo el número correcto de reglas declaradas y comprobadas. Los números fijos en el mensaje de `entregable.js` son la deuda; contar desde el JSON es la solución.
+
+## Fuentes
+
+- [Git — githooks, sección pre-commit](https://git-scm.com/docs/githooks) — consultado el 2026-10-22. El pre-commit aborta el commit con estado distinto de cero y no se copia en el clone: las dos promesas que el entregable certifica y documenta.
+- [GitHub Docs: About rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets) — consultado el 2026-10-22. Reglas declaradas en el repo y aplicadas automáticamente desde el primer momento: el mismo contrato, en la capa del servidor.
+
+## Siguientes pasos
+
+- Módulo siguiente: [n1/m6 «Fallos típicos de los asistentes»](/curriculo/n1/m6/) — con flujos de trabajo (`n1/m4`) y automatización (`n1/m5`) en marcha, toca el catálogo de lo que los asistentes hacen mal: APIs inexistentes, código plausible pero erróneo y dependencias inventadas, con tu colección personal de 10 fallos y su detección.
+- Proyecto longitudinal: las reglas de este módulo son el germen de tu `AGENTS.md` de proyecto — convención declarada, comprobación ejecutable —; en `n1/m6` verás qué pasa cuando quien lee escribe código que no existe.

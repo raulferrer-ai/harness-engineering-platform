@@ -5,5 +5,24 @@ modulo: "m5"
 objetivos:
   - "Convertir convenciones del proyecto en reglas, hooks y scripts ejecutables"
 entregable: "Reglas del repositorio + pre-commit"
-actualizado: "2026-10-19"
+actualizado: "2026-10-22"
 ---
+
+## Para quién es este módulo
+
+Tras `n1/m4` sabes trabajar con asistente sin perder el control sesión a sesión: objetivo, comando y código de salida en cada una. Pero el control que depende de tu memoria tiene techo — el mismo checklist que ejecutas hoy lo ejecutará el asistente de mañana, y lo que se repite en cada pull request merece un dueño que no se olvida. Este módulo convierte las convenciones de tu proyecto en **reglas del repositorio**: un `id`, una descripción y una comprobación ejecutable. Aprendes a declararlas (l01), a ejecutarlas todas con un runner que decide con `0` o `1` (l02), a ver los rojos sin que pasen en silencio (l03), a colocar el runner en el camino del commit con un hook `pre-commit` (l04) y a vigilar la deriva entre lo declarado y lo implementado (l05), hasta certificar en l06 el entregable: reglas del repositorio + pre-commit. Público objetivo: quien cierra `n1/m4/l06` con su registro de sesiones. Duración estimada: unas 5 horas repartidas. Solo librería estándar y git — el único requisito del entorno es tener git instalado.
+
+## Cómo se cierra el módulo
+
+Entregas **reglas del repositorio + pre-commit**: el mini-proyecto del módulo con sus 4 reglas declaradas en `reglas.json` e implementadas en `reglas.js`, el runner `comprobar.js` que las ejecuta y decide, el validador `validar-reglas.js` que mira la deriva en ambos sentidos y el hook pre-commit instalado en el camino del commit. La carpeta `ejemplos/` reúne **6 scripts verdes** con solo librería estándar — el presentador de convenciones, el runner, la demo de rojos, la instalación del hook, el validador y el certificador del entregable — más **4 rojos deliberados**: el runner contra un proyecto con una prueba borrada, el commit bloqueado por el pre-commit, la regla declarada sin comprobación y la comprobación sin regla declarada (los cuatro con código `1`). El directorio `proyecto/` contiene el mini-proyecto de referencia con sus 2 funciones y sus 6 pruebas en verde, sobre el que trabajan todas las demos. Todo se ejecuta offline, sin dependencias externas ni claves: los repos temporales de las demos se crean y se borran en cada ejecución.
+
+## Lecciones
+
+| #   | Lección                                                                                                                               | Tiempo |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [La convención repetida se convierte en regla](/curriculo/n1/m5/l01-la-convencion-repetida-se-convierte-en-regla/)                    | 45 min |
+| 2   | [El runner: la regla se ejecuta y decide](/curriculo/n1/m5/l02-el-runner-la-regla-se-ejecuta-y-decide/)                               | 50 min |
+| 3   | [Rojo visible: la infracción no pasa en silencio](/curriculo/n1/m5/l03-rojo-visible-la-infraccion-no-pasa-en-silencio/)               | 50 min |
+| 4   | [El pre-commit: el mismo runner en el camino del commit](/curriculo/n1/m5/l04-el-pre-commit-el-mismo-runner-en-el-camino-del-commit/) | 55 min |
+| 5   | [Declarado contra implementado: el drift de las reglas](/curriculo/n1/m5/l05-declarado-contra-implementado-el-drift-de-las-reglas/)   | 50 min |
+| 6   | [Entregable: reglas del repositorio + pre-commit](/curriculo/n1/m5/l06-entregable-reglas-del-repositorio-con-pre-commit/)             | 60 min |

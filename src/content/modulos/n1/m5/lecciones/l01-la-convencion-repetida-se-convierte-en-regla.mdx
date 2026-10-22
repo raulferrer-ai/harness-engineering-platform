@@ -1,0 +1,184 @@
+---
+titulo: "La convención repetida se convierte en regla"
+resumen: "Una convención que se repite en cada pull request — «cada archivo de src/ tiene su prueba» — vive en la wiki, en la cabeza del que revisa y en ningún sitio ejecutable. La lección la convierte en regla del repositorio: un id, una descripción y una comprobación en `reglas.json` + `reglas.js`. Ejecutas `convenciones.js` sobre el mini-proyecto — 4 reglas declaradas, 4 comprobaciones implementadas — y añades una quinta regla sin comprobación para verla declarada «TODAVÍA NO» y quedarse en papel mojado hasta que la implementas."
+nivel: "n1"
+modulo: "m5"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Distinguir una convención repetida de una regla ejecutable del repositorio"
+  - "Definir la anatomía de la regla: id, descripción y comprobación"
+  - "Declarar una regla en reglas.json y ver su estado de implementación"
+prerrequisitos:
+  - "n1/m4/l06-entregable-registro-de-5-sesiones-con-verificacion"
+actualizado: "2026-10-22"
+tags:
+  - "automatizacion"
+  - "reglas"
+  - "convenciones"
+fuentes:
+  - titulo: "pre-commit.com — A framework for managing and maintaining multi-language pre-commit hooks"
+    url: "https://pre-commit.com/"
+    fecha: "2026-10-22"
+  - titulo: "GitHub Docs — About rulesets"
+    url: "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una **convención** es una regla que todos conocen y nadie ejecuta: «cada archivo de `src/` tiene su prueba». Una **regla del repositorio** es la misma frase convertida en algo que un programa puede ejecutar y sobre el que decidir: un `id`, una `descripcion` y una `comprobacion` que devuelve `ok` o un problema. El mini-proyecto del módulo declara **4 reglas** en `proyecto/reglas.json` y las implementa en `ejemplos/reglas.js`; `ejemplos/convenciones.js` las presenta: **4 de 4 con comprobación — todas son ejecutables**. Una quinta regla declarada sin comprobación aparece como `TODAVÍA NO`: en papel mojado, no en regla.
+
+## Conceptos
+
+### De la convención que se repite a la regla que se ejecuta
+
+En `n1/m4` aprendiste a cerrar cada sesión con un comando y su código de salida. La pregunta de este módulo es la siguiente: **¿y si esa comprobación no depende de que te acuerdes?** Toda la vida de un proyecto acumula convenciones repetidas — «los tests importan `node:test`», «sin TODOs en `src/`», «los archivos terminan con salto de línea» — que se recuerdan en la revisión y se olvidan al día siguiente. La documentación del framework pre-commit describe exactamente ese problema con un formato de config: declaras los hooks del proyecto en un fichero del repositorio y la herramienta los ejecuta (fuente consultada el 2026-10-22). La idea no es la herramienta, es el movimiento: **lo que estaba en prosa pasa a estar declarado en un fichero que se versiona**. GitHub lo llama reglas: los rulesets son configuración declarativa que el servidor aplica sobre ramas (fuente consultada el 2026-10-22). En este módulo construyes la versión mínima, sin dependencias: tu propio declarado + tu propia comprobación.
+
+### La anatomía de la regla: id, descripción, comprobación
+
+Una regla del repositorio tiene tres piezas, y las tres son obligatorias:
+
+| Pieza          | Dónde vive                     | Pregunta que responde                          |
+| -------------- | ------------------------------ | ---------------------------------------------- |
+| `id`           | `reglas.json`                  | ¿Qué regla es? (`r1` … `r4`)                   |
+| `descripcion`  | `reglas.json`                  | ¿Qué convención protege, en una frase legible? |
+| `comprobacion` | `reglas.js` (`COMPROBACIONES`) | ¿Qué código la ejecuta y decide?               |
+
+La declaración del módulo cabe en una pantalla:
+
+```json
+{
+  "titulo": "Reglas del repositorio — mini-proyecto n1/m5",
+  "reglas": [
+    { "id": "r1", "descripcion": "cada src/*.js tiene su test/*.test.js y viceversa" },
+    { "id": "r2", "descripcion": "toda prueba importa node:test y node:assert/strict" },
+    { "id": "r3", "descripcion": "ningún TODO en src/" },
+    { "id": "r4", "descripcion": "todo .js de src/ y test/ termina con salto de línea" }
+  ]
+}
+```
+
+Las cuatro son convenciones que ya practicaste en `n0` y `n1`: parejas código/prueba, pruebas con la librería `node:test`, sin trabajo sin empezar a medio hacer, archivos bien cerrados. `convenciones.js` cruza la declaración con las comprobaciones implementadas en `reglas.js`:
+
+```sh
+node convenciones.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+reglas declaradas en …/ejemplos/proyecto/reglas.json: 4 (Reglas del repositorio — mini-proyecto n1/m5)
+ r1 — cada src/*.js tiene su test/*.test.js y viceversa · comprobación: implementada
+ r2 — toda prueba importa node:test y node:assert/strict · comprobación: implementada
+ r3 — ningún TODO en src/ · comprobación: implementada
+ r4 — todo .js de src/ y test/ termina con salto de línea · comprobación: implementada
+4 reglas de 4 con comprobación — todas son ejecutables
+```
+
+### El declarado y el implementado son dos ficheros a propósito
+
+`reglas.json` y `reglas.js` viven separados porque responden a dos preguntas distintas: **qué convenciones tiene el proyecto** (cualquiera las lee, el jefe del equipo las negocia) y **cómo se comprueban** (quien programa las mantiene). La separación trae un coste que verás en l05 — la deriva entre los dos lados — y un beneficio desde ya: una convención que aún no tiene comprobación se puede declarar igualmente, y el sistema la muestra sin fingir que está controlada. La línea `TODAVÍA NO` de la demo existe para eso: declarar la intención sin mentir sobre el estado.
+
+## Ejercicio
+
+Declara una quinta regla en una copia del proyecto, mírala quedar en papel mojado y después impléntala hasta que sea ejecutable.
+
+```sh
+EJEMPLOS="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$EJEMPLOS/proyecto" "$TALLER/"
+cp "$EJEMPLOS/reglas.js" "$EJEMPLOS/convenciones.js" "$EJEMPLOS/comprobar.js" "$TALLER/"
+cd "$TALLER"
+perl -0pi -e 's/    \{ "id": "r4", "descripcion": "([^"]*)" \}\n  \]/    { "id": "r4", "descripcion": "$1" },\n    { "id": "r5", "descripcion": "ningún console.log en src\/" }\n  ]/' proyecto/reglas.json
+node convenciones.js
+perl -0pi -e 's/\n\};\s*$/\n  r5: {\n    comprobar(dirProyecto) {\n      const conLog = readdirSync(join(dirProyecto, "src"))\n        .filter((fichero) => fichero.endsWith(".js"))\n        .filter((fichero) => readFileSync(join(dirProyecto, "src", fichero), "utf8").includes("console.log"));\n      return conLog.length === 0\n        ? { ok: true, detalle: "0 console.log en src\/" }\n        : { ok: false, detalle: conLog.map((fichero) => `src\/\${fichero} contiene console.log`).join(" | ") };\n    },\n  },\n};\n/s' reglas.js
+node convenciones.js
+node comprobar.js; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- tras el primer `perl`, la línea de `r5` dice `comprobación: TODAVÍA NO` y el resumen dice `1 regla declarada sin comprobación — quedan en papel mojado`;
+- tras el segundo `perl`, la línea de `r5` dice `comprobación: implementada` y el resumen dice `5 reglas de 5 con comprobación — todas son ejecutables`;
+- `comprobar.js` añade la fila `✓ r5 — ningún console.log en src/ — 0 console.log en src/` y cierra con `5 reglas en verde` y `codigo=0`;
+- puedes explicar por qué una regla sin comprobación no protege nada, por mucha descripción que tenga.
+
+Pista: el segundo `perl` inserta la entrada `r5` justo antes del cierre de `COMPROBACIONES` (`\n};` al final del fichero), y usa `readdirSync` y `readFileSync`, que `reglas.js` ya importa de `node:fs`.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución). Salida real (2026-10-22):
+
+```text
+ r5 — ningún console.log en src/ · comprobación: TODAVÍA NO
+1 regla declarada sin comprobación — quedan en papel mojado
+…
+ r5 — ningún console.log en src/ · comprobación: implementada
+5 reglas de 5 con comprobación — todas son ejecutables
+…
+ ✓ r5 — ningún console.log en src/ — 0 console.log en src/
+5 reglas en verde — el runner permite el commit
+codigo=0
+```
+
+Tres cosas a mirar:
+
+1. **La convención «sin console.log» es legítima y se declara igual que cualquier otra**: no hay reglas de primera y segunda clase. Lo único que la distingue de `r3` (sin TODOs) es el patrón que busca; ambas son «texto prohibido en `src/`».
+2. **`TODAVÍA NO` es una respuesta del sistema, no un castigo**: `convenciones.js` cuenta cuántas declaradas tienen comprobación (`typeof COMPROBACIONES[id]?.comprobar === "function"`) y dice la verdad en ambos sentidos. Cuando la mitad del equipo declare reglas sin implementarlas, ese contador será el termómetro del drift — el tema de l05.
+3. **La comprobación devuelve datos, no imprime**: `comprobar()` devuelve `{ ok, detalle }` y decide quien llama. Es el mismo patrón del checklist de `n1/m3` y del registro de `n1/m4`: la lógica es una función testeable; la impresión es una capa fina encima.
+
+Errores típicos al resolverlo:
+
+- **Declarar la regla en el JSON pero saltarse la comprobación «por ahora»**: «ahora» es donde mueren las reglas. Sin comprobación, r5 es una frase; con ella, es una regla. El contador del resumen no deja mentir.
+- **Implementar la comprobación sin declararla**: el otro lado del error. Código que comprueba algo que nadie pidió se pisa en l05, donde el validador lo declara deriva.
+- **Escribir la comprobación que imprime en vez de la que devuelve `{ ok, detalle }`**: rompería `comprobar.js`, que espera esa forma. Mantén la separación: la comprobación decide, el runner imprime.
+- **Probar la comprobación con console.log de mentira**: para verificar r5, deja un `console.log` de verdad en una copia de `src/` y mira el rojo. Una comprobación que no has visto fallar no la conoces.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el proyecto, las reglas y las dos demos (comandos del ejercicio).
+
+2. Comprueba la declaración intacta antes de tocar nada:
+
+   ```sh
+   node convenciones.js | tail -1
+   ```
+
+   Esperado: `4 reglas de 4 con comprobación — todas son ejecutables`.
+
+3. Declara `r5` (primer `perl`) y vuelve a presentar:
+
+   Esperado: la línea de `r5` con `comprobación: TODAVÍA NO` y el resumen `1 regla declarada sin comprobación — quedan en papel mojado`.
+
+4. Implementa `r5` (segundo `perl`) y ejecuta las dos demos:
+
+   ```sh
+   node convenciones.js | tail -1
+   node comprobar.js | tail -1
+   echo "codigo=$?"
+   ```
+
+   Esperado: `5 reglas de 5 con comprobación — todas son ejecutables`, `5 reglas en verde — el runner permite el commit` y `codigo=0`.
+
+5. Aplica el criterio a tu proyecto real: elige la convención que más se repite en tus revisiones y escríbela con sus tres piezas (id, descripción, comprobación). Si no sabes escribir la comprobación en cinco líneas, la convención todavía no está lista para ser regla.
+
+## Errores comunes
+
+- **Confundir convención con regla**: «acostumbramos a que todo tenga prueba» es una convención; `r1` es una regla. La primera se transmite con onboarding; la segunda se transmite con el repo.
+- **Describir la regla como su implementación**: la `descripcion` habla de la convención («cada `src/*.js` tiene su prueba»), no del código («readdirSync de dos carpetas»). Cuando cambie la implementación, la descripción debe seguir siendo cierta.
+- **Dejar la regla declarada «hasta que haya tiempo»**: el `TODAVÍA NO` es un estado, no un destino. Si una convención no merece comprobación, no la declares todavía — declararla y no implementarla solo ensucia el contador.
+- **Inventar diez reglas el primer día**: cuatro reglas vivas valen más que veinte huérfanas. Las reglas que el equipo no puede mantener se convierten en deriva, y la deriva se ve en l05.
+
+## Fuentes
+
+- [pre-commit.com: A framework for managing and maintaining multi-language pre-commit hooks](https://pre-commit.com/) — consultado el 2026-10-22. Los hooks del proyecto se declaran en un fichero de configuración versionado con `repos`, `hooks` y `stages`; la herramienta se encarga de instalarlos y ejecutarlos.
+- [GitHub Docs: About rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets) — consultado el 2026-10-22. Los rulesets son configuración declarativa de repo (JSON) que aplica el servidor sobre ramas y referencias; la misma idea de regla declarada, en otra capa.
+
+## Siguientes pasos
+
+- Siguiente lección: [l02 «El runner: la regla se ejecuta y decide»](/curriculo/n1/m5/l02-el-runner-la-regla-se-ejecuta-y-decide/) — las reglas ya están declaradas e implementadas; ahora el programa que las ejecuta todas y devuelve verde o rojo con su código de salida.
+- Proyecto longitudinal: las 4 reglas de `proyecto/reglas.json` son el núcleo del entregable del módulo — «reglas del repositorio + pre-commit» —; las lecciones l02 a l05 le añaden runner, rojos, hook y validador, y l06 lo certifica entero.

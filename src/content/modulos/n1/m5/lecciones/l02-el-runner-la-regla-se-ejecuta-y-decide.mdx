@@ -1,0 +1,186 @@
+---
+titulo: "El runner: la regla se ejecuta y decide"
+resumen: "Declarar reglas no basta: algo tiene que ejecutarlas todas y decidir. `ejemplos/comprobar.js` es el runner — lee `reglas.json`, ejecuta cada comprobación de `reglas.js` en orden, imprime una fila por regla y sale con `0` o `1`. Añades un par `src/` + `test/` al mini-proyecto y el runner lo mide con `3 parejas src↔test`; borras la prueba y el mismo runner devuelve `r1` en rojo y `codigo=1`."
+nivel: "n1"
+modulo: "m5"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 50
+objetivos:
+  - "Entender el runner como el programa único que ejecuta todas las reglas declaradas"
+  - "Leer la anatomía del runner: leerReglas, bucle de comprobaciones, resultados e incidencias"
+  - "Usar el código de salida 0/1 como la interfaz que consumirán el hook y el entregable"
+prerrequisitos:
+  - "n1/m5/l01-la-convencion-repetida-se-convierte-en-regla"
+actualizado: "2026-10-22"
+tags:
+  - "automatizacion"
+  - "reglas"
+  - "runner"
+fuentes:
+  - titulo: "Node.js Docs — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+  - titulo: "pre-commit.com — A framework for managing and maintaining multi-language pre-commit hooks"
+    url: "https://pre-commit.com/"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El **runner** es un único programa que ejecuta todas las reglas declaradas y decide: `ejemplos/comprobar.js` lee `proyecto/reglas.json`, recorre cada regla, llama a su comprobación de `COMPROBACIONES`, imprime una fila con `✓` o `✗` y sale con `0` si todo está en verde y con `1` si alguna falla. Sobre el proyecto intacto imprime `4 reglas en verde — el runner permite el commit`; sobre una copia con una prueba borrada, `✗ r1 — … src/descuento.js sin test/descuento.test.js` y `codigo=1`. El mismo patrón que el test runner de Node — ejecutar, informar, decidir con código de salida (fuente consultada el 2026-10-22) — pero sobre reglas del repo en vez de pruebas.
+
+## Conceptos
+
+### Un comando, todas las reglas
+
+En l01 tenías 4 reglas declaradas y 4 comprobaciones implementadas, pero cada comprobación seguía siendo un código que había que llamar a mano. El runner es el salto de calidad: **un solo comando que ejecuta todas las reglas en el mismo orden del JSON y devuelve un veredicto único**. Es el movimiento que el framework pre-commit automatiza para proyectos reales: el hook ejecuta un comando del proyecto que, a su vez, aplica las comprobaciones declaradas (fuente consultada el 2026-10-22). Aquí el «comando del proyecto» lo escribes tú, con librería estándar.
+
+La referencia mental es `node --test`: no ejecutas una prueba, ejecutas **la suite** y el runner te devuelve un resumen y un código. La documentación de Node describe ese runner: recorre los ficheros de prueba, informa de cada una y el proceso termina con un código distinto de cero si algo falla (fuente consultada el 2026-10-22). `comprobar.js` hace lo mismo con `reglas.json`.
+
+### La anatomía del runner
+
+El runner del módulo tiene cuatro piezas, y ninguna imprime dentro de la lógica:
+
+1. **`leerReglas(ruta)`** (en `reglas.js`): parsea el JSON y valida la forma — que haya una lista `reglas` no vacía y que cada entrada tenga `id` y `descripcion` como texto. Un JSON mal formado revienta aquí con un mensaje claro, no a mitad del bucle.
+2. **El bucle de comprobaciones**: por cada regla declarada, busca `COMPROBACIONES[id]`. Si no existe, acumula la incidencia `regla declarada sin comprobación` y sigue (una regla rota no debe tapar a las demás).
+3. **Los dos acumuladores**: `resultados` (una fila por regla ejecutada, con `{ id, descripcion, ok, detalle }` para imprimir) e `incidencias` (solo lo que falla, en texto plano, para decidir). Quien llama decide; la lógica solo devuelve.
+4. **El `main` condicional**: el fichero es a la vez módulo y comando. La guarda `process.argv[1] === fileURLToPath(import.meta.url)` hace que importarlo (las demos y los rojos lo importan) no ejecute la impresión ni toque `process.exitCode`.
+
+Ejecútalo:
+
+```sh
+node comprobar.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+reglas del repositorio: 4 declaradas en …/ejemplos/proyecto/reglas.json
+ ✓ r1 — cada src/*.js tiene su test/*.test.js y viceversa — 2 parejas src↔test
+ ✓ r2 — toda prueba importa node:test y node:assert/strict — 2 pruebas con node:test y node:assert/strict
+ ✓ r3 — ningún TODO en src/ — 0 apariciones de TODO en src/
+ ✓ r4 — todo .js de src/ y test/ termina con salto de línea — 4 ficheros cerrados con salto de línea
+4 reglas en verde — el runner permite el commit
+```
+
+### El código de salida es la interfaz
+
+Fíjate en lo que **no** hace la salida: no hay opinión, no hay resumen en prosa. Cada fila lleva el `detalle` de la comprobación («2 parejas src↔test»), que es el argumento humano; y el proceso termina con `0` o `1`, que es el argumento máquina. Ese `1` es el contrato de todo el módulo: en l04 el hook `pre-commit` no leerá estas líneas — solo mirará el código de salida del runner y abortará el commit si es distinto de cero. Por eso las comprobaciones devuelven `{ ok, detalle }` y el runner traduce: `incidencias.length === 0` → `0`; si no → `1`.
+
+## Ejercicio
+
+Añade un par nuevo al proyecto y mira al runner medirlo; después borra la prueba y mira al mismo runner poner `r1` en rojo.
+
+```sh
+EJEMPLOS="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$EJEMPLOS/proyecto" "$TALLER/"
+cp "$EJEMPLOS/reglas.js" "$EJEMPLOS/comprobar.js" "$TALLER/"
+cd "$TALLER"
+cat > proyecto/src/descuento.js <<'EOF'
+/** Descuento porcentual sobre un importe en céntimos. */
+export function descuento(importe, porcentaje) {
+  if (!Number.isInteger(importe) || !Number.isInteger(porcentaje)) {
+    throw new Error("descuento: enteros únicamente");
+  }
+  return importe - Math.round((importe * porcentaje) / 100);
+}
+EOF
+cat > proyecto/test/descuento.test.js <<'EOF'
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { descuento } from "../src/descuento.js";
+
+test("aplica el descuento redondeando", () => {
+  assert.equal(descuento(1999, 10), 1799);
+});
+
+test("descuento 0 devuelve el importe", () => {
+  assert.equal(descuento(500, 0), 500);
+});
+EOF
+node comprobar.js; echo "codigo=$?"
+rm proyecto/test/descuento.test.js
+node comprobar.js; echo "codigo=$?"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- con el par completo, `r1` imprime `3 parejas src↔test`, `r2` imprime `3 pruebas…` y el runner cierra con `4 reglas en verde` y `codigo=0`;
+- tras el `rm`, la fila de `r1` cambia a `✗ r1 — cada src/*.js tiene su test/*.test.js y viceversa — src/descuento.js sin test/descuento.test.js` y el runner cierra con `1 de 4 reglas en rojo — el runner no permite el commit` y `codigo=1`;
+- puedes señalar en la salida roja exactamente qué línea consumirá el hook de l04 y por qué no necesita leer nada más.
+
+Pista: el detalle de `r1` se compone en `reglas.js` juntando los dos sentidos — fuentes sin prueba y pruebas sin fuente —; por eso el mensaje nombra al archivo por ambos lados.
+
+## Solución explicada
+
+La secuencia, en el taller temporal (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+ ✓ r1 — cada src/*.js tiene su test/*.test.js y viceversa — 3 parejas src↔test
+ ✓ r2 — toda prueba importa node:test y node:assert/strict — 3 pruebas con node:test y node:assert/strict
+4 reglas en verde — el runner permite el commit
+codigo=0
+…
+ ✗ r1 — cada src/*.js tiene su test/*.test.js y viceversa — src/descuento.js sin test/descuento.test.js
+ ✗ r1: src/descuento.js sin test/descuento.test.js
+1 de 4 reglas en rojo — el runner no permite el commit
+codigo=1
+```
+
+Cuatro cosas a mirar:
+
+1. **El runner mide el proyecto, no una lista fija**: los detalles (`3 parejas`, `3 pruebas`, `6 ficheros`) salen de contar lo que hay en disco en ese momento. Por eso funciona igual en el proyecto intacto, en un taller sucio y en el repo temporal del entregable de l06.
+2. **La fila `✗` aparece dos veces a propósito**: una vez en la tabla (con `descripcion`, para humanos) y otra en la lista de incidencias (con formato `id: detalle`, para máquinas). Los rojos de `errores/` y el hook consumen la segunda.
+3. **Una regla declarada sin comprobación no rompe el runner**: se acumula como incidencia y el bucle sigue. El runner no puede ejecutar lo que no existe; quien lo obliga a decirlo es `validar-reglas.js`, el tema de l05.
+4. **`process.exitCode` al final, no `process.exit()` en medio**: el runner termina su impresión y luego declara el código. Cortar el proceso en mitad del bucle dejaría las reglas siguientes sin ejecutar — y un runner que no ejecuta todas las reglas no es un runner.
+
+Errores típicos al resolverlo:
+
+- **Un runner que siempre sale con `0`**: el fallo clásico es comparar mal (`incidencias.length === incidencias.length`) o imprimir el rojo sin marcar el código de salida. Pruébalo con una prueba borrada: si `codigo=1` no aparece, el hook de l04 no podrá bloquear nada.
+- **Ejecutar el runner desde otra carpeta sin rutas absolutas**: `DIR_DEFECTO` se calcula con `fileURLToPath(new URL(...))`, no con la carpeta de trabajo. Un runner que depende del `pwd` falla en el hook, que git ejecuta desde la raíz del repo.
+- **Devolver `ok` calculado con la mirada**: si la comprobación mira solo `src/` y no `test/`, `r1` deja de ver las pruebas huérfanas. El detalle del mensaje (`por ambos lados`) recuerda la simetría que la regla exige.
+- **Mezclar impresión y lógica en la comprobación**: cuando la comprobación imprime, no puedes reutilizarla en el validador de l05 ni en el entregable de l06. `{ ok, detalle }` es el contrato que hace reutilizable todo lo demás.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el proyecto, `reglas.js` y `comprobar.js` (comandos del ejercicio).
+
+2. Ejecuta el runner sobre el proyecto intacto, antes de tocar nada:
+
+   ```sh
+   node comprobar.js | tail -1
+   echo "codigo=$?"
+   ```
+
+   Esperado: `4 reglas en verde — el runner permite el commit` y `codigo=0`.
+
+3. Añade el par `descuento` (los dos `cat >`) y repite:
+
+   Esperado: `✓ r1 … — 3 parejas src↔test`, `✓ r2 … — 3 pruebas…`, `4 reglas en verde` y `codigo=0`.
+
+4. Borra la prueba del descuento y repite:
+
+   Esperado: `✗ r1 … — src/descuento.js sin test/descuento.test.js`, `1 de 4 reglas en rojo — el runner no permite el commit` y `codigo=1`.
+
+5. Importa `comprobarProyecto` desde un `node --input-type=module -e` y comprueba que devuelve los acumuladores sin imprimir nada — es la forma que usarán los rojos y el entregable.
+
+## Errores comunes
+
+- **Tratar el runner como script y no como módulo**: sin la guarda del `main`, cada `import` de `comprobar.js` imprimiría la tabla y cambiaría el código de salida del proceso padre. La guarda es lo que permite que l03, l04 y l06 lo reutilicen.
+- **Detenerse en la primera regla roja**: las reglas se ejecutan todas, siempre. Un runner que para en la primera falla multiplica idas y vueltas — arreglas una, descubres otra.
+- **Leer el JSON dos veces con formatos distintos**: el runner y el validador usan la misma `leerReglas()`. Cada lector con su propio parseo es una futura discrepancia silenciosa.
+- **Olvidar el `codigo=$?` al verificar**: en esta lección el código de salida ES el resultado. Ejecutar el runner «a ver qué imprime» y no mirar el `exit` es saltarse lo único que el hook leerá.
+
+## Fuentes
+
+- [Node.js Docs: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. El test runner ejecuta la suite completa, informa resultado por resultado y el proceso termina con un código distinto de cero si hay fallos: el patrón que `comprobar.js` replica sobre reglas.
+- [pre-commit.com: A framework for managing and maintaining multi-language pre-commit hooks](https://pre-commit.com/) — consultado el 2026-10-22. El hook ejecuta un comando declarado por el proyecto; el runner es ese comando en la arquitectura de este módulo.
+
+## Siguientes pasos
+
+- Siguiente lección: [l03 «Rojo visible: la infracción no pasa en silencio»](/curriculo/n1/m5/l03-rojo-visible-la-infraccion-no-pasa-en-silencio/) — el runner decide; ahora verás decidirlo contra variantes rotas de verdad y aprenderás a mostrar el rojo sin que el conjunto se vuelva rojo.
+- Proyecto longitudinal: `comprobar.js` ya es el motor del entregable; lo que falta es instalarlo en el camino del commit (l04) y blindar la relación declaración/comprobación (l05).
