@@ -1,0 +1,188 @@
+---
+titulo: "La petición HTTP: método, ruta y cabeceras"
+resumen: "El diálogo que sostiene la web: qué lleva una petición HTTP (método, ruta, cabeceras), qué devuelve la respuesta (estado, cabeceras, cuerpo) y cómo distinguir un 404 de una conexión rechazada."
+nivel: "n0"
+modulo: "m7"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Descomponer una petición y una respuesta HTTP en sus cuatro piezas"
+  - "Ejecutar un cliente que verifique estado, content-type y content-length"
+  - "Diferenciar una respuesta de error (404) de una conexión imposible (ECONNREFUSED)"
+prerrequisitos:
+  - "n0/m7/l03-css-reglas-cascada-y-especificidad"
+actualizado: "2026-10-21"
+tags:
+  - "http"
+  - "red"
+  - "cliente-servidor"
+fuentes:
+  - titulo: "An overview of HTTP | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview"
+    fecha: "2026-10-21"
+  - titulo: "http | Node.js"
+    url: "https://nodejs.org/api/http.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+HTTP es un texto de ida y vuelta: el cliente manda **método + ruta + cabeceras**, el servidor responde **estado + cabeceras + cuerpo**. `GET /` con estado `200` y `content-type: text/html; charset=utf-8` es el camino feliz; `404` dice «la ruta no existe» **y sí hubo respuesta**; `405` dice «método no permitido». Si no hay nadie escuchando, en cambio, ni siquiera llega respuesta: `Error: connect ECONNREFUSED` con código `1`. Son dos fallos distintos — servidor que contesta y red que no conecta— y confundirlos lleva a diagnosticar mal cualquier página.
+
+## Conceptos
+
+### Las cuatro piezas
+
+**Petición** (cliente → servidor), según la [visión general de HTTP | MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview):
+
+1. **Método** — `GET` leer, `HEAD` leer sin cuerpo, `POST` enviar.
+2. **Ruta** — `/estilos.css` dentro del servidor.
+3. **Cabeceras** — pares `nombre: valor` (qué acepto, con qué codificación).
+4. Cuerpo — opcional; en `GET` casi nunca.
+
+**Respuesta** (servidor → cliente):
+
+1. **Estado** — `200`, `404`, `403`, `405`…
+2. **Cabeceras** — `content-type` (qué es el cuerpo), `content-length` (cuántos bytes), `allow` (qué métodos acepta esa ruta)…
+3. **Cuerpo** — el archivo o el mensaje.
+
+Todo lo demás — cookies, caché, rangos— son cabeceras sobre este esqueleto. La API [`http` de Node.js](https://nodejs.org/api/http.html) te da las dos mitades sin salir de la librería estándar.
+
+### La demo: dos respuestas y sus cabeceras
+
+`ejemplos/peticion-http.js` levanta el servidor del módulo en un puerto efímero de `127.0.0.1` y pregunta con `node:http`. Salida real con Node v24.22.0 (2026-10-21):
+
+```text
+GET / → 200 · content-type: text/html; charset=utf-8 · content-length: 1433
+GET /no-existe → 404 · content-type: text/plain; charset=utf-8 · cuerpo: 404: no existe
+2 comprobaciones HTTP en verde
+```
+
+código de salida: `0`. Tres lecturas: el `content-length` (`1433`) **coincide con los bytes del cuerpo** — la comprobación lo verifica, no lo da por bueno—; el `404` llega con cuerpo y `content-type` propios (una página de error también es una respuesta); y las dos rutas se miden con el mismo criterio: estado esperado y tipo esperado.
+
+### Estado versus conexión
+
+El rojo `ejemplos/errores/ruta-404.js` pide una página que no existe esperando `200`:
+
+```text
+GET /pagina-que-no-existe.html → 404
+comprobación en rojo: esperado 200, recibido 404
+código de salida: 1
+```
+
+El servidor **contestó** — y su respuesta es la prueba. Muy distinto: si el servidor no está escuchando, el cliente falla antes de ningún estado. Ejecución real del ejercicio — `node ejercicios/cliente.js` con el servidor apagado (stderr):
+
+```text
+Error: connect ECONNREFUSED 127.0.0.1:34567
+  code: 'ECONNREFUSED',
+código de salida: 1
+```
+
+La tabla de cabecera queda así: **`404`/`403`/`405`** = hubo servidor y decidió; **`ECONNREFUSED`** = no había servidor. Cada uno se arregla con una cosa distinta: revisar la ruta o revisar que el proceso esté vivo.
+
+## Ejercicio
+
+Crea dos ficheros en `ejercicios/`: `servidor.js` —`node:http` con un endpoint `GET /saludo` que responda `200` con `application/json; charset=utf-8` y el cuerpo exacto `{"saludo":"hola"}`; cualquier otra ruta, `404`; método distinto de `GET` sobre `/saludo`, `405` con `allow: GET`— y `cliente.js` —tres comprobaciones contra `127.0.0.1` usando `process.env.PUERTO ?? 34567`: que `GET /saludo` da `200` + JSON correcto, que `POST /saludo` da `405` y que `GET /otra` da `404`—.
+
+Esto se cumple cuando:
+
+- con el servidor apagado, `node ejercicios/cliente.js` termina con `Error: connect ECONNREFUSED 127.0.0.1:34567` y código `1` — ejecútalo **primero** así, es el paso rojo del ejercicio;
+- levantando el servidor (`node ejercicios/servidor.js &`), el mismo cliente imprime las tres respuestas y `3 comprobaciones HTTP en verde` con código `0`, y matas el servidor después;
+- el `content-type` de la respuesta exitosa es exactamente `application/json; charset=utf-8` — con y sin `charset` se considera distinto: tu comprobación debe notarlo;
+- explicas en tu nota la diferencia entre los dos rojos — el `ECONNREFUSED` del paso 1 y un `404` — con la frase «quién responde».
+
+## Solución explicada
+
+El servidor es una función de dos argumentos — petición y respuesta — con la jerarquía de decisiones en orden: ruta primero, método después, cuerpo al final:
+
+```js
+const servidor = createServer((peticion, respuesta) => {
+  if (peticion.url !== "/saludo") {
+    respuesta.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    respuesta.end("404: no existe");
+    return;
+  }
+  if (peticion.method !== "GET") {
+    respuesta.writeHead(405, { allow: "GET", "content-type": "text/plain; charset=utf-8" });
+    respuesta.end("405: solo GET");
+    return;
+  }
+  const cuerpo = JSON.stringify({ saludo: "hola" });
+  respuesta.writeHead(200, {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": Buffer.byteLength(cuerpo),
+  });
+  respuesta.end(cuerpo);
+});
+```
+
+`Buffer.byteLength` y no `.length`: el `charset=utf-8` significa que `content-length` cuenta **bytes**, no caracteres — con `{"saludo":"hola"}` coinciden por pura casualidad ASCII, y el día que el cuerpo lleve `ñ` dejarían de coincidir. Ordena el `if` como quieras, pero no pongas el método antes que la ruta: `POST /otra` debe ser `404` (ruta inexistente), no `405` de una ruta que además no existe.
+
+Salidas reales medidas el 2026-10-21 con Node v24.22.0 (el `código de salida` es lo que devuelve `echo $?`):
+
+```text
+$ node ejercicios/cliente.js          # con el servidor apagado
+Error: connect ECONNREFUSED 127.0.0.1:34567
+código de salida: 1
+```
+
+```text
+$ node ejercicios/servidor.js &       # servidor arriba
+$ node ejercicios/cliente.js
+GET /saludo → 200 · application/json; charset=utf-8 · cuerpo: {"saludo":"hola"}
+POST /saludo → 405 · allow: GET
+GET /otra → 404
+3 comprobaciones HTTP en verde
+código de salida: 0
+```
+
+Errores típicos al resolverlo: (1) comparar el cuerpo con un objeto en vez del texto — `JSON.parse` si necesitas datos, pero la comprobación de contrato es con la cadena; (2) olvidar `allow` en el `405` — la cabecera es lo que dice al cliente qué métodos sí puede probar; (3) dejar el servidor vivo tras la prueba y matar así la verificación siguiente — ciérralo con `kill` o con `server.close()` en un `finally`, como en los ejemplos del módulo.
+
+## Cómo verificarlo
+
+1. La demo del módulo:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/peticion-http.js; echo $?
+   ```
+
+   `2 comprobaciones HTTP en verde` y código `0`.
+
+2. El rojo — respuesta `404`:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/errores/ruta-404.js; echo $?
+   ```
+
+   `esperado 200, recibido 404` en stderr y código `1`.
+
+3. Tu ejercicio en sus dos pasos:
+
+   ```sh
+   node ejercicios/cliente.js; echo $?
+   node ejercicios/servidor.js &
+   node ejercicios/cliente.js; echo $?
+   kill %1
+   ```
+
+   Primero `ECONNREFUSED` con código `1`; después `3 comprobaciones HTTP en verde` con código `0`.
+
+Continúa con [l05 «Servir una página estática: del archivo al navegador»](/curriculo/n0/m7/l05-servir-una-pagina-estatica-del-archivo-al-navegador/) — sabes dialogar por HTTP; ahora que el servidor mapee rutas a archivos sin dejarte leer nada fuera de la carpeta publicada.
+
+## Errores comunes
+
+- **Tratar todo error como «la página no existe».** `ECONNREFUSED` y `404` no son el mismo diagnóstico: uno es «no hay servidor», el otro «ese archivo no está aquí». Diagnosticar al revés hace perder horas.
+- **`content-length` a ojo.** Declarar un número que no coincide con el cuerpo produce una respuesta truncada o colgada en el cliente; mándalo calculado.
+- **405 sin `allow`.** El método se rechaza pero no se dice cuál está permitido — el cliente queda sin pista, y tú también.
+- **Probar contra `localhost` con IPv6.** `localhost` puede resolver a `::1` y tu servidor escuchar en `127.0.0.1`: un fallo de resolución que parece bug de red. En este curso todo habla `127.0.0.1` explícito.
+
+## Fuentes
+
+- [An overview of HTTP | MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview) — consultado el 2026-10-21.
+- [http | Node.js](https://nodejs.org/api/http.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: el `content-type` que verificas hoy es la misma cabecera que el entregable de `l07` exigirá a cada archivo que sirva.

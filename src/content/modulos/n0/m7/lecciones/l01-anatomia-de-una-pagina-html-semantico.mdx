@@ -1,0 +1,205 @@
+---
+titulo: "Anatomía de una página: HTML semántico"
+resumen: "Qué es un archivo HTML, por qué la semántica de las etiquetas importa (accesibilidad, estructura y validación) y qué diez comprobaciones estructurales debe superar una página antes de publicarse."
+nivel: "n0"
+modulo: "m7"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Explicar la diferencia entre HTML semántico y HTML presentacional"
+  - "Identificar los cinco anclajes de una página: doctype, lang, charset, viewport y título"
+  - "Ejecutar un validador estructural y leer sus comprobaciones en verde y en rojo"
+prerrequisitos:
+  - "n0/m6/l07-entregable-una-suite-que-falla-a-proposito-y-luego-pasa"
+actualizado: "2026-10-21"
+tags:
+  - "html"
+  - "semántica"
+  - "validación"
+fuentes:
+  - titulo: "HTML elements reference | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/HTML/Element"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Una página web es un **archivo de texto con etiquetas** que el navegador interpreta y convierte en pantalla. **HTML semántico** usa las etiquetas por lo que significan —`<header>`, `<main>`, `<article>`, `<h1>`— en lugar de cajas genéricas —`<div>`—, y esa estructura es exactamente lo que un validador puede comprobar: doctype, idioma, codificación, viewport, título, un solo `h1`, encabezados sin saltos, imágenes con `alt` y landmarks. El ejemplo del módulo ejecuta esas **diez comprobaciones** y termina en verde; su versión rota cae en seis de ellas.
+
+## Conceptos
+
+### El archivo que el servidor devuelve
+
+Cuando escribes una dirección, el navegador manda una petición y recibe de vuelta un archivo de texto. Este:
+
+```text
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    …
+  </head>
+  <body>
+    <header class="cabecera"> … </header>
+```
+
+No hay binario ni compilación: etiquetas `<…>` con significado, texto dentro. La petición y la respuesta que lo traen son la lección l04; aquí nos quedamos con el archivo. El `<meta charset="utf-8">` dice con qué alfabeto se decodifica ese texto — sin él, los acentos llegan corruptos—, y el `<meta name="viewport">` le dice al móvil cómo encuadrar la página.
+
+### Semántica: la etiqueta por lo que significa
+
+La [referencia de elementos de HTML](https://developer.mozilla.org/en-US/docs/Web/HTML/Element) lista las etiquetas y su propósito. Las **semánticas** describen estructura y significado:
+
+| Etiqueta                                               | Significado                                                                  |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `<header>`, `<nav>`, `<main>`, `<article>`, `<footer>` | bloques con rol en la página: cabecera, navegación, contenido principal, pie |
+| `<h1>`…`<h6>`                                          | jerarquía de títulos, el «índice» del documento                              |
+| `<figure>` + `<figcaption>`                            | contenido ilustrado con su pie                                               |
+| `<img … alt="…">`                                      | imagen con texto alternativo                                                 |
+
+Las **presentacionales** hablan de apariencia (`<b>`, `<font>`, `<center>`, margen con `style`). La diferencia no es estética: la semántica es la que un validador, un lector de pantalla o un buscador pueden **interpretar**; la apariencia solo la ve un motor de dibujo. Meter todo en `<div>` produce una página que se ve igual y que, sin embargo, no tiene estructura que comprobar.
+
+### Los cinco anclajes y las tres reglas de estructura
+
+1. `<!DOCTYPE html>` — pone al navegador en modo estándar.
+2. `<html lang="es">` — idioma del documento.
+3. `<meta charset="utf-8">` — codificación.
+4. `<meta name="viewport" …>` — encuadre en pantallas pequeñas.
+5. `<title>…</title>` — nombre no vacío (pestaña, marcadores, resultados).
+
+Y tres reglas de estructura: **un solo `h1`**, **encabezados sin saltos** (`h2` → `h3` está bien; `h1` → `h3` rompe el esquema) y **toda imagen con `alt`** — para imágenes decorativas se escribe `alt=""` a propósito; lo que no se admite es que el atributo falte—. A ellos se añaden los **landmarks** (`header`/`main`/`footer`): el esqueleto que divide la página en regiones.
+
+### Las diez comprobaciones, en verde y en rojo
+
+`ejemplos/validar-html.js` aplica el validador a `pagina/index.html` con Node v24.22.0 (2026-10-21):
+
+```text
+✓ DOCTYPE html
+✓ html con lang
+✓ meta charset
+✓ meta viewport
+✓ title no vacío
+✓ un solo h1 — hay 1
+✓ encabezados sin saltos
+✓ imágenes con alt
+✓ landmarks header/main/footer
+✓ hoja de estilos válida
+10 comprobaciones en verde
+```
+
+código de salida: `0`. El rojo deliberado `ejemplos/errores/html-invalido.js` alimenta el mismo validador con una página torcida —sin `lang`, título vacío, salto `h1` → `h3`, imagen sin `alt`, sin landmarks—:
+
+```text
+✓ DOCTYPE html
+✗ html con lang — falta <html lang=…>
+✓ meta charset
+✗ meta viewport
+✗ title no vacío — vacío o ausente
+✓ un solo h1 — hay 1
+✗ encabezados sin saltos — salto de h1 a h3
+✗ imágenes con alt — 1 sin alt
+✗ landmarks header/main/footer — faltan: header, main, footer
+✓ hoja de estilos válida
+6 comprobaciones en rojo; 4 en verde
+```
+
+código de salida: `1`. Fíjate en los mensajes: cada ✗ dice **qué** falta y **dónde**, la misma disciplina de aserción con intención que exigiste a tus pruebas en `n0/m6/l02`. Un validador que solo dijera «HTML inválido» no te enseñaría nada.
+
+## Ejercicio
+
+Crea `ejercicios/comprobar.js`: un validador propio que reciba la ruta de un archivo por argumento —`node ejercicios/comprobar.js ruta/a/pagina.html`— y compruebe cinco cosas con expresiones regulares: `DOCTYPE`, `html con lang`, `un solo h1`, `encabezados sin saltos` e `imágenes con alt`. Junto a él, dos páginas: `ejercicios/entrega.html` —correcta, con landmarks y una imagen con `alt`— y `ejercicios/rota.html` —sin `lang`, con un salto de encabezado y una imagen sin `alt`—.
+
+Esto se cumple cuando:
+
+- sobre `entrega.html` el validador imprime `5 comprobaciones en verde` y sale con código `0`;
+- sobre `rota.html` sale con código `1`, marcando con `✗` exactamente las comprobaciones que fallan y diciendo cuántas quedan en verde;
+- el `h1` de `entrega.html` aparece **una sola vez** y ningún salto de encabezado pasa desapercibido — para probarlo, introduce a mano un `h3` después del `h1` y comprueba cómo pasa a rojo;
+- escribes una frase explicando por qué `alt` y los landmarks no son «cosas de diseño»: son la estructura que leen quien navega sin pantalla y quien valida el archivo.
+
+Pista: `matchAll` con `/<h([1-6])[^>]*>/gi` te devuelve la lista de niveles en orden; recórrela comparando cada nivel con el anterior — como el ejercicio de fronteras de `n0/m6/l01`, la regla vive en los límites, no en los valores centrales.
+
+## Solución explicada
+
+La comprobación de saltos es el corazón del ejercicio — la misma idea que la frontera de `n0/m6/l01`, ahora sobre una jerarquía:
+
+```js
+const niveles = [...html.matchAll(/<h([1-6])[^>]*>/gi)].map((m) => Number(m[1]));
+const sinSaltos = niveles.every((nivel, i) => i === 0 || nivel <= niveles[i - 1] + 1);
+```
+
+`every` recorre pares consecutivos: un salto solo se detecta **en el límite** entre dos encabezados vecinos, por eso la comparación es con `i - 1`. La comprobación de `alt` filtra todos los `<img>` y exige `alt=` en cada uno:
+
+```js
+[...html.matchAll(/<img[^>]*>/gi)].every((t) => /\salt="/i.test(t[0]));
+```
+
+Salidas reales medidas el 2026-10-21 con Node v24.22.0 (el `código de salida` añadido es lo que devuelve `echo $?`):
+
+```text
+$ node ejercicios/comprobar.js ejercicios/entrega.html
+✓ DOCTYPE html
+✓ html con lang
+✓ un solo h1
+✓ encabezados sin saltos
+✓ imágenes con alt
+5 comprobaciones en verde
+código de salida: 0
+```
+
+```text
+$ node ejercicios/comprobar.js ejercicios/rota.html
+✗ DOCTYPE html
+✗ html con lang
+✓ un solo h1
+✗ encabezados sin saltos
+✗ imágenes con alt
+4 comprobaciones en rojo; 1 en verde
+código de salida: 1
+```
+
+`rota.html` no lleva doctype, por eso cae también la primera comprobación — cuatro rojos, no tres. Los errores típicos al resolverlo: (1) buscar `<h1>` con `includes` y contar los `<h3>` del texto visible; (2) exigir `alt` no vacío y así rechazar las imágenes decorativas `alt=""`, que son correctas; (3) validar «con el ojo» en el navegador y no por comando — si no se puede ejecutar, no se puede repetir en CI.
+
+## Cómo verificarlo
+
+1. El validador del ejemplo sobre la página del módulo:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/validar-html.js; echo $?
+   ```
+
+   `10 comprobaciones en verde` y código `0`.
+
+2. El rojo deliberado:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/errores/html-invalido.js; echo $?
+   ```
+
+   `6 comprobaciones en rojo; 4 en verde` y código `1`.
+
+3. Tu ejercicio en sus dos páginas:
+
+   ```sh
+   node ejercicios/comprobar.js ejercicios/entrega.html; echo $?
+   node ejercicios/comprobar.js ejercicios/rota.html; echo $?
+   ```
+
+   `5 comprobaciones en verde` con código `0`, y `4 comprobaciones en rojo; 1 en verde` con código `1`.
+
+Continúa con [l02 «El DOM: el árbol que construye el navegador»](/curriculo/n0/m7/l02-el-dom-el-arbol-que-construye-el-navegador/) — el navegador no lee texto suelto: convierte estas etiquetas en un árbol, y ese árbol es lo que CSS y JavaScript tocan.
+
+## Errores comunes
+
+- **HTML de cajas (`div`-soup).** Todo son `<div>` y la página se ve bien, pero no hay landmarks ni jerarquía que validar: el validador comprueba estructura, y tu página no tiene.
+- **Saltos de encabezado por «estética».** Cambiar un `h2` a `h4` porque «así se ve más pequeño» rompe el esquema que usan navegación por encabezados, buscadores y lectores de pantalla: el tamaño se pone con CSS, no con el número del título.
+- **Olvidar `alt` en imágenes dinámicas.** Si el HTML lo genera código, el hueco se repite en todas las páginas: valida el patrón, no la página de hoy.
+- **Validar solo la buena.** Un validador que solo corre sobre la página correcta nunca demuestra que sabe fallar — la lección `n0/m6/l04` ya te lo dijo: rojo primero.
+
+## Fuentes
+
+- [HTML elements reference | MDN](https://developer.mozilla.org/en-US/docs/Web/HTML/Element) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: las diez comprobaciones de hoy son el molde del validador del entregable de `l07`; cuando lo construyas, volverás a esta lista — y a este rojo.

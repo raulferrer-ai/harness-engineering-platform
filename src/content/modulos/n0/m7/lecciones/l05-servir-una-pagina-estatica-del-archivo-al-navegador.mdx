@@ -1,0 +1,197 @@
+---
+titulo: "Servir una página estática: del archivo al navegador"
+resumen: "Cómo un servidor estático convierte una ruta en un archivo: MIME por extensión, index.html por defecto, 404 para lo que no existe, 405 para el método que no toca y bloqueo de rutas de escape fuera de la carpeta publicada."
+nivel: "n0"
+modulo: "m7"
+orden: 5
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Implementar un servidor estático con solo librería estándar que sirva una carpeta con sus tipos MIME"
+  - "Bloquear y comprobar una ruta de escape del directorio publicado (403)"
+  - "Demostrar qué se rompe al quitar la guarda de rutas con un experimento rojo"
+prerrequisitos:
+  - "n0/m7/l04-la-peticion-http-metodo-ruta-y-cabeceras"
+actualizado: "2026-10-21"
+tags:
+  - "servidor"
+  - "estatico"
+  - "mime"
+fuentes:
+  - titulo: "MIME types | MDN"
+    url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types"
+    fecha: "2026-10-21"
+  - titulo: "http | Node.js"
+    url: "https://nodejs.org/api/http.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un servidor estático solo hace una cosa: **traducir ruta → archivo** dentro de una carpeta raíz. Esa traducción tiene cuatro reglas —si es una carpeta, sirve su `index.html`; el **MIME** va por extensión ([MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types)); lo que no existe, `404`; y lo que resuelve **fuera** de la raíz, `403` sin tocar el disco— más una quinta: método no permitido, `405`. La ruta de escape se construye con `%2e%2e` (= `..`), que tras `decodeURIComponent` y `resolve` sale de la carpeta publicada: sin la guarda, el servidor entrega el archivo de fuera como si nada.
+
+## Conceptos
+
+### La traducción ruta → archivo
+
+El cliente manda `GET /estilos.css`; el servidor une esa ruta con su carpeta raíz y comprueba que el resultado siga **dentro**:
+
+```text
+/pagina         → pagina/index.html      (directorio → index)
+/estilos.css    → pagina/estilos.css     (archivo directo)
+/no-existe      → 404: no existe         (nada que servir)
+/%2e%2e/secreto.txt → 403               (fuera de la raíz)
+POST /          → 405                    (método no permitido)
+```
+
+`%2e%2e` es `..` escrito con la codificación de porcentaje — `decodeURIComponent("/%2e%2e/secreto.txt")` devuelve `"/../secreto.txt"`. Si el servidor concatenara a ciegas, `resolve(raiz, "./../secreto.txt")` apuntaría al padre de la carpeta publicada y se serviría su contenido. Por eso la comprobación es una **línea de defensa antes de leer**, no un detalle: la guarda corre antes de `statSync`.
+
+### El MIME: decir qué es el cuerpo
+
+La [cabecera `content-type` | MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types) etiqueta el cuerpo — `text/html; charset=utf-8`, `text/css; charset=utf-8`, `image/svg+xml`. El navegador la usa para decidir si parsea HTML, aplica CSS o dibuja un SVG. Servir `.css` como `text/html` hace que el navegador lo descarte en silencio: una página «que no hace nada de CSS» es casi siempre esto.
+
+### La demo: cinco rutas y sus tipos
+
+`ejemplos/servidor-estatico.js` levanta `servidorEstatico` sobre `pagina/` en `127.0.0.1` y verifica estado **y** `content-type` de cada ruta. Salida real con Node v24.22.0 (2026-10-21):
+
+```text
+✓ / → 200 · text/html; charset=utf-8
+✓ /estilos.css → 200 · text/css; charset=utf-8
+✓ /diagrama.svg → 200 · image/svg+xml
+✓ /no-existe → 404 · text/plain; charset=utf-8
+✓ /%2e%2e/secreto.txt → 403 · text/plain; charset=utf-8
+5 rutas comprobadas en verde: archivos, 404 y ruta fuera del directorio
+```
+
+código de salida: `0`. Fíjate en la última: la ruta de escape **responde**, y responde `403` — el ataque no recibe un 404 confuso ni un stack: recibe «fuera del directorio», con el cuerpo en texto plano.
+
+### Qué pasa si quitas la guarda
+
+El ejercicio te pide mutar tu servidor para comprobar que la guarda es la que protege, no la suerte. Ejecución real con la guarda eliminada (misma suite de rutas):
+
+```text
+✓ GET / → 200 · text/html; charset=utf-8
+✓ GET /estilos.css → 200 · text/css; charset=utf-8
+✗ GET /%2e%2e/secreto.txt → 200 · application/octet-stream (esperado 403)
+✓ GET /no-existe → 404 · text/plain; charset=utf-8
+✓ POST / → 405 · text/plain; charset=utf-8
+1 ruta(s) en rojo de 5
+código de salida: 1
+```
+
+**El archivo de fuera se sirve con `200`.** Dos detalles didácticos: primero, la comprobación sigue pidiendo `403` — es el verificador el que está en rojo, no el servidor «mal configurado»: así se ve un agujero de seguridad sin necesidad de que nadie lo explote. Segundo, el tipo sale `application/octet-stream` y no `text/plain`: su mapa MIME solo cubre `.html` y `.css`, y `.txt` cae al genérico. La misma ejecución te enseña dos lecciones.
+
+## Ejercicio
+
+Crea `ejercicios/publicador.js`: tu servidor estático sobre `ejercicios/sitio/` — `index.html` y `estilos.css` que tú escribes— con `node:http`, mapa MIME para `.html` y `.css`, `index.html` por defecto para carpetas, y **una guarda explícita de rutas** marcada con los comentarios `// guarda-inicio` y `// guarda-fin`. Al final del mismo fichero, una suite de cinco rutas con su `esperado`: `GET /` → `200 text/html`, `GET /estilos.css` → `200 text/css`, `GET /%2e%2e/secreto.txt` → `403`, `GET /no-existe` → `404` y `POST /` → `405`. Junto a la carpeta, `ejercicios/secreto.txt` —el archivo **fuera** de `sitio/` que la guarda debe impedir servir—.
+
+Esto se cumple cuando:
+
+- la ejecución normal imprime cinco líneas con `✓`, cierra con `5 rutas comprobadas en verde: archivos, escape bloqueado, 404 y 405` y sale con código `0`;
+- el experimento rojo —`sed '/\/\/ guarda-inicio/,/\/\/ guarda-fin/d' publicador.js > publicador-sin-guarda.js` y ejecutar el resultado— termina con `✗ GET /%2e%2e/secreto.txt → 200` y `1 ruta(s) en rojo de 5`, código `1`;
+- borras `publicador-sin-guarda.js` y repites la ejecución normal: sigue en verde con `0` — la mutación no tocó tu servidor;
+- explicas en tu nota qué habría pasado si la guarda estuviera **después** de `readFileSync` — lee la respuesta completa, se sirve igual— y por qué la guarda debe ir antes de tocar el disco.
+
+Pista: `resolve(raiz, "." + ruta)` con `sep` en la comprobación `destino.startsWith(raiz + sep)` es la forma estándar; no compares con `startsWith` sola sin separador — `/publica-otra` empezaría igual que `/publica`.
+
+## Solución explicada
+
+El orden de las decisiones del handler es el contrato completo:
+
+```js
+const servidor = createServer((peticion, respuesta) => {
+  if (peticion.method !== "GET" && peticion.method !== "HEAD") {
+    /* 405 */ return;
+  }
+  const ruta = decodeURIComponent((peticion.url ?? "/").split("?")[0]);
+  const destino = resolve(raiz, `.${ruta}`);
+  // guarda-inicio: nada fuera del directorio publicado
+  if (destino !== raiz && !destino.startsWith(raiz + sep)) {
+    /* 403 */ return;
+  }
+  // guarda-fin
+  let archivo = destino;
+  let estat = statSync(destino, { throwIfNoEntry: false });
+  if (estat?.isDirectory()) {
+    archivo = join(destino, "index.html");
+    estat = statSync(archivo, { throwIfNoEntry: false });
+  }
+  if (!estat?.isFile()) {
+    /* 404 */ return;
+  }
+  // 200 con el MIME de la extensión
+});
+```
+
+Tres trampas escondidas en esas seis líneas: (1) `decodeURIComponent` **antes** de resolver, o `%2e%2e` llega literal y la guarda no lo reconoce como `..`; (2) la guarda **antes** de cualquier `stat`/`read`, o el intento ya tocó el sistema de ficheros; (3) `throwIfNoEntry: false` para que una ruta inexistente sea un `404` controlado y no una excepción que mate el proceso — una petición de un desconocido no puede tumbar el servidor.
+
+Salidas reales medidas el 2026-10-21 con Node v24.22.0 (el `código de salida` es lo que devuelve `echo $?`):
+
+```text
+$ node ejercicios/publicador.js
+✓ GET / → 200 · text/html; charset=utf-8
+✓ GET /estilos.css → 200 · text/css; charset=utf-8
+✓ GET /%2e%2e/secreto.txt → 403 · text/plain; charset=utf-8
+✓ GET /no-existe → 404 · text/plain; charset=utf-8
+✓ POST / → 405 · text/plain; charset=utf-8
+5 rutas comprobadas en verde: archivos, escape bloqueado, 404 y 405
+código de salida: 0
+```
+
+```text
+$ sed '/\/\/ guarda-inicio/,/\/\/ guarda-fin/d' publicador.js > publicador-sin-guarda.js
+$ node publicador-sin-guarda.js
+✗ GET /%2e%2e/secreto.txt → 200 · application/octet-stream (esperado 403)
+1 ruta(s) en rojo de 5
+código de salida: 1
+```
+
+Errores típicos al resolverlo: (1) resolver el `..` **antes** de que `new URL` o el propio parser lo normalize — si la ruta llega ya normalizada, tu guarda mira otra cosa y el ataque pasa por otra puerta; (2) devolver `404` en la ruta de escape «para no delatar» — esconde el intento de los logs sin impedirlo: `403` además deja constancia; (3) meter el `405` después del `404` — `POST /no-existe` diría «método no permitido» de una ruta que no existe, mintiendo sobre lo que hay.
+
+## Cómo verificarlo
+
+1. La demo del módulo:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/servidor-estatico.js; echo $?
+   ```
+
+   Cinco `✓` con sus tipos y `5 rutas comprobadas en verde…`, código `0`.
+
+2. Tu servidor, con guarda:
+
+   ```sh
+   node ejercicios/publicador.js; echo $?
+   ```
+
+   `5 rutas comprobadas en verde…` y código `0`.
+
+3. La mutación — el paso rojo del ejercicio:
+
+   ```sh
+   sed '/\/\/ guarda-inicio/,/\/\/ guarda-fin/d' publicador.js > publicador-sin-guarda.js
+   node publicador-sin-guarda.js; echo $?
+   rm publicador-sin-guarda.js
+   node ejercicios/publicador.js; echo $?
+   ```
+
+   `✗ … → 200` con `1 ruta(s) en rojo de 5` y código `1`; después, restaurado, cinco `✓` y código `0`.
+
+Continúa con [l06 «El camino crítico de renderizado»](/curriculo/n0/m7/l06-el-camino-critico-de-renderizado/) — la página ya se sirve bien; falta lo que ocurre del otro lado, cuando el navegador decide qué pinta y con qué estilos.
+
+## Errores comunes
+
+- **Servir cualquier ruta que empiece por la raíz.** `startsWith(raiz)` sin `sep` acepta `publica-otra` cuando publicas `publica`; con el separador, la igualdad es exacta.
+- **Trasladar la carpeta entera, no su contenido.** Servir la raíz del proyecto en lugar de `pagina/` expone tu código y tus notas: el servidor público debe apuntar a una carpeta que **puedas** enseñar entera.
+- **`stat` antes de la guarda.** Comprobar si el archivo existe y _luego_ si está permitido deja el intento escrito en accesos; la respuesta es la misma, el rastro no.
+- **MIME a mano y a olvido.** Cada extensión nueva sin entrada en el mapa se sirve `application/octet-stream`: el navegador la descarga en vez de renderizarla. Antes de añadir un tipo, comprueba con la demo.
+
+## Fuentes
+
+- [MIME types | MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types) — consultado el 2026-10-21.
+- [http | Node.js](https://nodejs.org/api/http.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: tu `publicador.js` con guarda es el servidor del entregable de `l07`; allí se le exigirá la misma suite de rutas.

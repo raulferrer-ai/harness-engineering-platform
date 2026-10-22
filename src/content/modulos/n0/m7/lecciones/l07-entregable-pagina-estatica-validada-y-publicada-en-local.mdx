@@ -1,0 +1,184 @@
+---
+titulo: "Entregable: página estática validada y publicada en local"
+resumen: "Cierre del módulo: la página semántica con su CSS, servida en local por tu servidor con guarda, y la suite de diez pruebas que cae en rojo contra una página rota y termina en verde contra la buena."
+nivel: "n0"
+modulo: "m7"
+orden: 7
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Integrar HTML semántico, CSS, servidor con guarda y validación en un entregable ejecutable"
+  - "Demostrar el ciclo rojo→verde con la misma suite sobre dos páginas distintas"
+  - "Documentar las salidas reales con su código de salida y fecha"
+prerrequisitos:
+  - "n0/m7/l06-el-camino-critico-de-renderizado"
+actualizado: "2026-10-21"
+tags:
+  - "entregable"
+  - "integracion"
+  - "rojo-verde"
+fuentes:
+  - titulo: "Test runner | Node.js"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-21"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable de `n0-m7` es una **página estática validada y publicada en local**: `pagina/index.html` semántico + `pagina/estilos.css` + servidor con guarda en `127.0.0.1`, todo bajo una suite `node:test` de **diez pruebas** — estructura, cascada y tres respuestas del servidor—. La prueba de que lo es: la misma suite contra una página rota da `pass 5 / fail 5` y **código 1**; contra la buena, `pass 10 / fail 0` y **código 0**. Ese par de ejecuciones — no el informe — es la demostración.
+
+## Conceptos
+
+### Qué integra este entregable
+
+Las siete lecciones se pliegan en un fichero por pieza:
+
+| Pieza                      | Lección       | Fichero                                                     |
+| -------------------------- | ------------- | ----------------------------------------------------------- |
+| Página semántica + assets  | l01           | `pagina/index.html`, `pagina/diagrama.svg`                  |
+| Árbol y estilos resueltos  | l02, l03, l06 | `web.js` (`parsearHtml`, `parsearCss`, `estilosCalculados`) |
+| Servidor con MIME y guarda | l04, l05      | `web.js` (`servidorEstatico`, `pedir`)                      |
+| Validador y suite          | l01, l07      | `validarPagina`, `pagina.test.js`                           |
+| Ciclo rojo→verde           | l07           | `entregable-pagina.js`                                      |
+
+La suite —`node:test` con el [runner de Node](https://nodejs.org/api/test.html)— agrupa diez pruebas en tres bloques: cinco de **estructura** (doctype/lang/charset/viewport/título, un `h1`, sin saltos, `alt`, landmarks), dos de **estilos** (la hoja analiza sin errores; la cascada da `#b3261e` a `p.destacado`, no a `p`) y tres de **servidor** (`GET /` → `200 text/html`, `/no-existe` → `404`, `/%2e%2e/secreto.txt` → `403`).
+
+### La misma suite, dos páginas
+
+`entregable-pagina.js` no coje pruebas distintas para cada fase: **escribe una página rota en un temporal** y ejecuta la misma suite con la variable de entorno `PAGINA` apuntando a ella — el detector de fase roja que ya construiste en `n0/m6/l07`. Salida real con Node v24.22.0 (2026-10-21):
+
+```text
+--- rojo a propósito (página con errores de estructura) ---
+ℹ tests 10
+ℹ suites 3
+ℹ pass 5
+ℹ fail 5
+código de salida: 1
+--- verde (misma suite, página buena) ---
+ℹ tests 10
+ℹ suites 3
+ℹ pass 10
+ℹ fail 0
+código de salida: 0
+entregable válido: la misma suite cae en rojo (1) con la página rota y termina en verde (0) con la buena
+código de salida: 0
+```
+
+Los cinco fallos del rojo son los que corresponden: estructura (lang/viewport/título), saltos de encabezado, `alt`, landmarks y… la cascada — la página rota no tiene `p.destacado`, así que esa pruebas también cae con su mensaje. Las tres del servidor siguen en verde porque sirven `pagina/` (la buena): la fase roja aísla lo que se rompe, no contamina el resto.
+
+### «Publicada en local»
+
+No hay despliegue externo: publicar aquí es levantar `servidorEstatico` en un puerto efímero de `127.0.0.1` y **comprobarlo con peticiones reales** — que es lo que hacen las tres pruebas de servidor de la suite. La misma palabra «publicada» significa, en este módulo, «cualquiera puede pedirla por HTTP y recibe lo correcto»: la única red que entra en juego es el bucle, sin dependencias externas. El paso siguiente — `n1/m1` — ya trae el registro de trazas y el repositorio donde convivirán tus agentes; esta página es el escenario local donde practicarlos.
+
+## Ejercicio
+
+Crea en `ejercicios/` tu entregable propio: `entrega/index.html` —semántico y correcto—, `entrega/estilos.css`, y `verificar-entrega.js` con **nueve comprobaciones** propias (doctype, lang, charset, viewport, título, un `h1`, sin saltos, `alt`, landmarks) que acepte la ruta de un HTML como argumento opcional —por defecto, `entrega/index.html`—.
+
+Esto se cumple cuando:
+
+- la ejecución normal imprime nueve `✓`, cierra con `9 comprobaciones en verde` y sale con código `0`;
+- rompes **a propósito** la página —sin `lang`, salto `h1` → `h3`, imagen sin `alt`— en `entrega-rota.html` y la misma suite sobre ella termina con `3 comprobaciones en rojo; 6 en verde` y código `1`, marcando exactamente los tres fallos introducidos;
+- restauras —vuelves a ejecutar sobre `entrega/index.html`— y vuelves a `9 comprobaciones en verde` con código `0`, **sin tocar `verificar-entrega.js`** entre fases;
+- escribes `ejercicios/NOTA.md` con las tres salidas literales, `node -v` y la fecha, y una frase sobre qué demuestra cada una: que la buena pasa, que **puede fallar** y que falla contra el fallo correcto.
+
+Pista: si la página rota cambia de una fase a otra, el verificador no debe cambiar nunca — es el mismo principio que en `n0/m6/l07`: la herramienta es constante, el código es lo que se mueve.
+
+## Solución explicada
+
+El truco de la sucesión de fases es que hay una sola verdad — el HTML — y un único verificador con código fijo:
+
+```js
+const ruta = process.argv[2] ?? fileURLToPath(new URL("./entrega/index.html", import.meta.url));
+const html = readFileSync(ruta, "utf8");
+// nueve comprobaciones sobre `html` …
+process.exit(fallidas === 0 ? 0 : 1);
+```
+
+`process.argv[2] ?? …` es lo que permite reutilizar el mismo fichero en las tres fases sin editar nada — exactamente igual que la variable `PAGINA` de la suite del módulo, un argumento que cambia el blanco y no la lente. Las tres salidas, reales, medidas el 2026-10-21 con Node v24.22.0 (el `código de salida` es lo que devuelve `echo $?`):
+
+```text
+$ node ejercicios/verificar-entrega.js          # fase verde
+✓ DOCTYPE html
+✓ html con lang
+✓ meta charset
+✓ meta viewport
+✓ title no vacío
+✓ un solo h1
+✓ encabezados sin saltos
+✓ imágenes con alt
+✓ landmarks header/main/footer
+9 comprobaciones en verde
+código de salida: 0
+```
+
+```text
+$ node ejercicios/verificar-entrega.js entrega-rota.html   # fase roja
+✓ DOCTYPE html
+✗ html con lang
+✓ meta charset
+✓ meta viewport
+✓ title no vacío
+✓ un solo h1
+✗ encabezados sin saltos
+✗ imágenes con alt
+✓ landmarks header/main/footer
+3 comprobaciones en rojo; 6 en verde
+código de salida: 1
+```
+
+```text
+$ node ejercicios/verificar-entrega.js          # restaurada
+9 comprobaciones en verde
+código de salida: 0
+```
+
+La roja falla **solo en las tres cosas que se rompieron**: el `✓` que queda en `DOCTYPE`, `charset` o `title` es la mitad de la información — demuestra que el verificador no se ha vuelto generalista al fallar. Si el rojo marcara nueve de nueve, tendrías un detector de humo, no un verificador.
+
+Errores típicos al resolverlo: (1) «arreglar» el verificador en la fase roja — pasas la prueba cambiando el examen; (2) hacer la página rota rompiendo también el doctype — el rojo debe ser acotado y legible, no un desastre; (3) pegar la nota sin los `código de salida`: sin ellos no se distingue «imprimió el mensaje» de «terminó bien»; la plataforma entera evalúa los códigos, no las líneas.
+
+## Cómo verificarlo
+
+1. La suite del entregable del módulo:
+
+   ```sh
+   node --test src/content/modulos/n0/m7/ejemplos/pagina.test.js; echo $?
+   ```
+
+   `ℹ pass 10`, `ℹ fail 0`, `ℹ suites 3` y código `0`.
+
+2. El ciclo rojo→verde completo:
+
+   ```sh
+   node src/content/modulos/n0/m7/ejemplos/entregable-pagina.js; echo $?
+   ```
+
+   Fase roja `pass 5 / fail 5` con código `1`, fase verde `pass 10 / fail 0` con código `0`, veredicto `entregable válido: …` y código final `0`.
+
+3. Tu entregable en sus tres fases:
+
+   ```sh
+   node ejercicios/verificar-entrega.js; echo $?
+   node ejercicios/verificar-entrega.js entrega-rota.html; echo $?
+   node ejercicios/verificar-entrega.js; echo $?
+   ```
+
+   `9 comprobaciones en verde` con `0`, `3 comprobaciones en rojo; 6 en verde` con `1`, y de vuelta `9 comprobaciones en verde` con `0`.
+
+Con esto cierras `n0/m7` — y con él, el nivel `n0` completo. Continúa con [l01 «Modelos de lenguaje como predicción» de `n1/m1`](/curriculo/n1/m1/l01-modelos-de-lenguaje-como-prediccion/): de aquí en adelante, el código que verifiques lo escribirá y leerá también un agente.
+
+## Errores comunes
+
+- **Suite distinta por fase.** Escribir una segunda suite «más laxa» para el verde invalida la demostración: la comparación solo vale si la herramienta es idéntica.
+- **Verde sin rojo previo.** `pass 10 / fail 0` sobre la buena demuestra poco: cualquiera imprime diez palomas. La mitad del entregable es el `fail 5` con su `código 1`.
+- **Publicar sin comprobar el servidor.** Una página que «se ve bien al abrir el archivo» no está publicada: `file://` no es HTTP. La suite la sirve y la pide — esa es la diferencia entre abrir y publicar.
+- **Informes sin números.** «Las pruebas pasan» no es documentación; `pass 10 / fail 0`, código, versión de Node y fecha, como en `ejercicios/NOTA.md`.
+
+## Fuentes
+
+- [Test runner | Node.js](https://nodejs.org/api/test.html) — consultado el 2026-10-21.
+
+## Siguientes pasos
+
+- Proyecto longitudinal: esta página es el primer «escenario vivo» de tu proyecto; en `n1/m1` empezarás a hacer que agentes trabajen sobre repositorios como el que la contiene.
+- Cierras `n0`: ya puedes programar, probar, depurar, versionar y publicar en local. El siguiente nivel asume todo esto como herramienta de fondo — [n1 «Desarrollo asistido por IA»](/curriculo/n1/m1/).

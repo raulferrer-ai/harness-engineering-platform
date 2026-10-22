@@ -62,6 +62,10 @@ const dirEjemplosM6 = fileURLToPath(
   new URL("../../src/content/modulos/n0/m6/ejemplos/", import.meta.url),
 );
 
+const dirEjemplosM7 = fileURLToPath(
+  new URL("../../src/content/modulos/n0/m7/ejemplos/", import.meta.url),
+);
+
 interface Resultado {
   status: number | null;
   stdout: string;
@@ -977,6 +981,103 @@ describe("ejemplos del módulo n0/m6: pruebas y depuración", () => {
   });
 });
 
+describe("ejemplos del módulo n0/m7: fundamentos web", () => {
+  interface DemoM7 {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  // H13: demos verdes con solo librería estándar (bucle 127.0.0.1, sin red
+  // externa): validador de HTML, árbol DOM, cascada, HTTP, servidor estático,
+  // estilos calculados y el entregable rojo→verde con su suite.
+  const demos: DemoM7[] = [
+    {
+      fichero: "validar-html.js",
+      marcas: ["10 comprobaciones en verde"],
+      descripcion: "l01: las diez comprobaciones de la página en verde",
+    },
+    {
+      fichero: "arbol-dom.js",
+      marcas: ["árbol construido: 30 elementos y 12 nodos de texto"],
+      descripcion: "l02: la página convertida en árbol y contada",
+    },
+    {
+      fichero: "especificidad.js",
+      marcas: [
+        "color de p.destacado → #b3261e ← .destacado (orden 4)",
+        "color de nav a → #1a4fa0 ← nav a (orden 9)",
+        "font-size del p del pie → 0.875rem ← #pie p (orden 7)",
+      ],
+      descripcion: "l03: la cascada resuelta en sus tres casos",
+    },
+    {
+      fichero: "peticion-http.js",
+      marcas: ["content-type: text/html; charset=utf-8", "2 comprobaciones HTTP en verde"],
+      descripcion: "l04: anatomía de petición y respuesta con content-length verificado",
+    },
+    {
+      fichero: "servidor-estatico.js",
+      marcas: ["✓ /%2e%2e/secreto.txt → 403", "5 rutas comprobadas en verde"],
+      descripcion: "l05: rutas, MIME y bloqueo del escape del directorio",
+    },
+    {
+      fichero: "ruta-critica.js",
+      marcas: ["9 elementos con reglas de autor y 21 solo con la hoja del agente"],
+      descripcion: "l06: la cascada resuelta con la fuente de cada propiedad",
+    },
+    {
+      fichero: "pagina.test.js",
+      marcas: ["pass 10", "fail 0"],
+      descripcion: "l07: la suite del entregable (10 pruebas)",
+    },
+    {
+      fichero: "entregable-pagina.js",
+      marcas: ["entregable válido", "pass 5", "fail 5", "pass 10", "fail 0"],
+      descripcion: "l07: la misma suite en rojo con la página rota y en verde con la buena",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero], {
+        cwd: dirEjemplosM7,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  it("errores/html-invalido.js termina en 1 con seis comprobaciones en rojo (rojo de l01)", () => {
+    const rojo = ejecutarNode(["errores/html-invalido.js"], dirEjemplosM7);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ html con lang — falta <html lang=…>");
+    expect(rojo.stdout).toContain("✗ encabezados sin saltos — salto de h1 a h3");
+    expect(rojo.stdout).toContain("✗ imágenes con alt — 1 sin alt");
+    expect(rojo.stdout).toContain("6 comprobaciones en rojo; 4 en verde");
+  });
+
+  it("errores/css-roto.js termina en 1 con el Error de sintaxis y su línea (rojo de l03)", () => {
+    const rojo = ejecutarNode(["errores/css-roto.js"], dirEjemplosM7);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("Error: CSS inválido en la línea 3: declaración sin «:»");
+    expect(rojo.stderr).toContain("«color red»");
+  });
+
+  it("errores/ruta-404.js termina en 1 con el 404 esperado (rojo de l04)", () => {
+    const rojo = ejecutarNode(["errores/ruta-404.js"], dirEjemplosM7);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("GET /pagina-que-no-existe.html → 404");
+    expect(rojo.stderr).toContain("esperado 200, recibido 404");
+  });
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -1149,5 +1250,37 @@ describe("cobertura de ejemplos", () => {
     ];
 
     expect(archivosVerificables(dirEjemplosM6)).toEqual([...enManifiesto].sort());
+  });
+
+  it("m7: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // `web.js` es la implementación compartida (parser, cascada, validador y
+    // servidor): se verifica por importación desde cada demo y desde la suite.
+    // `pagina/` son las entradas del fixture: HTML, CSS y SVG que la página
+    // publicada sirve y que el validador y el servidor comprueban.
+    const enManifiesto = [
+      "web.js",
+      "validar-html.js",
+      "arbol-dom.js",
+      "especificidad.js",
+      "peticion-http.js",
+      "servidor-estatico.js",
+      "ruta-critica.js",
+      "pagina.test.js",
+      "entregable-pagina.js",
+      "errores/html-invalido.js",
+      "errores/css-roto.js",
+      "errores/ruta-404.js",
+      "pagina/index.html",
+      "pagina/estilos.css",
+      "pagina/diagrama.svg",
+    ];
+
+    expect(
+      archivosVerificables(
+        dirEjemplosM7,
+        [],
+        ["pagina/index.html", "pagina/estilos.css", "pagina/diagrama.svg"],
+      ),
+    ).toEqual([...enManifiesto].sort());
   });
 });

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cómo se sirve una página · Ejemplo n0/m7</title>
+    <link rel="stylesheet" href="estilos.css" />
+  </head>
+  <body>
+    <header class="cabecera">
+      <h1>Ejemplo de página estática</h1>
+      <nav aria-label="Principal">
+        <ul>
+          <li><a href="#peticion">La petición</a></li>
+          <li><a href="#respuesta">La respuesta</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <article>
+        <section id="peticion">
+          <h2>La petición</h2>
+          <p class="destacado">Una petición, una respuesta y un archivo.</p>
+          <figure>
+            <img
+              src="diagrama.svg"
+              alt="Diagrama: el navegador pide un archivo y el servidor responde con su tipo MIME"
+              width="320"
+              height="120"
+            />
+            <figcaption>El único diálogo de la web: pedir y responder.</figcaption>
+          </figure>
+        </section>
+
+        <section id="respuesta">
+          <h2>La respuesta</h2>
+          <p>El servidor devuelve el cuerpo junto a su tipo MIME.</p>
+          <h3>Antes de publicar</h3>
+          <p>Diez comprobaciones estructurales y una hoja de estilos válida.</p>
+        </section>
+      </article>
+    </main>
+
+    <footer id="pie">
+      <p>Ejemplo con solo librería estándar de Node.</p>
+    </footer>
+  </body>
+</html>

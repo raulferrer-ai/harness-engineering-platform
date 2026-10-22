@@ -5,5 +5,25 @@ modulo: "m7"
 objetivos:
   - "Entender cómo se sirve y renderiza una página web"
 entregable: "Página estática validada y publicada en local"
-actualizado: "2026-10-19"
+actualizado: "2026-10-21"
 ---
+
+## Para quién es este módulo
+
+Continuación directa de `n0/m6`: ya sabes probar, leer trazas y ciclar rojo-verde. Aquí aplicas ese criterio a la capa que sostiene todo lo que has construido hasta ahora — **la web**. Aprendes a leer una página como HTML semántico y a comprobarla estructuralmente (l01), a ver el árbol DOM que el navegador construye del texto (l02), a resolver quién gana cuando dos reglas CSS chocan (l03), a dialogar por HTTP distinguiendo un `404` de una conexión rechazada (l04), a levantar un servidor estático con guarda de rutas en `127.0.0.1` (l05), a seguir el camino crítico hasta el árbol de render con la cascada ya resuelta (l06) y a componer el entregable del módulo (l07). Público objetivo: quien tiene `n0/m1` a `n0/m6` a sus espaldas. Duración estimada: unas 6 horas y media repartidas.
+
+## Cómo se cierra el módulo
+
+Entregas la **página estática validada y publicada en local** (`ejemplos/`): 15 ficheros — la entrada `pagina/` con su HTML semántico, su hoja de estilos y su SVG; la implementación `web.js` con el parser de HTML, el de CSS con línea de error, la cascada con fuentes por propiedad, el validador de diez comprobaciones y el servidor estático con MIME y guarda; y demos verdes de cada lección: el árbol de 30 elementos, la tabla de especificidad con sus tres resoluciones, las dos respuestas HTTP con `content-length` verificado, las cinco rutas del servidor, los estilos calculados de 9 elementos con autor y 21 del agente, y la suite del entregable `pagina.test.js` (**10 pruebas `node --test` en verde**) con su demostrador `entregable-pagina.js` que corre **la misma suite** contra una página rota — rojo `pass 5 / fail 5`, código de suite `1`— y contra la buena — verde `pass 10 / fail 0`, código de suite `0`—. Cierre con **3 rojos deliberados** con su mensaje y código reales: el HTML sin estructura (`6 comprobaciones en rojo`, código `1`), el CSS con declaración sin «:` (`Error: CSS inválido en la línea 3`, código `1`) y la ruta inexistente (`esperado 200, recibido 404`, código `1`). Este módulo, junto con `n0/m6`, cierra la fase `f1`del proyecto longitudinal — y con él, el nivel`n0`.
+
+## Lecciones
+
+| #   | Lección                                                                                                                                     | Tiempo |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [Anatomía de una página: HTML semántico](/curriculo/n0/m7/l01-anatomia-de-una-pagina-html-semantico/)                                       | 45 min |
+| 2   | [El DOM: el árbol que construye el navegador](/curriculo/n0/m7/l02-el-dom-el-arbol-que-construye-el-navegador/)                             | 50 min |
+| 3   | [CSS: reglas, cascada y especificidad](/curriculo/n0/m7/l03-css-reglas-cascada-y-especificidad/)                                            | 55 min |
+| 4   | [La petición HTTP: método, ruta y cabeceras](/curriculo/n0/m7/l04-la-peticion-http-metodo-ruta-y-cabeceras/)                                | 55 min |
+| 5   | [Servir una página estática: del archivo al navegador](/curriculo/n0/m7/l05-servir-una-pagina-estatica-del-archivo-al-navegador/)           | 60 min |
+| 6   | [El camino crítico de renderizado](/curriculo/n0/m7/l06-el-camino-critico-de-renderizado/)                                                  | 55 min |
+| 7   | [Entregable: página estática validada y publicada en local](/curriculo/n0/m7/l07-entregable-pagina-estatica-validada-y-publicada-en-local/) | 60 min |
