@@ -1,0 +1,191 @@
+---
+titulo: "Criterios de aceptación ejecutables"
+resumen: "Los criterios de una tarea no son deseos: son pruebas node:test escritas antes que el código. Ejecutas la misma suite contra un borrador plausible del asistente — falla 3 de 4 — y contra la entrega de referencia — pasa las 4 —, y descubres que la única diferencia entre «hecho» y «casi» es un código de salida."
+nivel: "n1"
+modulo: "m2"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Traducir criterios de aceptación en pruebas node:test ejecutables"
+  - "Ejecutar los criterios contra un borrador plausible y leer su rojo"
+  - "Cerrar el ciclo rojo→verde sin tocar los criterios para que pasen"
+prerrequisitos:
+  - "n1/m2/l02-contexto-minimo-lo-justo-para-resolver"
+actualizado: "2026-10-22"
+tags:
+  - "criterios"
+  - "aceptacion"
+  - "pruebas"
+  - "rojo-verde"
+fuentes:
+  - titulo: "Anthropic — Define success criteria and build evaluations"
+    url: "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+    fecha: "2026-10-22"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+  - titulo: "OpenAI — Prompt engineering: Coding"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un criterio de aceptación que no se ejecuta es una esperanza. La traducción es directa: **cada criterio de la tarea es una prueba `node:test`** con entrada y salida esperada, escrita por ti **antes** de mandar la tarea. Cuando el asistente entrega su borrador, los criterios no se discuten — se ejecutan, y el código de salida dice si la entrega pasa o no. `ejemplos/criterios-primero.js` hace el ciclo completo: la misma suite contra un borrador plausible (falla 3 de 4) y contra la entrega de referencia (pasa las 4).
+
+## Conceptos
+
+### Criterio = prueba = condición ejecutable
+
+En `n1/m1/l05` convertiste afirmaciones de un modelo en condiciones ejecutables. Aquí das un paso antes en el tiempo: los criterios **no son afirmaciones que el asistente hará**, son condiciones que tú exiges. La guía de evaluaciones de Anthropic lo dice desde el principio: las buenas condiciones de éxito son **específicas** («sentimiento clasificado con precisión», no «que funcione bien»), **medibles** y se comprueban **automatizando cuando sea posible** (fuente consultada el 2026-10-22). En un proyecto de código, «automatizar cuando sea posible» no es una opción: es `node:test`.
+
+La traducción de una tarea de la serie a su suite usa el runner de pruebas de Node (fuente consultada el 2026-10-22), incluido en la librería estándar — sin dependencias:
+
+```js
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+test("colapsa espacios dobles", () => {
+  assert.equal(normalizarNombre("Ana   maría"), "Ana María");
+});
+```
+
+Cada criterio de la tarea-1 tiene su `test`: cuatro criterios, cuatro pruebas, en `ejemplos/tareas/tarea-1.test.js`. El asistente no ve los criterios como prosa; los ve como la suite que su entrega debe satisfacer.
+
+### El borrador plausible: el rojo que importa
+
+La experiencia de m1/l02 — la alucinación plausible — tiene su versión en código: un borrador del asistente que **está bien formado, usa los nombres correctos y falla en los detalles**. `ejemplos/tareas/tarea-1-borrador.js` es ese borrador: recorta, separa palabras, no pone mayúsculas. Suena a solución. No lo es.
+
+`ejemplos/criterios-primero.js` ejecuta la misma suite dos veces:
+
+```sh
+node criterios-primero.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+fase rojo — criterios contra el borrador del asistente:
+  pass 1 · fail 3 (86 ms)
+  ✗ ✖ colapsa espacios dobles (0.84125ms)
+  ✗ ✖ recorta extremos y pone mayúscula inicial (0.099791ms)
+  ✗ ✖ todo lo demás queda en minúsculas (0.394875ms)
+fase verde — mismos criterios contra la entrega de referencia:
+  pass 4 · fail 0 (76 ms)
+criterios primero: borrador refutado en 3 criterios; entrega verificada en 4
+```
+
+La fase roja usa el mismo fichero de pruebas con `BORRADOR=1`, que importa el borrador en lugar de la entrega. Tres criterios caen; el único que pasa es el caso vacío — el borrador no lo toca y por eso sobrevive. La fase verde cambia el import y las cuatro pruebas quedan en verde. Un solo detalle cambia el resultado entero: **la entrega se juzga contra los criterios, no contra su propia descripción**.
+
+### Lo que los criterios NO hacen
+
+Los criterios verifican lo que escribiste. No verifican que la tarea valga la pena, ni que el diseño sea bueno, ni lo que no pusiste — ese era el límite de m1/l05 y sigue siendo. Por eso el criterio se escribe **antes**: si lo escribes después de ver la entrega, ya estás mirando el código y racionalizando lo que ves. La guía de Anthropic lo resume en su propio ciclo: define los criterios, construye las evaluaciones, refina — el orden no es casual (fuente consultada el 2026-10-22). Y OpenAI avisa de algo práctico en su sección de coding: instruye al modelo a probar con unit tests y **valida los parches con cuidado, porque las herramientas pueden devolver «Done» incluso cuando el cambio falla** (fuente consultada el 2026-10-22). «Hecho» dicho por la herramienta no es evidencia; la suite en verde lo es.
+
+## Ejercicio
+
+Ejecuta los criterios contra el borrador, corrígelo hasta dejarlo en verde y confirma que la entrega de referencia sigue intacta.
+
+```sh
+mkdir taller && cd taller
+mkdir tareas
+cp ../ejemplos/tareas/tarea-1.test.js ../ejemplos/tareas/tarea-1.js tareas/
+cp ../ejemplos/tareas/tarea-1-borrador.js tareas/
+BORRADOR=1 node --test tareas/tarea-1.test.js 2>&1 | grep -E "^ℹ (pass|fail)"
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime `ℹ pass 1` y `ℹ fail 3`;
+- tras corregir el borrador (ver solución), la misma orden imprime `ℹ pass 4` y `ℹ fail 0`;
+- la entrega de referencia `tarea-1.js` no se toca: sus criterios ya pasaban.
+
+Pista: el borrador está en `tareas/tarea-1-borrador.js`; el bloque a corregir es la función `normalizarNombre` completa.
+
+## Solución explicada
+
+Primero el rojo, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+ℹ pass 1
+ℹ fail 3
+codigo=1
+```
+
+Después el borrador corregido — la misma función que la entrega de referencia, porque el criterio no pide nada exótico:
+
+```js
+export function normalizarNombre(texto) {
+  const palabras = texto
+    .trim()
+    .split(/\s+/)
+    .filter((palabra) => palabra.length > 0);
+  return palabras
+    .map((palabra) => palabra[0].toUpperCase() + palabra.slice(1).toLowerCase())
+    .join(" ");
+}
+```
+
+Y la verificación (salida real, 2026-10-22):
+
+```text
+ℹ pass 4
+ℹ fail 0
+codigo=0
+```
+
+Por qué el borrador original fallaba tres: `trim().replace(/\s+/g, " ")` colapsa los espacios internos pero devuelve «Ana maría» (sin mayúscula), devuelve «luis» (sin inicial) y deja «cARLOS lÓPEZ» tal cual. Los tres fallos apuntan al mismo hueco: no hay transformación por palabra. El criterio «“Ana maría” → “Ana María»» no es más estricto que la instrucción; es la instrucción **puesta a prueba** con una entrada concreta.
+
+Errores típicos al resolverlo:
+
+- **Relajar el criterio para que pase**: cambiar `assert.equal(..., "Ana María")` por `assert.ok(...)` es hacer trampa con tus propios ojos. Los criterios se tocan cuando cambia el **requisito**, no cuando fallan (m1/l05 ya lo advertía).
+- **Corregir la entrega de referencia en lugar del borrador**: el ejercicio alterna dos implementaciones a propósito; si corriges `tarea-1.js`, pierdes el verde de referencia y la demostración deja de ser reproducible.
+- **Un criterio por frase, no por comprobación**: «queda bien» no tiene `assert`. Si no puedes escribir la aserción, el criterio aún no es criterio — vuelve a l01 y acótalo.
+- **Criterios de implementación**: «usa `.map`» o «sin bucles for» juzgan cómo se escribe el código, no lo que hace. Déjalos fuera: se revisan en `n1/m3`, no se ejecutan aquí.
+- **Olvidar los casos límite**: el borrador pasa el caso vacío sin esfuerzo y aún así falla tres. `n0/m2` enseñaba a buscar fronteras; aquí cada frontera vuelve como criterio.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el borrador y la referencia (comandos del ejercicio).
+
+2. Ejecuta la fase rojo y la verde con el driver del módulo, copiándolo al taller:
+
+   ```sh
+   cp ../ejemplos/criterios-primero.js .
+   node criterios-primero.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `pass 1 · fail 3` en la fase rojo, `pass 4 · fail 0` en la verde y `codigo=0`. El driver usa la ruta `tareas/tarea-1.test.js` relativa al directorio actual — por eso el ejercicio copia esa suite al taller.
+
+3. Confirma el rojo aislado, que es lo que ejecutará tu flujo:
+
+   ```sh
+   BORRADOR=1 node --test tareas/tarea-1.test.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `fail 3` y `codigo=1` con el borrador; `pass 4` y `codigo=0` sin la variable.
+
+4. Escribe los criterios de la tarea-2 de tu serie como suite `node:test` antes de nada más. Verifica que fallan contra un stub vacío — el rojo inicial es la señal de que los criterios morden.
+
+## Errores comunes
+
+- **Criterios prosa pegados «para referencia»**: si no están en la suite, nadie los ejecuta y vuelven a ser deseos. La suite es el contrato.
+- **Un solo criterio para una tarea con tres decisiones**: normalizar tiene espacios, mayúsculas y vacíos — tres criterios. Un criterio compuesto escondió el fallo del borrador en l03 real del ejercicio.
+- **Escribir los criterios después de mirar el código del asistente**: ya no son criterios, son la descripción de lo que hay. El ciclo rojo→verde solo funciona si el rojo viene de una expectativa previa.
+- **Criterios que ejecutan la mitad del sistema**: si comprobar el criterio necesita levantar un servidor, instalar dependencias o una clave, no es un criterio de tarea pequeña — o acórtalo (l05) o no era pequeño.
+- **Contar pruebas en lugar de criterios**: cuatro pruebas no son mejores que tres; tres criterios cubiertos por cuatro pruebas está bien, y tres criterios cubiertos por trece empieza a ser mantenimiento.
+
+## Fuentes
+
+- [Anthropic: Define success criteria and build evaluations](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests) — consultado el 2026-10-22. Criterios específicos, medibles y automatizables; el ciclo criterios → evaluaciones → refinamiento.
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. `node:test` y `node:assert` en la librería estándar; ejecución con `node --test`.
+- [OpenAI: Prompt engineering](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Sección «Coding»: probar con unit tests y validar los parches porque la herramienta puede devolver «Done» aunque falle.
+
+## Siguientes pasos
+
+- Siguiente lección: [l04 «Acotar el alcance»](/curriculo/n1/m2/l04-acotar-el-alcance-fronteras-de-la-tarea/) — los criterios deciden si el cambio está bien; el alcance decide qué se puede tocar. La frontera que falta: los archivos.
+- Proyecto longitudinal: la primera tarea de tu serie ya tiene sus criterios en formato suite; las otras dos las escribes siguiendo este patrón antes de entregar nada.

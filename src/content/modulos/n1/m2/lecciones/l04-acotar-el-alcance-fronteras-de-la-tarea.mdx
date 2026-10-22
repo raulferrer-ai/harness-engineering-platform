@@ -1,0 +1,193 @@
+---
+titulo: "Acotar el alcance: fronteras de la tarea"
+resumen: "Una tarea sin frontera invita al asistente a tocar archivos que nadie pidió. Declaras los archivos permitidos, ejecutas el comprobador contra una entrega que «mejoró» tres archivos de más — tres fuera del alcance, código 1 — y reduces la entrega hasta dejarla en verde, con un diff que una persona puede revisar entera."
+nivel: "n1"
+modulo: "m2"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Declarar los archivos permitidos de una tarea y defenderlos como frontera"
+  - "Detectar una entrega fuera de alcance con un comprobador ejecutable"
+  - "Relacionar el alcance acotado con la revisión por diffs de n0/m4"
+prerrequisitos:
+  - "n1/m2/l03-criterios-de-aceptacion-ejecutables"
+actualizado: "2026-10-22"
+tags:
+  - "alcance"
+  - "diff"
+  - "fronteras"
+  - "revision"
+fuentes:
+  - titulo: "OpenAI — Prompt engineering: Message formatting"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Los criterios (l03) deciden si el cambio está bien; el **alcance** decide qué se puede tocar. Cada tarea de la serie lleva su lista de `archivosPermitidos`, y la entrega solo puede tocar esos archivos. `ejemplos/alcance.js` verifica una entrega dentro de la frontera; `errores/alcance-excedido.js` muestra al asistente entusiasta tocando `src/informe.js`, `test/gastos.test.js` y `README.md` sin que nadie se lo pidiera — tres archivos fuera del alcance y código `1`.
+
+## Conceptos
+
+### La frontera que los criterios no cubren
+
+Imagina la tarea-2: «corrige el redondeo de la suma en `src/gastos.js`». Los criterios verifican que `total` redondea a dos decimales. Pero si la entrega llega con ese arreglo **más** una reescritura del informe, una actualización de los tests y un párrafo nuevo en el README, ¿está bien? Los criterios pasan. El diff, no se puede revisar con calma. Nadie pidió esas tres mejoras y ahora alguien tiene que leerlas, entenderlas y responder por ellas — en `n0/m4` eso era exactamente la razón para mantener los diffs pequeños y un asunto por PR.
+
+La guía de OpenAI describe la estructura de una instrucción bien formada incluyendo la sección de instrucciones con la pregunta explícita de **qué debe hacer el modelo y qué no debe hacer nunca** (fuente consultada el 2026-10-22). La lista de archivos permitidos es la versión ejecutable de esa pregunta: no es prosa sobre límites, es un conjunto contra el que se compara el diff real.
+
+En el formato de la serie, la frontera es una pieza más de la tarea:
+
+```js
+archivosPermitidos: ["src/gastos.js"],
+```
+
+Una lista, nombres exactos, sin comodines. Si la tarea toca dos archivos, los dos — y si son cuatro, plantéate si no son dos tareas (l01: un entregable).
+
+### Verificar el alcance con un comprobador
+
+`ejemplos/alcance.js` compara la lista permitida con los archivos que la entrega declara haber tocado y filtra los que no están:
+
+```sh
+node alcance.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+archivos permitidos por la tarea: src/gastos.js
+archivos tocados por la entrega:  src/gastos.js
+✓ alcance respetado: 1 archivo tocado, dentro de los 1 permitidos
+```
+
+Una entrega, un archivo, todo dentro. Ahora el rojo — la entrega típica del asistente que «aprovecha» para mejorar lo que ve:
+
+```sh
+node errores/alcance-excedido.js
+echo $?
+```
+
+Salida real (2026-10-22):
+
+```text
+archivos permitidos por la tarea: src/gastos.js
+archivos tocados por la entrega:  src/gastos.js, src/informe.js, test/gastos.test.js, README.md
+✗ fuera del alcance: src/informe.js
+✗ fuera del alcance: test/gastos.test.js
+✗ fuera del alcance: README.md
+alcance refutado: 3 de 4 archivos tocados no estaban permitidos
+codigo=1
+```
+
+Tres de cuatro archivos fuera. El comprobador no juzga si las mejoras son buenas — quizá el arreglo del informe sea fantástico. Juzga que **nadie las pidió en esta tarea**, y que mezclarlas con lo pedido convierte un diff revisable en una bolsa de decisiones. La buena noticia es doble: la mejora sobrante no se pierde, se convierte en su propia tarea con su propia anatomía, su contexto y sus criterios — exactamente el material del que se hace una serie.
+
+### De dónde sale la lista de archivos tocados
+
+En este módulo la entrega **declara** sus archivos tocados y el comprobador compara. Sería ingenuo creer la declaración a ojos cerrados — m1/l02 ya mostró que el modelo afirma cosas que no se sostienen. En tu flujo real, la lista sale de `git status` o `git diff --name-only`, que es lo que `n0/m4` ya usabas para revisar: la frontera se declara en la tarea y se comprueba contra el diff real. Aquí, sin red ni repositorio, el mecanismo se modela con la declaración — y el concepto, que es lo que importa, es idéntico: **la entrega se juzga contra la lista, no contra su descripción**.
+
+## Ejercicio
+
+Ejecuta la entrega fuera de alcance, redúcela a lo permitido y observa el verde.
+
+```sh
+mkdir taller && cd taller
+mkdir errores
+cp ../ejemplos/alcance.js .
+cp ../ejemplos/errores/alcance-excedido.js errores/
+node errores/alcance-excedido.js
+echo "codigo=$?"
+```
+
+Después, en `errores/alcance-excedido.js`, cambia la lista de archivos tocados para que solo incluya el permitido:
+
+```js
+const entrega = {
+  archivosTocados: ["src/gastos.js"],
+};
+```
+
+Y ejecuta de nuevo:
+
+```sh
+node errores/alcance-excedido.js
+echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime `alcance refutado: 3 de 4 archivos tocados no estaban permitidos` y `codigo=1`;
+- la segunda imprime `alcance respetado.` y `codigo=0`;
+- puedes explicar por qué el rojo **del módulo** no se arregla: en `ejemplos/errores/` la entrega excedida es la demostración; en tu taller sí se corrige.
+
+## Solución explicada
+
+La primera ejecución, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+--- entrega original (rojo) ---
+archivos permitidos por la tarea: src/gastos.js
+archivos tocados por la entrega:  src/gastos.js, src/informe.js, test/gastos.test.js, README.md
+✗ fuera del alcance: src/informe.js
+✗ fuera del alcance: test/gastos.test.js
+✗ fuera del alcance: README.md
+alcance refutado: 3 de 4 archivos tocados no estaban permitidos
+codigo=1
+
+--- entrega reducida (verde) ---
+archivos permitidos por la tarea: src/gastos.js
+archivos tocados por la entrega:  src/gastos.js
+alcance respetado.
+codigo=0
+```
+
+Por qué funciona la frontera: `revisarAlcance` mete los permitidos en un `Set` y filtra los tocados que no están dentro. La comparación es por nombre exacto — sin comodines, sin «más o menos ese directorio» — porque un comodín en la frontera es la ausencia de frontera disfrazada. Cuando la lista de tocados se reduce a lo pedido, no queda nada que filtrar y el comprobador aprueba.
+
+Errores típicos al resolverlo:
+
+- **Agrandar la frontera en lugar de la tarea**: la reacción espontánea ante el rojo es añadir los tres archivos a `archivosPermitidos`. Eso apaga el comprobador y enciende el problema: ahora las mejoras están autorizadas pero sin criterios, sin contexto y sin revisión propia. La salida correcta es dividir la tarea.
+- **Frontera por directorio**: `src/` suena razonable y autoriza treinta archivos. Nombres exactos, uno a uno.
+- **Confiar en la declaración**: la lista declarada es el modelo; en tu flujo manda `git diff --name-only` (n0/m4). Si el diff y la declaración discrepan, la discrepancia es el hallazgo.
+- **Olvidar los tests**: si la tarea exige cambiar comportamiento, normalmente sus tests también cambian — y eso debe estar **declarado** en los permitidos (`tareas/tarea-1.test.js`), no improvisado.
+- **Tocar el rojo del módulo**: `errores/alcance-excedido.js` termina en rojo por diseño; corregirlo en `ejemplos/` destruye la demostración.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el rojo y el verde (comandos del ejercicio).
+
+2. Ejecuta las dos fases:
+
+   ```sh
+   node errores/alcance-excedido.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `3 de 4` fuera del alcance con `codigo=1`; tras reducir la entrega, `alcance respetado.` con `codigo=0`.
+
+3. Comprueba que el rojo del módulo sigue en rojo (sus imports se resuelven relativo al fichero, así que funciona desde el taller):
+
+   ```sh
+   node ../ejemplos/errores/alcance-excedido.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: `alcance refutado: 3 de 4 archivos tocados no estaban permitidos` y `codigo=1` en el fichero original, que no se toca.
+
+4. Declara los `archivosPermitidos` de las tres tareas de tu serie: los archivos que cada entrega puede tocar, nombre exacto a nombre exacto. Si una tarea necesita más de dos, parte la tarea.
+
+## Errores comunes
+
+- **Autorizar «lo que haga falta»**: `archivosPermitidos: ["*"]` no es una frontera, es la puerta abierta. Si no sabes qué archivos se tocarán, la tarea no está formulada (vuelve a l01).
+- **Revisar el diff sin comparar con la lista**: el diff a veces «se ve bien» y aun así incluye dos archivos de más. La comparación es ejecutable; el ojo, no.
+- **Mezclar mejoras en la tarea pedida**: el síntoma más común del asistente entusiasta y el más caro de revisar. Cada mejora sobrante, su propia tarea.
+- **Dejar los tests fuera de la frontera**: cambiar el comportamiento sin tocar sus pruebas produce rojos que nadie autorizó; tocarlas sin declararlas produce cambios sin revisar. Decláralas.
+- **Frontera sin criterios**: archivos permitidos y cero criterios es una caja con paredes y vacía. Frontera (l04) y criterios (l03) van siempre juntos.
+
+## Fuentes
+
+- [OpenAI: Prompt engineering](https://platform.openai.com/docs/guides/prompt-engineering) — consultado el 2026-10-22. Estructura de instrucciones: qué debe hacer el modelo y qué no debe hacer nunca; acotar la respuesta a recursos determinados.
+
+## Siguientes pasos
+
+- Siguiente lección: [l05 «La verificación de 10 minutos»](/curriculo/n1/m2/l05-la-verificacion-de-10-minutos/) — la tarea ya está escrita, acotada y con criterios; falta la última prueba de tamaño: si verificarla tarda más que hacerla, no era pequeña.
+- Proyecto longitudinal: los `archivosPermitidos` de tu serie ya están declarados; en l06 el validador exige que ninguna tarea quede sin frontera.
