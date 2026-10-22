@@ -1,0 +1,182 @@
+---
+titulo: "Entregable: registro de 5 sesiones con verificación"
+resumen: "El módulo se cierra con un registro de 5 sesiones que cubre las tres superficies y un solo comando que emite el veredicto: `node verificar-sesiones.js` — anatomía completa, superficies chat 2 · inline 1 · terminal 2, 5 comandos reejecutados con su código declarado, 21 pruebas en verde. Tú corroes el entregable, corrompes una copia (s2 declarada con código 1), ves las 2 incidencias con código 1, la reparas y el veredicto vuelve a ser «entregable válido»."
+nivel: "n1"
+modulo: "m4"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Componer el entregable del módulo: registro de 5 sesiones con verificación reejecutable"
+  - "Emitir el veredicto final con un solo comando, sin interpretación manual"
+  - "Romper y reparar el entregable para entender qué lo cierra y qué lo devuelve"
+prerrequisitos:
+  - "n1/m4/l05-el-registro-de-sesion-memoria-verificable"
+actualizado: "2026-10-22"
+tags:
+  - "entregable"
+  - "registro"
+  - "verificacion"
+fuentes:
+  - titulo: "GitHub Docs — GitHub Copilot cloud agent"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/coding-agent"
+    fecha: "2026-10-22"
+  - titulo: "Node.js Docs — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable del módulo es **un registro de 5 sesiones con verificación**, y un solo comando lo cierra: `ejemplos/verificar-sesiones.js` combina la anatomía de l01 con la reejecución de l05 y emite el veredicto — `entregable válido: registro de 5 sesiones con verificación`, código `0`, con `5 de 5` comandos reejecutados y `21` pruebas en verde. Una copia corrupta (la sesión `s2` declarada con código `1`) la devuelve con **2 incidencias** y código `1`. Tú la reparas y el veredicto vuelve. El registro es el artefacto que te queda cuando el agente ya no está: la memoria verificable de lo que pasó.
+
+## Conceptos
+
+### El entregable, pieza a pieza
+
+El registro del módulo — `ejemplos/sesiones/registro.json` — es la suma de las seis lecciones:
+
+| Sesión | Superficie | Nace en                 | Qué cubre                                     |
+| ------ | ---------- | ----------------------- | --------------------------------------------- |
+| `s1`   | chat       | l02                     | objetivo + contexto + `node --test` ejecutado |
+| `s2`   | inline     | l03                     | parche de `total()` aplicado y verificado     |
+| `s3`   | terminal   | l04                     | suite entera tras las dos sesiones previas    |
+| `s4`   | chat       | l02 + revisión de n1/m3 | devolución de revisión y su corrección        |
+| `s5`   | terminal   | l04                     | verificación final del proyecto entero        |
+
+Las tres superficies cubiertas, los siete campos completos en las cinco, y un comando `node --test` por sesión con código declarado `0`. El verificador del entregable:
+
+```sh
+node verificar-sesiones.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+campos: 5 de 5 sesiones completas con sus 7 campos
+superficies: chat 2 · inline 1 · terminal 2 (de chat, inline, terminal)
+comandos reejecutados: 5 de 5 con el código declarado
+pruebas en verde: 21 (0 en rojo)
+entregable válido: registro de 5 sesiones con verificación
+```
+
+Cinco líneas, cinco afirmaciones, cero opiniones: cada una sale de los datos del registro y de la reejecución de sus comandos, no de la prosa de nadie.
+
+### El veredicto es del comando, no del autor
+
+`verificar-sesiones.js` no añade lógica nueva: importa `anatomia` de `sesiones.js` y `verificarRegistro` de `comprobar-registro.js`, acumula sus incidencias y decide. Ese es el diseño del módulo entero: las piezas pequeñas se componen y el entregable es la composición. Quien cierre el entregable con un registro propio ejecuta exactamente el mismo comando — el veredicto no lo emite el autor del registro, lo emite el verificador.
+
+Y el registro importa más cuanto más remoto es el asistente. El coding agent de GitHub trabaja en la nube y te devuelve pull requests para revisar (fuente consultada el 2026-10-22): cuando la sesión ocurrió en otra máquina, tu registro local — objetivo, cambio, comando reejecutado, código — es la única evidencia que tienes. `node --test` (fuente consultada el 2026-10-22) reejecuta lo que es tuyo; lo que no se reejecuta, no se puede reclamar.
+
+### La rotura que enseña: una sesión miente
+
+El ejercicio corrompe una copia del registro — `s2` declara `"codigoSalida": 1` — y el veredicto se invierte:
+
+```text
+entregable NO válido: 2 incidencia(s)
+  - s2: el comando devolvió 0, el registro declara 1
+  - s2: veredicto «verificada» con código de salida 1
+codigo=1
+```
+
+Dos frases y código `1`. El entregable no es el JSON: es el JSON **más** el comando que lo verifica en verde. Un registro que no pasa su propio verificador no es un entregable pendiente de arreglar el proyecto — es un registro que arregla a él.
+
+## Ejercicio
+
+Certifica el entregable intacto, corrompe una copia, verifica la devolución, y reparala.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/sesiones .
+cp ../ejemplos/sesiones.js ../ejemplos/comprobar-registro.js ../ejemplos/verificar-sesiones.js .
+cp -R ../ejemplos/errores .
+node verificar-sesiones.js; echo "codigo=$?"
+cp sesiones/registro.json registro-corrupto.json
+perl -0pi -e 's/("id": "s2",[\s\S]*?"codigoSalida": )0/${1}1/' registro-corrupto.json
+node verificar-sesiones.js registro-corrupto.json; echo "codigo=$?"
+perl -0pi -e 's/("id": "s2",[\s\S]*?"codigoSalida": )1/${1}0/' registro-corrupto.json
+node verificar-sesiones.js registro-corrupto.json | tail -1; echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- el primer `node verificar-sesiones.js` imprime las cinco líneas del veredicto en verde y `codigo=0`;
+- sobre la copia corrupta imprime `entregable NO válido: 2 incidencia(s)` con las dos incidencias de `s2` y `codigo=1`;
+- tras reparar el `codigoSalida` de `s2`, el `tail -1` imprime `entregable válido: registro de 5 sesiones con verificación` y `codigo=0`;
+- puedes explicar por qué el proyecto estaba bien en todo momento y el entregable aun así estaba en rojo.
+
+Pista: `verificar-sesiones.js` acepta la ruta del registro como argumento, igual que `comprobar-registro.js` — certificar un registro ajeno no requiere mover nada.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+campos: 5 de 5 sesiones completas con sus 7 campos
+superficies: chat 2 · inline 1 · terminal 2 (de chat, inline, terminal)
+comandos reejecutados: 5 de 5 con el código declarado
+pruebas en verde: 21 (0 en rojo)
+entregable válido: registro de 5 sesiones con verificación
+codigo=0
+entregable NO válido: 2 incidencia(s)
+  - s2: el comando devolvió 0, el registro declara 1
+  - s2: veredicto «verificada» con código de salida 1
+codigo=1
+entregable válido: registro de 5 sesiones con verificación
+codigo=0
+```
+
+Cuatro puntos:
+
+1. **Composición, no clonación**: `verificar-sesiones.js` mide 25 líneas porque `anatomia` y `verificarRegistro` ya existían. El entregable añade la cuenta de pruebas y el veredicto único; la lógica de verificación no se toca. Si un día cambias la anatomía (un octavo campo), el entregable cambia sin reescribirse.
+2. **La corrupción fue de registro, no de proyecto**: `perl` cambió el `codigoSalida` declarado de `s2`; el mini-proyecto siguió devolviendo `0` en las cinco reejecuciones. Por eso el primer renglón de las incidencias dice «el comando devolvió 0»: el verificador confía en su ejecución, no en el JSON.
+3. **La reparación devuelve el valor real**: el segundo `perl` restaura `codigoSalida: 0`, que es lo que la reejecución ya decía. Arreglar el registro es alinearlo con la evidencia — nunca al revés.
+4. **Cinco sesiones, exactas**: ni cuatro («cubierto») ni seis («por si acaso»). El módulo define el entregable como registro de 5 sesiones, y `verificarRegistro` lo exige; una sesión de más es otra entrega.
+
+Errores típicos al resolverlo:
+
+- **Entregar el JSON sin su verificador**: el registro se puede copiar; el veredicto no. Adjunta siempre la salida de `verificar-sesiones.js` — es tu «CI verde» personal.
+- **Certificar la copia equivocada**: certifica el registro que vive en tu repo (`sesiones/registro.json`), no una copia de taller. El ejercicio corrompe a propósito; tú no.
+- **Dar por buena la verificación sin leer las incidencias**: el resumen en verde es una comodidad; las incidencias son el contenido. Cuando hay incidencias, léelas antes de tocar nada.
+- **Cerrar el módulo con registro ajeno**: las cinco sesiones tienen que ser tuyas, de tu trabajo real. El registro del curso es el ejemplo — el entregable es tu registro, verificado con tu mini-proyecto.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el registro, los verificadores y los rojos (comandos del ejercicio).
+
+2. Ejecuta el verificador sobre el registro intacto:
+
+   ```sh
+   node verificar-sesiones.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: las cinco líneas del veredicto, `entregable válido: registro de 5 sesiones con verificación` y `codigo=0`.
+
+3. Ejecuta la fase corrupta (paso 2 del ejercicio).
+
+   Esperado: `entregable NO válido: 2 incidencia(s)`, las incidencias de `s2` y `codigo=1`.
+
+4. Ejecuta la fase reparada (paso 4).
+
+   Esperado: `entregable válido: registro de 5 sesiones con verificación` y `codigo=0`.
+
+5. Compón tu entregable del módulo: registra tus 5 sesiones reales (al menos una por superficie), incluye tu mini-proyecto con sus suites, y ejecuta `node verificar-sesiones.js` sobre tu registro. El módulo se cierra con esa salida en verde — y con el registro guardado en tu repo, donde el diff lo protege y la fecha lo delata.
+
+## Errores comunes
+
+- **Tratar el entregable como un documento**: no es un informe que se lee; es un registro que se ejecuta. Si tu entregable no tiene un comando que lo certifique, vuelve a l05.
+- **Cinco sesiones de la misma superficie**: el entregable exige cubrir chat, inline y terminal. Cinco chats no cierran el módulo aunque todos estén verificados — el reparto también se comprueba.
+- **Dejar «s5 — verificación final» para después**: la sesión de cierre certifica el estado del proyecto tras todo lo demás. Sin ella, tu registro no dice cómo quedó el proyecto al final.
+- **Reparar el registro en vez del proyecto**: si el comando reejecuta en rojo (`fail > 0`), el proyecto tiene un bug; el registro solo refleja. Arregla el código, vuelve a ejecutar, y solo entonces actualiza el registro con el código real.
+
+## Fuentes
+
+- [GitHub Docs: GitHub Copilot cloud agent](https://docs.github.com/en/copilot/using-github-copilot/coding-agent) — consultado el 2026-10-22. El agente trabaja en la nube y crea pull requests para tu revisión: cuando la sesión es remota, el registro local es tu evidencia.
+- [Node.js Docs: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. `node --test` reejecuta las suites del mini-proyecto y devuelve los códigos que el entregable compara con los declarados.
+
+## Siguientes pasos
+
+- Módulo siguiente: [n1/m5 «Automatizar lo repetible»](/curriculo/n1/m5/) — las sesiones con asistente ya se controlan y se registran; el siguiente paso es convertir ese control en reglas del repositorio y hooks que se aplican solos.
+- Proyecto longitudinal: tu registro de 5 sesiones queda en tu repo como primera entrega real del arco n1 — en n1/m1, m2, m3 y m4 aprendiste a pedir, revisar y registrar; en m5 automatizas lo que ya haces.

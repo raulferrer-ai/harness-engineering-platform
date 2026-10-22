@@ -1,0 +1,168 @@
+---
+titulo: "El registro de sesión: memoria verificable"
+resumen: "El registro no se cree, se reejecuta. `ejemplos/comprobar-registro.js` comprueba los 7 campos de cada sesión, exige comando `node --test` y vuelve a ejecutar cada comando declarado en el mini-proyecto, comparando el código real con el declarado: `registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde`. El rojo `errores/sesion-sin-verificar.js` corre contra un registro con s4 declarada «verificada» con código 1 y devuelve 2 incidencias con código 1. Tú reparas el JSON y el mismo comprobador cierra en verde."
+nivel: "n1"
+modulo: "m4"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Convertir la transcripción de la sesión en un registro de 7 campos en JSON"
+  - "Verificar el registro reejecutando sus comandos, no leyendo su prosa"
+  - "Detectar la inconsistencia entre veredicto, código declarado y código real"
+prerrequisitos:
+  - "n1/m4/l04-asistente-de-terminal-la-lista-permitida-decide"
+actualizado: "2026-10-22"
+tags:
+  - "registro"
+  - "verificacion"
+  - "evidencia"
+fuentes:
+  - titulo: "Node.js Docs — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El registro de sesiones es la memoria del módulo, y su regla es que **no se cree, se reejecuta**: `ejemplos/comprobar-registro.js` valida los 7 campos de cada sesión, exige que el comando sea `node --test`, y vuelve a ejecutar cada comando declarado en el mini-proyecto comparando el código real con el declarado — `registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde`. El rojo `errores/sesion-sin-verificar.js` corre sobre `registro-sin-verificar.json`, donde `s4` se declara «verificada» con código `1`, y devuelve **2 incidencias** con código `1`. Un registro solo es memoria si resiste la reejecución.
+
+## Conceptos
+
+### El registro es JSON, y el JSON se reejecuta
+
+`n1/m4/l01` dio la anatomía (7 campos) y las lecciones l02 a l04 llenaron las sesiones. Ahora llega la comprobación fuerte. `comprobar-registro.js` importa `CAMPOS` y `SUPERFICIES` de `sesiones.js` — la anatomía se define una vez — y añade lo que la anatomía no hacía: **reejecutar**. Por cada sesión del registro:
+
+1. Comprueba que los 7 campos estén presentes y no vacíos.
+2. Comprueba que `superficie` pertenezca a `{chat, inline, terminal}`.
+3. Comprueba que `comando` empiece por `node --test` — la única verificación admitida por el curso.
+4. **Ejecuta el comando** con `node --test …` en `sesiones/proyecto/` y compara el código real con `codigoSalida`.
+5. Exige coherencia: `veredicto: "verificada"` solo con código real `0` y declarado `0`.
+
+El mini-proyecto que la reejecución usa — `suma.js` y `total.js` con sus suites, 6 pruebas en verde — vive en `ejemplos/sesiones/proyecto/`. La demo:
+
+```sh
+node comprobar-registro.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+✓ s1 (chat): node --test suma.test.js → código 0 (pass 3 · fail 0)
+✓ s2 (inline): node --test total.test.js → código 0 (pass 3 · fail 0)
+✓ s3 (terminal): node --test → código 0 (pass 6 · fail 0)
+✓ s4 (chat): node --test total.test.js → código 0 (pass 3 · fail 0)
+✓ s5 (terminal): node --test → código 0 (pass 6 · fail 0)
+registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde
+```
+
+Veintiún pruebas: 3+3+6+3+6, la suma de las cinco reejecuciones. No es un número escrito a mano — es lo que devolvió `node:test` (fuente consultada el 2026-10-22) esta mañana.
+
+### La mentira del registro: declarar sin ejecutar
+
+El rojo de la lección es el fallo clásico del registro: `errores/registro-sin-verificar.json` es el registro del módulo con una sola edición — la sesión `s4` declara `"codigoSalida": 1` y aun así mantiene `"veredicto": "verificada"`. `errores/sesion-sin-verificar.js` lo pasa por `verificarRegistro`:
+
+```text
+registro NO válido: 2 incidencia(s)
+  - s4: el comando devolvió 0, el registro declara 1
+  - s4: veredicto «verificada» con código de salida 1
+```
+
+Código `1`. Las dos incidencias atacan la misma mentira por dos caras: el código declarado no coincide con el reejecutado, y el veredicto contradice al propio código declarado. Fíjate en la primera: el comando **devolvió 0** — el proyecto está bien; quien está mal es el registro. La reejecución separa la salud del proyecto de la honestidad del registro, y las dos se comprueban.
+
+### Cinco sesiones, ni una menos
+
+El comprobador exige exactamente 5 sesiones: es el entregable del módulo (CURRICULUM lo define así). Un registro de 4 sesiones «porque una semana fue tranquila» no cierra — una sesión de terminal que solo ejecuta la suite entera cuenta tanto como una de chat que propuso parche. La sesión de verificación final (`s5`) no es relleno: es el cierre que certifica el estado del proyecto tras todo lo demás.
+
+## Ejercicio
+
+Verifica el registro intacto, ejecuta el registro corrupto, y reparalo hasta que el comprobador cierre.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/sesiones .
+cp ../ejemplos/sesiones.js ../ejemplos/comprobar-registro.js .
+cp -R ../ejemplos/errores .
+node comprobar-registro.js | tail -1; echo "codigo=$?"
+node errores/sesion-sin-verificar.js; echo "codigo=$?"
+perl -0pi -e 's/("id": "s4",[\s\S]*?"codigoSalida": )1/${1}0/' errores/registro-sin-verificar.json
+node comprobar-registro.js errores/registro-sin-verificar.json | tail -1; echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- el primer `tail -1` imprime `registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde` y `codigo=0`;
+- el rojo imprime las 2 incidencias de `s4` y `codigo=1`;
+- tras reparar el `codigoSalida` de `s4` con el `perl`, el comprobador sobre el JSON reparado imprime el mismo resumen en verde y `codigo=0`;
+- puedes explicar por qué el comando devolvía 0 y aun así el registro era inválido.
+
+Pista: el comprobador acepta la ruta del registro como argumento — `node comprobar-registro.js errores/registro-sin-verificar.json` — así que no hace falta mover ficheros para verificar un registro ajeno.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde
+codigo=0
+registro NO válido: 2 incidencia(s)
+  - s4: el comando devolvió 0, el registro declara 1
+  - s4: veredicto «verificada» con código de salida 1
+codigo=1
+registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde
+codigo=0
+```
+
+Lo que hace falta entender:
+
+1. **Reejecutar, no releer**: el comprobador no confía en `codigoSalida` — lo lanza de nuevo con `spawnSync(process.execPath, …)` y `cwd` en el mini-proyecto. Por eso una captura de pantalla de la terminal no sirve como registro: no se puede reejecutar.
+2. **Dos incidencias para una mentira**: la primera compara declarado contra real (`1` vs `0`); la segunda compara veredicto contra declarado («verificada» con `1`). Un registro puede fallar por una sola de las dos — por eso el comprobador acumula incidencias en vez de cortar en la primera.
+3. **El comando se reescribe, no se evalúa**: `sesion.comando.split(" ").slice(1)` convierte `node --test total.test.js` en los argumentos de `node`. No hay `eval`, no hay shell arbitrario — el registro solo puede pedir `node --test …`, y eso ya está limitado por el prefijo comprobado en el paso 3 de la verificación.
+4. **Reparar el registro, no el proyecto**: el `perl` del ejercicio cambia el `codigoSalida` declarado de `s4` a `0`, que es el valor real que la reejecución ya devolvía. Reparar el proyecto habría sido el error: el proyecto estaba sano; el registro mentía.
+
+Errores típicos al resolverlo:
+
+- **Anotar el código de salida de memoria**: el `codigoSalida` se copia de la terminal en el momento. A final de semana, «todos 0» es una reconstrucción, no un registro.
+- **Declarar «verificada» con pruebas en rojo**: el veredicto no arroja nada por sí solo — el comprobador exige código real `0`. Si la prueba falla, la sesión se cierra como incidencia y se abre otra para arreglarla.
+- **Apuntar comandos que no viven en el proyecto**: un `node --test ruta/que/no/existe.js` reejecuta a código `1` y el registro cae. El comando declarado tiene que ser ejecutable en el estado que el registro describe.
+- **«Ajustar» el registro para que pase**: cambiar el registro al revés — declarar lo que conviene — es exactamente lo que la reejecución hace imposible. El comprobador manda sobre el JSON, no al revés.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el registro, el comprobador y los rojos (comandos del ejercicio).
+
+2. Ejecuta el comprobador sobre el registro intacto:
+
+   ```sh
+   node comprobar-registro.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: las cinco líneas `✓`, `registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde` y `codigo=0`.
+
+3. Ejecuta la fase rota (paso 2 del ejercicio).
+
+   Esperado: las 2 incidencias de `s4` y `codigo=1`.
+
+4. Ejecuta la fase reparada (paso 4).
+
+   Esperado: el resumen en verde y `codigo=0`.
+
+5. Registra una sesión tuya de esta semana con sus 7 campos y ejecuta el comprobador sobre tu registro. Si una sesión no tiene comando reejecutable, vuelve a ejecutarla antes de declararla — el registro se escribe alrededor de la terminal, no alrededor de la memoria.
+
+## Errores comunes
+
+- **Registrar solo los aciertos**: un registro donde todo es «verificada» y `0` huele a reconstrucción. Las sesiones con devolución (`s4` responde una revisión de `n1/m3`) son parte del registro, no su suciedad.
+- **Confundir «el proyecto pasa» con «el registro es válido»**: en el rojo, el proyecto pasa (`node --test` devuelve 0) y el registro es inválido. Son dos veredictos distintos: el del proyecto lo da la suite; el del registro, la reejecución.
+- **Copiar el comando sin su `cwd`**: el comprobador ejecuta en `sesiones/proyecto/`. Un registro propio necesita su propio mini-proyecto ejecutable — sin él, ningún comando reejecuta.
+- **Verificar a mano con screenshots**: la diferencia entre una captura y un registro es que el registro se ejecuta. Si tu verificación no se puede repetir por un tercero, no es verificación.
+
+## Fuentes
+
+- [Node.js Docs: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. `node --test` ejecuta las suites del proyecto y devuelve el resumen `pass`/`fail` y el código de salida que el registro reejecuta y compara.
+
+## Siguientes pasos
+
+- Siguiente lección: [l06 «Entregable: registro de 5 sesiones con verificación»](/curriculo/n1/m4/l06-entregable-registro-de-5-sesiones-con-verificacion/) — el registro ya resiste la reejecución; ahora el entregable completo con su veredicto final.
+- Proyecto longitudinal: `comprobar-registro.js` es el motor que hará green o red el entregable de l06; el registro que validaste aquí es el que se certifica allí.

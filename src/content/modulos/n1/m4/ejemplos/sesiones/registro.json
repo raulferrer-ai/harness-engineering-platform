@@ -1,0 +1,50 @@
+{
+  "titulo": "Registro de sesiones con asistente — H16 (n1/m4)",
+  "sesiones": [
+    {
+      "id": "s1",
+      "superficie": "chat",
+      "objetivo": "Crear la función suma con su prueba",
+      "cambio": "Creado proyecto/suma.js (suma y sumaLista) y proyecto/suma.test.js con 3 pruebas",
+      "comando": "node --test suma.test.js",
+      "codigoSalida": 0,
+      "veredicto": "verificada"
+    },
+    {
+      "id": "s2",
+      "superficie": "inline",
+      "objetivo": "Que total() devuelva número, no texto, con la lista vacía cubierta",
+      "cambio": "Parche aplicado a proyecto/total.js: guarda de lista vacía y Math.round en vez de toFixed",
+      "comando": "node --test total.test.js",
+      "codigoSalida": 0,
+      "veredicto": "verificada"
+    },
+    {
+      "id": "s3",
+      "superficie": "terminal",
+      "objetivo": "Ejecutar la suite completa tras la revisión de las dos sesiones previas",
+      "cambio": "Sin cambios de código: solo ejecución de la suite entera del proyecto",
+      "comando": "node --test",
+      "codigoSalida": 0,
+      "veredicto": "verificada"
+    },
+    {
+      "id": "s4",
+      "superficie": "chat",
+      "objetivo": "Responder a la devolución de revisión: el caso límite de total() con lista vacía",
+      "cambio": "Añadida la tercera prueba de total.test.js que exigía { top: null, media: 0 } → 0",
+      "comando": "node --test total.test.js",
+      "codigoSalida": 0,
+      "veredicto": "verificada"
+    },
+    {
+      "id": "s5",
+      "superficie": "terminal",
+      "objetivo": "Verificación final de las cinco sesiones del registro",
+      "cambio": "Sin cambios de código: reejecución completa del proyecto como cierre del registro",
+      "comando": "node --test",
+      "codigoSalida": 0,
+      "veredicto": "verificada"
+    }
+  ]
+}

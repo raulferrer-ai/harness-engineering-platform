@@ -1,0 +1,179 @@
+---
+titulo: "Asistente de terminal: la lista permitida decide"
+resumen: "El asistente de terminal propone comandos que se ejecutan solos; el control no es confiar en su criterio, es tu lista permitida. `ejemplos/comandos-permitidos.js` admite solo `node --test*`, `node --version` y `ls`: de 5 propuestas ejecuta 3 y rechaza `git push --force origin main` y `rm -rf /`. El rojo `errores/comando-fuera-de-lista.js` devuelve el push rechazado con código 1. Tú añades `cat` y `npm install dayjs` a las propuestas y ves cómo ambos caen: la lista se amplía a conciencia, nunca por excepción."
+nivel: "n1"
+modulo: "m4"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Configurar una lista permitida de comandos que decide lo que se ejecuta y lo que no"
+  - "Separar la fase de propuesta de la fase de ejecución del asistente de terminal"
+  - "Rechazar por defecto: ni siquiera los comandos de solo lectura pasan sin estar en la lista"
+prerrequisitos:
+  - "n1/m4/l03-edicion-inline-el-parche-se-aplica-y-se-verifica"
+actualizado: "2026-10-22"
+tags:
+  - "terminal"
+  - "agentes"
+  - "lista-permitida"
+fuentes:
+  - titulo: "GitHub Docs — GitHub Copilot cloud agent"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/coding-agent"
+    fecha: "2026-10-22"
+  - titulo: "Visual Studio Code Docs — Inline chat and Quick Chat"
+    url: "https://code.visualstudio.com/docs/copilot/chat/inline-chat"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La tercera superficie delega algo más peligroso que texto o parches: **comandos ejecutados**. El control no es confiar en el juicio del asistente, es una **lista permitida** tuya que decide qué se ejecuta y qué se rechaza. `ejemplos/comandos-permitidos.js` admite solo `node --test*`, `node --version` y `ls`: de 5 propuestas ejecuta 3 y rechaza `git push --force origin main` y `rm -rf /` — «la lista permitida decide, no el asistente». El rojo `errores/comando-fuera-de-lista.js` devuelve el push con código `1`. Y cuando añades `cat suma.js` a las propuestas, también cae: rechazo por defecto, incluso para lo de solo lectura.
+
+## Conceptos
+
+### Los agentes ejecutan; tu lista decide
+
+Los asistentes de terminal ya no solo sugieren: ejecutan. El coding agent de GitHub investiga el repositorio, planifica, hace cambios y crea pull requests **para que tú los revises** (fuente consultada el 2026-10-22) — el control está en el flujo de revisión, no en la bondad del agente. En la terminal local, VS Code avisa del mismo modo para su inline chat de terminal: revisa la respuesta y selecciona **Run** para ejecutar, o **Insert** para modificar el comando antes de ejecutarlo (fuente consultada el 2026-10-22). Entre «el agente propone» y «algo se ejecuta» tiene que haber una puerta, y esa puerta es una lista escrita por ti.
+
+### Rechazo por defecto: deny por diseño
+
+La lista del módulo es corta y explícita:
+
+| Patrón           | Qué permite                                          |
+| ---------------- | ---------------------------------------------------- |
+| `node --test …`  | la suite del proyecto (`node:test`, sin red ni deps) |
+| `node --version` | el runtime                                           |
+| `ls`             | el listado de archivos                               |
+
+Todo lo demás se rechaza. `comandos-permitidos.js` separa las fases: `permitido(comando)` prueba el comando contra la lista con regex, y solo entonces `ejecutar(comando)` lo corre con `sh -c` en la carpeta del mini-proyecto. La demo:
+
+```sh
+node comandos-permitidos.js
+```
+
+Salida real (Node v24.22.0, 2026-10-22):
+
+```text
+propuestas del asistente de terminal: 5
+✓ node --test suma.test.js → código 0 (pass 3 · fail 0)
+✓ node --version → código 0
+✓ ls → código 0
+✗ rechazado (fuera de la lista permitida): git push --force origin main
+✗ rechazado (fuera de la lista permitida): rm -rf /
+ejecutados: 3 · rechazados: 2 — la lista permitida decide, no el asistente
+```
+
+Y el rojo, `errores/comando-fuera-de-lista.js`, que propone el empuje a `main` y se niega a ejecutarlo:
+
+```text
+propuesta del asistente de terminal: git push --force origin main
+✗ comando rechazado: «git push --force origin main» no está en la lista permitida; el asistente no publica sin tu lista
+```
+
+Código `1`. El agente no publica; el push se queda en la puerta.
+
+### La lista se amplía a conciencia, nunca por excepción
+
+La tentación con cualquier lista permitida es ceder «solo esta vez»: un `cat`, un `npm install`. La regla del módulo es la contraria: si quieres un comando más, **edite la lista** (y con ella, tu criterio, revisable en el diff del repo). Ejecutarlo «porque esta vez es inofensivo» entrena la excepción, y la excepción mañana será `rm -rf`. En el ejercicio verás `cat suma.js` caer junto a `npm install dayjs`: la lista no distingue lo inofensivo de lo destructivo — distingue lo que está escrito de lo que no.
+
+## Ejercicio
+
+Ejecuta la lista base, prueba el rechazo del push, y añade dos propuestas nuevas — una de lectura, una de instalación — para verlas caer.
+
+```sh
+mkdir taller && cd taller
+cp -R ../ejemplos/sesiones .
+cp ../ejemplos/comandos-permitidos.js .
+cp -R ../ejemplos/errores .
+node comandos-permitidos.js | tail -1
+node errores/comando-fuera-de-lista.js; echo "codigo=$?"
+perl -0pi -e 's/    "ls",\n/    "ls",\n    "cat suma.js",\n    "npm install dayjs",\n/' comandos-permitidos.js
+node comandos-permitidos.js; echo "codigo=$?"
+```
+
+Esto se cumple cuando:
+
+- el primer `tail -1` imprime `ejecutados: 3 · rechazados: 2 — la lista permitida decide, no el asistente`;
+- el rojo imprime el comando rechazado y `codigo=1`;
+- tras el `perl`, la lista de propuestas crece a 7 y el resumen imprime `ejecutados: 3 · rechazados: 4`;
+- `cat suma.js` y `npm install dayjs` aparecen los dos rechazados, y puedes explicar por qué no basta con ser «solo lectura»;
+- sabes qué línea de `LISTA_PERMITIDA` tendrías que añadir para permitir `cat` deliberadamente.
+
+Pista: el `perl` inserta las dos propuestas justo después de `"ls",` — la única línea de la lista de propuestas que empieza con esas cuatro espacios y comillas.
+
+## Solución explicada
+
+La secuencia, en el directorio `taller/` (borrado tras la ejecución). Salida real (2026-10-22):
+
+```text
+ejecutados: 3 · rechazados: 2 — la lista permitida decide, no el asistente
+propuesta del asistente de terminal: git push --force origin main
+✗ comando rechazado: «git push --force origin main» no está en la lista permitida; el asistente no publica sin tu lista
+codigo=1
+propuestas del asistente de terminal: 7
+✓ node --test suma.test.js → código 0 (pass 3 · fail 0)
+✓ node --version → código 0
+✓ ls → código 0
+✗ rechazado (fuera de la lista permitida): cat suma.js
+✗ rechazado (fuera de la lista permitida): npm install dayjs
+✗ rechazado (fuera de la lista permitida): git push --force origin main
+✗ rechazado (fuera de la lista permitida): rm -rf /
+ejecutados: 3 · rechazados: 4 — la lista permitida decide, no el asistente
+codigo=0
+```
+
+Cuatro ideas del diseño:
+
+1. **Propuesta ≠ ejecución**: la lista de `propuestas` es texto que el asistente escribió; la lista permitida es código tuyo. El filtro `permitido()` es la frontera entre las dos, y está escrita antes de que exista la propuesta.
+2. **Por qué `cat` cae**: la lista no razona sobre el daño, compara con patrones. `cat` no está en ninguno → rechazado. Si lo quieres, añades `{ patron: /^cat( |$)/, descripcion: "lectura de un archivo" }` a `LISTA_PERMITIDA` — una línea en el diff, visible y revisable. Ese es el mecanismo correcto: cambiar la política, no saltársela.
+3. **El rechazo no es un error del sistema**: la demo imprime los rechazados y termina con `codigo=0` — informar de un rechazo es su trabajo funcionando. El rojo invierte el guion: insiste en ejecutar el push y cierra con `codigo=1`. Rechazar bien es señal de control, no de fallo.
+4. **Ejecución acotada**: los comandos permitidos corren con `cwd` en el mini-proyecto y `timeout` de 60 s. Ni la lista ni el runner saben de rutas absolutas ni de red: todo lo ejecutado vive y muere en `sesiones/proyecto/`.
+
+Errores típicos al resolverlo:
+
+- **Poner `rm`, `git push` o `npm install` en la lista «por si acaso»**: la lista permitida no es un atajo para lo que se te olvida configurar; es el contrato de lo que el agente puede tocar sin preguntar.
+- **Ejecutar el comando y anotarlo después**: si el asistente «ejecutó ya el test», no hay frontera que revisar. La fase de propuesta se filtra antes, no se audita después.
+- **Fiarse del resumen del asistente**: «todo verde» es prosa. La lista permitida ejecuta y muestra el `código` real de cada comando — l05 reejecutará los declarados.
+- **Olvidar el `timeout`**: un `node --test` colgado es también una pérdida de control. El runner del módulo mata cualquier comando a los 60 segundos.
+
+## Cómo verificarlo
+
+1. Prepara el taller con el proyecto, la demo y los rojos (comandos del ejercicio).
+
+2. Ejecuta la demo de la lista base:
+
+   ```sh
+   node comandos-permitidos.js
+   echo "codigo=$?"
+   ```
+
+   Esperado: cinco propuestas, `ejecutados: 3 · rechazados: 2` y `codigo=0`.
+
+3. Ejecuta la fase rota (paso 2 del ejercicio).
+
+   Esperado: el push rechazado y `codigo=1`.
+
+4. Ejecuta la fase ampliada (paso 4).
+
+   Esperado: siete propuestas, `cat suma.js` y `npm install dayjs` rechazados, `ejecutados: 3 · rechazados: 4` y `codigo=0`.
+
+5. Amplía la lista con `cat` — una entrada nueva en `LISTA_PERMITIDA` — y vuelve a ejecutar: `cat suma.js` debe pasar a ejecutarse. La política cambia en el código, con diff, no en caliente.
+
+## Errores comunes
+
+- **Confundir permiso con utilidad**: `cat` es útil e inofensivo, y aun así se rechaza si no está en la lista. La lista no mide utilidad; mide lo que autorizaste de antemano.
+- **Una lista por proyecto distinta cada semana**: si la lista crece sin criterio, deja de ser control. La del módulo cabe en tres líneas a propósito — el tamaño es parte del diseño.
+- **Delegar también la revisión**: que el agente ejecute `node --test` no significa que su resumen sea cierto. Mira el `código` que imprime el runner; en l05, el registro lo reejecutará.
+- **Olvidar qué quedó rechazado**: los rechazos también son información. Si el asistente insiste en `git push` en tres sesiones seguidas, el problema es tu objetivo de sesión, no la lista.
+
+## Fuentes
+
+- [GitHub Docs: GitHub Copilot cloud agent](https://docs.github.com/en/copilot/using-github-copilot/coding-agent) — consultado el 2026-10-22. El agente investiga, planifica, hace cambios y crea pull requests para que tú los revises: el control vive en la revisión.
+- [Visual Studio Code Docs: Inline chat and Quick Chat](https://code.visualstudio.com/docs/copilot/chat/inline-chat) — consultado el 2026-10-22. En la terminal, revisa la respuesta y elige Run para ejecutar o Insert para modificar el comando antes de ejecutarlo.
+
+## Siguientes pasos
+
+- Siguiente lección: [l05 «El registro de sesión: memoria verificable»](/curriculo/n1/m4/l05-el-registro-de-sesion-memoria-verificable/) — las tres superficies ya tienen control; ahora el registro que las memoriza y se reejecuta en vez de creerse.
+- Proyecto longitudinal: las sesiones `s3` y `s5` del registro del módulo son sesiones de terminal como las de esta lección — con su comando `node --test` y su código declarado.

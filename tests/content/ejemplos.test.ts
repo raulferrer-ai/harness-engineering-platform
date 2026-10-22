@@ -43,6 +43,13 @@ import { afterAll, describe, expect, it } from "vitest";
  *   criterios con veredicto ACEPTAR/DEVOLVER e informe sobre las tres
  *   entregas— más 5 rojos deliberados (código que no carga, prosa refutada,
  *   dependencia sobrante y caso límite que devuelve basura en silencio);
+ * - H16 añade `n1/m4` (flujos de trabajo con asistente): el fixture `sesiones/`
+ *   con el registro de 5 sesiones, una transcripción de chat y el mini-proyecto
+ *   con sus suites, y demos que controlan las tres superficies — anatomía de
+ *   la sesión, análisis de chat, aplicación de parches con Keep/Undo, lista
+ *   permitida de comandos, comprobador reejecutable del registro y veredicto
+ *   del entregable— más 4 rojos deliberados (chat sin comando, parche roto,
+ *   comando fuera de la lista y registro que declara «verificada» con código 1);
  * - el test de cobertura impide que aparezca un ejemplo sin verificar.
  */
 
@@ -84,6 +91,10 @@ const dirEjemplosN1M2 = fileURLToPath(
 
 const dirEjemplosN1M3 = fileURLToPath(
   new URL("../../src/content/modulos/n1/m3/ejemplos/", import.meta.url),
+);
+
+const dirEjemplosN1M4 = fileURLToPath(
+  new URL("../../src/content/modulos/n1/m4/ejemplos/", import.meta.url),
 );
 
 interface Resultado {
@@ -1392,6 +1403,188 @@ describe("ejemplos del módulo n1/m3: revisar el código generado (solo librerí
   });
 });
 
+describe("ejemplos del módulo n1/m4: flujos de trabajo con asistente (solo librería estándar)", () => {
+  interface DemoN1M4 {
+    fichero: string;
+    marcas: string[];
+    argumentos?: string[];
+    descripcion: string;
+  }
+
+  // H16: el fixture sesiones/ (registro de 5 sesiones, transcripción de chat y
+  // mini-proyecto con sus suites) y las demos que controlan las tres
+  // superficies: anatomía de la sesión, análisis de chat, parches con
+  // Keep/Undo, lista permitida de comandos, comprobador reejecutable y
+  // veredicto del entregable.
+  const demos: DemoN1M4[] = [
+    {
+      fichero: "sesiones.js",
+      marcas: [
+        "anatomía correcta: 5 sesiones con sus 7 campos · superficies: chat 2, inline 1, terminal 2",
+      ],
+      descripcion: "l01: el registro con su anatomía y sus tres superficies",
+    },
+    {
+      fichero: "analizar-chat.js",
+      marcas: [
+        "chat válido: objetivo «crear la función suma con su prueba»",
+        "verificación ejecutada: node --test suma.test.js",
+      ],
+      descripcion: "l02: la transcripción de ejemplo cierra con evidencia",
+    },
+    {
+      fichero: "edicion-inline.js",
+      marcas: [
+        "suite antes del parche: pass 0 · fail 3",
+        "suite después del parche: pass 3 · fail 0",
+        "✓ parche aplicado y verificado (Keep)",
+      ],
+      descripcion: "l03: el parche de total() aplicado y verificado con la suite",
+    },
+    {
+      fichero: "comandos-permitidos.js",
+      marcas: ["propuestas del asistente de terminal: 5", "ejecutados: 3 · rechazados: 2"],
+      descripcion: "l04: la lista permitida ejecuta 3 y rechaza 2 propuestas",
+    },
+    {
+      fichero: "comprobar-registro.js",
+      marcas: ["registro válido: 5 sesiones, 5 comandos reejecutados, 21 pruebas en verde"],
+      descripcion: "l05: el registro reejecutado completo en verde",
+    },
+    {
+      fichero: "verificar-sesiones.js",
+      marcas: [
+        "pruebas en verde: 21 (0 en rojo)",
+        "entregable válido: registro de 5 sesiones con verificación",
+      ],
+      descripcion: "l06: el veredicto del entregable en verde",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero, ...(demo.argumentos ?? [])], {
+        cwd: dirEjemplosN1M4,
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    30_000,
+  );
+
+  it("errores/chat-listo-sin-comando.js termina en 1 con 3 incidencias (rojo de l02)", () => {
+    const rojo = ejecutarNode(["errores/chat-listo-sin-comando.js"], dirEjemplosN1M4);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("chat NO válido: 3 incidencia(s)");
+    expect(rojo.stderr).toContain("sin comando de verificación ejecutado (node --test)");
+    expect(rojo.stderr).toContain("sin «codigo=0» al cierre de la sesión");
+  });
+
+  it("errores/parche-roto.js termina en 1 con pass 2 · fail 1 (rojo de l03)", () => {
+    const rojo = ejecutarNode(["errores/parche-roto.js"], dirEjemplosN1M4);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("suite con el parche propuesto: pass 2 · fail 1");
+    expect(rojo.stderr).toContain("✗ parche en rojo: no se aplica (Undo)");
+  });
+
+  it("errores/comando-fuera-de-lista.js termina en 1 con el push rechazado (rojo de l04)", () => {
+    const rojo = ejecutarNode(["errores/comando-fuera-de-lista.js"], dirEjemplosN1M4);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain(
+      "comando rechazado: «git push --force origin main» no está en la lista permitida",
+    );
+  });
+
+  it("errores/sesion-sin-verificar.js termina en 1 con las 2 incidencias de s4 (rojo de l05)", () => {
+    const rojo = ejecutarNode(["errores/sesion-sin-verificar.js"], dirEjemplosN1M4);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("registro NO válido: 2 incidencia(s)");
+    expect(rojo.stderr).toContain("s4: el comando devolvió 0, el registro declara 1");
+    expect(rojo.stderr).toContain("s4: veredicto «verificada» con código de salida 1");
+  });
+
+  it("las suites del mini-proyecto pasan en verde y el proyecto entero ejecuta 6 pruebas", () => {
+    for (const fichero of ["suma.test.js", "total.test.js"]) {
+      const verde = ejecutarNode(
+        ["--test", fichero],
+        join(dirEjemplosN1M4, "sesiones", "proyecto"),
+      );
+      expect(verde.status, verde.stderr).toBe(0);
+      expect(verde.stdout).toContain("fail 0");
+    }
+    const completo = ejecutarNode(["--test"], join(dirEjemplosN1M4, "sesiones", "proyecto"));
+    expect(completo.status, completo.stdout).toBe(0);
+    expect(completo.stdout).toContain("tests 6");
+    expect(completo.stdout).toContain("pass 6");
+    expect(completo.stdout).toContain("fail 0");
+  });
+
+  it("comprobar-registro.js sobre el registro declarado con código 1 sale en rojo", () => {
+    const rojo = ejecutarNode(
+      ["comprobar-registro.js", "errores/registro-sin-verificar.json"],
+      dirEjemplosN1M4,
+    );
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("s4: el comando devolvió 0, el registro declara 1");
+  });
+
+  it("l06: corromper s2 devuelve el entregable y repararlo lo certifica de nuevo", () => {
+    const carpeta = carpetaTemporal();
+    mkdirSync(join(carpeta, "sesiones"), { recursive: true });
+    for (const fichero of ["sesiones.js", "comprobar-registro.js", "verificar-sesiones.js"]) {
+      copyFileSync(join(dirEjemplosN1M4, fichero), join(carpeta, fichero));
+    }
+    for (const fichero of ["registro.json"]) {
+      copyFileSync(join(dirEjemplosN1M4, "sesiones", fichero), join(carpeta, "sesiones", fichero));
+    }
+    mkdirSync(join(carpeta, "sesiones", "proyecto"), { recursive: true });
+    for (const fichero of readdirSync(join(dirEjemplosN1M4, "sesiones", "proyecto"))) {
+      copyFileSync(
+        join(dirEjemplosN1M4, "sesiones", "proyecto", fichero),
+        join(carpeta, "sesiones", "proyecto", fichero),
+      );
+    }
+
+    const corrupto = join(carpeta, "registro-corrupto.json");
+    writeFileSync(
+      corrupto,
+      readFileSync(join(carpeta, "sesiones", "registro.json"), "utf8").replace(
+        '"id": "s2",\n      "superficie": "inline",\n      "objetivo": "Que total() devuelva número, no texto, con la lista vacía cubierta",\n      "cambio": "Parche aplicado a proyecto/total.js: guarda de lista vacía y Math.round en vez de toFixed",\n      "comando": "node --test total.test.js",\n      "codigoSalida": 0,',
+        '"id": "s2",\n      "superficie": "inline",\n      "objetivo": "Que total() devuelva número, no texto, con la lista vacía cubierta",\n      "cambio": "Parche aplicado a proyecto/total.js: guarda de lista vacía y Math.round en vez de toFixed",\n      "comando": "node --test total.test.js",\n      "codigoSalida": 1,',
+      ),
+    );
+
+    const rojo = spawnSync(process.execPath, ["verificar-sesiones.js", corrupto], {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(rojo.status).toBe(1);
+    expect(rojo.stderr).toContain("entregable NO válido: 2 incidencia(s)");
+    expect(rojo.stderr).toContain("s2: el comando devolvió 0, el registro declara 1");
+
+    writeFileSync(
+      corrupto,
+      readFileSync(corrupto, "utf8").replace(
+        '"comando": "node --test total.test.js",\n      "codigoSalida": 1,',
+        '"comando": "node --test total.test.js",\n      "codigoSalida": 0,',
+      ),
+    );
+    const verde = spawnSync(process.execPath, ["verificar-sesiones.js", corrupto], {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(verde.status, verde.stderr).toBe(0);
+    expect(verde.stdout).toContain("entregable válido: registro de 5 sesiones con verificación");
+  });
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -1601,6 +1794,43 @@ describe("cobertura de ejemplos", () => {
     ];
 
     expect(archivosVerificables(dirEjemplosN1M3, ["entregas"])).toEqual([...enManifiesto].sort());
+  });
+
+  it("n1/m4: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // El registro de sesiones, la transcripción de chat y el registro corrupto
+    // son los datos que las demos analizan, reejecutan y devuelven: se
+    // verifican indirectamente desde cada una de las tres superficies.
+    const enManifiesto = [
+      "sesiones.js",
+      "analizar-chat.js",
+      "edicion-inline.js",
+      "comandos-permitidos.js",
+      "comprobar-registro.js",
+      "verificar-sesiones.js",
+      "errores/chat-listo-sin-comando.js",
+      "errores/parche-roto.js",
+      "errores/comando-fuera-de-lista.js",
+      "errores/sesion-sin-verificar.js",
+      "sesiones/registro.json",
+      "sesiones/chat-ejemplo.md",
+      "errores/registro-sin-verificar.json",
+      "sesiones/proyecto/suma.js",
+      "sesiones/proyecto/suma.test.js",
+      "sesiones/proyecto/total.js",
+      "sesiones/proyecto/total.test.js",
+    ];
+
+    expect(
+      archivosVerificables(
+        dirEjemplosN1M4,
+        ["sesiones/proyecto"],
+        [
+          "sesiones/registro.json",
+          "sesiones/chat-ejemplo.md",
+          "errores/registro-sin-verificar.json",
+        ],
+      ),
+    ).toEqual([...enManifiesto].sort());
   });
 
   it("m6: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
