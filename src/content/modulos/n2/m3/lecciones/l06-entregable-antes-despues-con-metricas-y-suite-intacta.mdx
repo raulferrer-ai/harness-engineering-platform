@@ -1,0 +1,129 @@
+---
+titulo: "Entregable: antes/después con métricas y suite intacta"
+resumen: "El entregable del módulo certifica el refactor con tres condiciones a la vez: suite verde, API intacta y métricas de olor mejoradas. `entregable.js` certifica la refactorización de referencia — `refactor sin regresiones certificado: 3/3 condiciones — función más larga 34→16, números mágicos 32→0` con `codigo=0`—; en el ejercicio rompes el factor express y el veredicto pasa a `NO válido — 1 incidencias: suite en rojo: 2 fallos de 6`. Los rojos `metricas-sin-suite.js` y `api-rotos.js` muestran las otras dos formas de NO válido."
+nivel: "n2"
+modulo: "m3"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Ejecutar `entregable.js` y leer las tres condiciones certificadas"
+  - "Certificar un refactor con `certificar()` sobre un temporal"
+  - "Romper el refactor y reconocer el veredicto NO válido con su incidencia"
+  - "Explicar por qué cada condición existe y qué falla sin ella"
+prerrequisitos:
+  - "n2/m3/l05-la-suite-verde-que-no-fija-nada-huecos-y-pruebas-de-caracterizacion"
+actualizado: "2026-10-23"
+tags:
+  - "entregable"
+  - "certificacion"
+  - "antes-despues"
+fuentes:
+  - titulo: "Martin Fowler — Refactoring"
+    url: "https://martinfowler.com/refactoring/"
+    fecha: "2026-10-23"
+  - titulo: "Wikipedia (es) — Refactorización"
+    url: "https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n"
+    fecha: "2026-10-23"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-23"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El entregable de CURRICULUM para este módulo es **«antes/después con métricas y suite intacta»**: un refactor certificado, no un refactor declarado. `certificar()` de `refactor.js` exige tres condiciones —suite verde, exports idénticos y métricas de olor mejoradas sin que ninguna suba— y la demo `entregable.js` cierra con **`refactor sin regresiones certificado: 3/3 condiciones — función más larga 34→16, números mágicos 32→0`** y `codigo=0`. En el ejercicio rompes el factor express (`1.5`→`1.6`) y el certificador responde `NO válido — 1 incidencias: suite en rojo: 2 fallos de 6`.
+
+## Conceptos
+
+### Las tres condiciones y por qué cada una
+
+`certificar({ original, refactorizado, suite, metricasAntes })` devuelve `incidencias` y `valido`; sólo `incidencias.length === 0` certifica:
+
+| Condición                                            | La exige                                   | Falla cuando                                         |
+| ---------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| Suite verde (`correrSuite` en rojo ≠ 0 → incidencia) | El comportamiento fijado sigue intacto     | Un «refactor» tocó un cálculo                        |
+| Mismos exports (`mismosExports`)                     | El contrato con los consumidores no cambia | Se renombró o eliminó una exportación                |
+| Métricas de olor mejoran sin empeorar                | La mejora es medida, no opinada            | El «refactor» dejó el código igual de oloroso o peor |
+
+La primera condición es la red de seguridad de l01; la tercera es la tabla de l02 convertida en veredicto; la segunda existe porque **la suite no ve a todos los consumidores**: un export puede no estar importado por ningún test y seguir siendo el contrato de quien usa el módulo. El sitio de Fowler define el refactor por su efecto externo —alterar la estructura «sin cambiar su comportamiento externo» (fuente consultada el 2026-10-23)—; la API es parte de ese comportamiento externo.
+
+### El certificador en acción
+
+La demo certifica `fixture/despues.js` puesto en el lugar de `envios.js` sobre una copia temporal:
+
+```text
+ ✓ suite: 6/6 pruebas en verde
+ ✓ API intacta: mismos exports (costeEnvio, resumenPedido)
+ ✓ métricas: funcionMasLarga, numerosMagicos, anidamientoMax, lineasDuplicadas bajan — ninguna sube
+refactor sin regresiones certificado: 3/3 condiciones — función más larga 34→16, números mágicos 32→0
+```
+
+La evidencia del recorrido vive en `fixture/registro.json`: las métricas del antes, las de cada uno de los tres pasos con su `suite 6/6`, y las del después. El registro se **mide**, no se escribe: `ejemplos.test.ts` del repositorio comprueba que sus cifras coinciden con una medición fresca de `envios.js` y `despues.js`.
+
+### Los NO válidos del catálogo de errores
+
+Dos rojos más enseñan a leer el rechazo (los tres terminan en `codigo=1`):
+
+```text
+# errores/metricas-sin-suite.js — mejora todo, pero sin red
+métricas: función más larga 34→16, números mágicos 32→0 — mejoran todas
+✗ entregable NO válido: 1 incidencias — suite en rojo: 0 fallos de 0 (sin suite no hay refactor certificable)
+
+# errores/api-rotos.js — refactor limpio, export renombrado
+métricas: función más larga 34→16, números mágicos 32→0 — mejoran igualmente
+suite: 0/1 verdes, 1 fallo — el test que importaba resumenPedido ya no carga
+✗ entregable NO válido: 2 incidencias — la API cambió: los exports ya no son los mismos
+```
+
+La primera lista es corta porque el certificador no negocia: métricas sin suite no certifican nada, por muy bonitas que sean. La segunda muestra dos incidencias a la vez —la API rota **y** la suite caída— porque renombrar un export rompe a ambos lados.
+
+## Ejercicio
+
+1. Copia `fixture/` a un temporal y pon `despues.js` en el lugar de `envios.js`.
+2. Certifica con `certificar()`: el veredicto debe ser `válido — 3/3 condiciones`.
+3. Rompe el refactor cambiando `const FACTOR_EXPRESS = 1.5;` por `1.6`.
+4. Certifica otra vez y anota las incidencias.
+
+## Solución explicada
+
+El paso 3 es el experimento decisivo: un solo carácter que **no toca métricas** (el literal sigue siendo un literal en línea de constante) ni **la API** (los exports no se mueven) pero cambia el comportamiento —el recargo multiplica por 1,6—. Sólo la suite puede verlo, y la ve: `2 fallos de 6` (el coste express y el extra del resumen). La ejecución literal del ejercicio dio:
+
+```text
+veredicto con la refactorización de referencia: válido — 3/3 condiciones
+veredicto tras romper 1.5→1.6: NO válido — 1 incidencias: suite en rojo: 2 fallos de 6
+```
+
+El entregable completo del módulo, para quien lo presente, es: `fixture/envios.js` (el antes), `fixture/despues.js` (el después), `fixture/registro.json` (el recorrido con métricas medidas y suites) y la suite 6/6 corriendo sobre cualquiera de los dos. La firma es tuya, no la del asistente: quien certifica es quien se responsabiliza.
+
+## Cómo verificarlo
+
+```bash
+cd src/content/modulos/n2/m3/ejemplos
+node entregable.js                          # codigo=0; «certificado: 3/3 condiciones»
+node errores/metricas-sin-suite.js          # codigo=1; «NO válido: 1 incidencias»
+node errores/api-rotos.js                   # codigo=1; «NO válido: 2 incidencias»
+# el ejercicio (certificar → romper → certificar) en el temporal da:
+#   válido — 3/3 condiciones
+#   NO válido — 1 incidencias: suite en rojo: 2 fallos de 6
+```
+
+Marcas a capturar: `refactor sin regresiones certificado: 3/3 condiciones` del demo, `válido — 3/3` y `NO válido — 1 incidencias: suite en rojo: 2 fallos de 6` del ejercicio.
+
+## Errores comunes
+
+- **Aprobar sin suite**: `metricas-sin-suite.js` demuestra que el certificador se niega aunque todas las cifras bajen; sin red no hay certificación.
+- **Tratar la API como detalle**: renombrar un export parece cosmético y rompe consumidores que la suite no alcanza — `api-rotos.js` lo convierte en incidencia explícita.
+- **Escribir `registro.json` a mano**: las cifras del registro se miden con `medir()`; inventarlas es falsificar el entregable — y el test del repositorio las vuelve a medir.
+- **Certificar el fichero equivocado**: `certificar()` compara contra el `original`; certificar «después contra después» valida cualquier cosa.
+
+## Fuentes
+
+- **Martin Fowler — Refactoring** (https://martinfowler.com/refactoring/): el comportamiento externo —incluida la API— es lo que el refactor no toca (consultada el 2026-10-23).
+- **Wikipedia (es) — Refactorización** (https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n): el refactor como mantenimiento que mejora estructura sin añadir funcionalidad ni arreglar errores (consultada el 2026-10-23).
+- **Node.js — Test runner** (https://nodejs.org/api/test.html): la suite `node:test` que la primera condición ejecuta (consultada el 2026-10-23).
+
+## Siguientes pasos
+
+Con `n2/m3` queda cerrado el ciclo «refactor asistido sin regresiones». El currículo sigue con [`n2/m4`](/curriculo/n2/m4/) —«Revisión de código y deuda técnica»—: medir y decidir sobre deuda con datos, donde estas métricas vuelven a servir como argumentos.

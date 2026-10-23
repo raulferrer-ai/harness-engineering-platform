@@ -1,0 +1,136 @@
+---
+titulo: "Refactor: cambiar la forma, no el comportamiento"
+resumen: "Un refactor reorganiza el código sin tocar lo que hace: la suite que estaba en verde antes sigue en verde después y la API no se mueve. Ejecutas `contrato.js` contra «envíos» y ves `suite antes: 6/6 en verde — suite después: 6/6 en verde` con `codigo=0`; en el ejercicio reescribes el `if` del recargo express como asignación ternaria y `node --test` se queda en `tests 6, pass 6, fail 0`: mismo comportamiento, otra forma."
+nivel: "n2"
+modulo: "m3"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Explicar en una frase qué es un refactor y qué no lo es"
+  - "Ejecutar `contrato.js` y leer su veredicto «mismo comportamiento»"
+  - "Reescribir el recargo express como ternario sin cambiar resultados"
+  - "Comprobar con `node --test` que la suite sigue 6/6 en verde"
+prerrequisitos:
+  - "n2/m2/l06-entregable-cobertura-rojos-verdes-de-una-feature"
+actualizado: "2026-10-23"
+tags:
+  - "refactor"
+  - "comportamiento"
+  - "sin-regresiones"
+fuentes:
+  - titulo: "Wikipedia — Refactoring"
+    url: "https://en.wikipedia.org/wiki/Refactoring"
+    fecha: "2026-10-23"
+  - titulo: "Wikipedia (es) — Refactorización"
+    url: "https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n"
+    fecha: "2026-10-23"
+  - titulo: "Martin Fowler — Refactoring"
+    url: "https://martinfowler.com/refactoring/"
+    fecha: "2026-10-23"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un **refactor** cambia la estructura del código **sin cambiar su comportamiento observable**: «el proceso de reestructurar el código fuente existente —cambiar su factorización— sin cambiar su comportamiento externo» (fuente consultada el 2026-10-23). La demo `contrato.js` renombra el parámetro `pedido` de la mini-feature «envíos» y cierra con **`suite antes: 6/6 en verde — suite después: 6/6 en verde`** y `codigo=0`, más `misma API: costeEnvio y resumenPedido siguen exportándose igual`. En el ejercicio reescribes el `if` de tres líneas del recargo express como asignación ternaria y la suite se queda en `tests 6, pass 6, fail 0`: otra forma, idéntico resultado.
+
+## Conceptos
+
+### Refactor no es todo lo que suena a mejorar
+
+Wikipedia (es) lo dice sin rodeos: la refactorización «es la parte del mantenimiento del código que **no arregla errores ni añade funcionalidad**»; su objetivo es «mejorar la facilidad de comprensión del código o cambiar su estructura y diseño» (fuente consultada el 2026-10-23). Eso separa tres acciones que en la conversación con el asistente se mezclan:
+
+| Acción              | ¿Cambia el comportamiento?               | Señal                          |
+| ------------------- | ---------------------------------------- | ------------------------------ |
+| Arreglo (bugfix)    | Sí: algo que fallaba empieza a funcionar | Una prueba roja se pone verde  |
+| Funcionalidad nueva | Sí: hay comportamiento que no existía    | Un test nuevo se pone verde    |
+| **Refactor**        | **No**                                   | La misma suite, el mismo verde |
+
+Martin Fowler insiste en que el comportamiento exterior es exactamente lo que no se toca: el refactor «altera su estructura interna sin cambiar su comportamiento externo» (fuente consultada el 2026-10-23). Si la suite cambia de verdes a rojos, **no era un refactor** — era una de las otras dos acciones disfrazada.
+
+### El contrato del refactor: verde antes, verde después, API intacta
+
+El módulo anterior cerró con una suite verde (`n2/m2`); este nivel empieza usándola como red de seguridad. El contrato que exige esta lección tiene tres condiciones y ninguna es opinable:
+
+1. **Verde antes**: no se refactoriza sobre código rojo — sin red no hay vuelta atrás.
+2. **Verde después**: la misma suite, corrida tras el cambio, sigue completa.
+3. **API intacta**: siguen exportándose los mismos nombres (`costeEnvio`, `resumenPedido`); los consumidores del módulo no se enteran.
+
+La demo `contrato.js` aplica el contrato sobre una copia temporal del fixture `fixture/` (el original queda intacto) y lo imprime tal cual:
+
+```text
+suite antes: 6/6 en verde — suite después: 6/6 en verde
+contrato: mismo comportamiento — la suite corrió completa y verde tras el cambio
+misma API: costeEnvio y resumenPedido siguen exportándose igual
+```
+
+### La feature de este módulo: «cálculo de envíos»
+
+El fixture `fixture/envios.js` representa el código que un asistente entregó en una sesión anterior: una función `costeEnvio` de 34 líneas con tramos de peso, tarifas por zona, recargo express y redondeo, más `resumenPedido`. La suite `fixture/test/envios.test.js` — 6 pruebas `node:test` — fija su comportamiento con valores concretos (3.5, 9.5, 29.9, 7.05, 21.8 con su `throw` de «peso no soportado», y el resumen `{ total: 11.55, extra: 3.85 }`). Todo lo que haga este módulo se hace sobre ese código, y todo se mide contra esa suite.
+
+## Ejercicio
+
+Con `fixture/` copiado a un temporal (el original no se toca):
+
+1. Corre la suite: `cd <temporal>/fixture/test && node --test` — confirma `tests 6, pass 6, fail 0`.
+2. Reescribe el bloque del recargo express de `envios.js`:
+
+```js
+// antes
+if (pedido.express) {
+  total = total * 1.5;
+}
+```
+
+por su forma ternaria:
+
+```js
+// después
+total = pedido.express ? total * 1.5 : total;
+```
+
+3. Corre la suite otra vez y comprueba que sigue en `tests 6, pass 6, fail 0`.
+
+## Solución explicada
+
+El cambio sustituye un `if` de tres líneas por una asignación condicional de una: **misma operación, mismo orden, mismo resultado en los seis casos** que la suite fija. No se toca ningún valor (el factor sigue siendo `1.5`), ni ningún nombre exportado, ni la firma de `costeEnvio`. La ejecución literal del ejercicio dio:
+
+```text
+cambio: if de tres líneas → asignación ternaria de una línea
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0
+```
+
+El ternario no es «mejor» en abstracto: es más corto y conserva la intención («si es express, multiplica»). Esa discusión —si la forma nueva se lee mejor— es exactamente lo que un refactor negocia **sin salir del verde**. Si al aplicarlo algún test cae, el cambio no era equivalente: se revierte y se intenta otra forma. La reversión también es parte del protocolo: un refactor que no puedes deshacer en un paso no es un paso pequeño.
+
+## Cómo verificarlo
+
+```bash
+cd src/content/modulos/n2/m3/ejemplos
+node contrato.js                     # demo del contrato: 6/6 antes y después, codigo=0
+T=$(mktemp -d) && cp -R fixture "$T/fixture"
+# ... aplica el ternario sobre "$T/fixture/envios.js" ...
+cd "$T/fixture/test" && node --test   # tests 6, pass 6, fail 0
+rm -rf "$T"
+```
+
+La marca a capturar del ejercicio es `tests 6, pass 6, fail 0` tras el ternario.
+
+## Errores comunes
+
+- **Llamar refactor a un arreglo**: si tocas un valor (un `1.5` que pasa a `1.6`) o un resultado esperado, eso es bugfix o cambio, no refactor — la suite lo delata en cuanto cae.
+- **Empezar con la suite en rojo**: sin verde de partida no hay referencia; el protocolo de l03 obliga a cerrar el rojo antes de tocar estructura.
+- **Reescribir desde cero «que queda más limpio»**: una reescritura pierde casos que la suite no cubría y que nadie recuerda. Se refactoriza por pasos, no por reemplazo.
+- **Refactor sin red**: tocar `envios.js` sin poder correr `node --test` es caminar a ciegas; la suite del fixture es la condición de seguridad, no un adorno.
+
+## Fuentes
+
+- **Wikipedia — Refactoring** (https://en.wikipedia.org/wiki/Refactoring): define el refactoring como «el proceso de reestructurar el código fuente existente —cambiar su factorización— sin cambiar su comportamiento externo», con el propósito de mejorar diseño y estructura preservando la funcionalidad (consultada el 2026-10-23).
+- **Wikipedia (es) — Refactorización** (https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n): lo sitúa en el mantenimiento que «no arregla errores ni añade funcionalidad» y apunta su utilidad futura: facilitar añadir comportamiento nuevo (consultada el 2026-10-23).
+- **Martin Fowler — Refactoring** (https://martinfowler.com/refactoring/): el sitio del libro describe la técnica como «alterar su estructura interna sin cambiar su comportamiento externo» (consultada el 2026-10-23).
+
+## Siguientes pasos
+
+El contrato ya está en pie, pero «sin cambiar comportamiento» necesita una forma de demostrarlo que no sea una impresión: en [l02](/curriculo/n2/m3/l02-medir-antes-metricas-que-hacen-el-antes-despues-falsificable/) se mide el código antes y después con métricas concretas.

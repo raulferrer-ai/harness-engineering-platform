@@ -142,6 +142,10 @@ const dirEjemplosN2M2 = fileURLToPath(
   new URL("../../src/content/modulos/n2/m2/ejemplos/", import.meta.url),
 );
 
+const dirEjemplosN2M3 = fileURLToPath(
+  new URL("../../src/content/modulos/n2/m3/ejemplos/", import.meta.url),
+);
+
 interface Resultado {
   status: number | null;
   stdout: string;
@@ -2869,6 +2873,318 @@ export function generarContrasena() {
   }, 60_000);
 });
 
+describe("ejemplos del módulo n2/m3: refactor asistido sin regresiones", () => {
+  interface DemoN2M3 {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  /** Taller temporal con `fixture/` y `refactor.js` (la base de los ejercicios). */
+  function tallerRefactor(): string {
+    const carpeta = carpetaTemporal();
+    cpSync(join(dirEjemplosN2M3, "fixture"), join(carpeta, "fixture"), { recursive: true });
+    copyFileSync(join(dirEjemplosN2M3, "refactor.js"), join(carpeta, "refactor.js"));
+    return carpeta;
+  }
+
+  /** Reemplaza exacto en un fichero del taller (el mismo texto que usan las lecciones). */
+  function parchear(carpeta: string, rel: string, antes: string, despues: string): void {
+    const ruta = join(carpeta, rel);
+    const original = readFileSync(ruta, "utf8");
+    const cambiado = original.replaceAll(antes, despues);
+    expect(cambiado, `${rel}: el patrón del parche no casó`).not.toBe(original);
+    writeFileSync(ruta, cambiado);
+  }
+
+  /** Ejecuta un script de la copia con `process.execPath` y devuelve su resultado. */
+  function ejecutarEn(carpeta: string, argumentos: string[]): Resultado {
+    const resultado = spawnSync(process.execPath, argumentos, {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 60_000,
+    });
+    return {
+      status: resultado.status,
+      stdout: resultado.stdout ?? "",
+      stderr: resultado.stderr ?? "",
+    };
+  }
+
+  const demos: DemoN2M3[] = [
+    {
+      fichero: "contrato.js",
+      marcas: [
+        "suite antes: 6/6 en verde — suite después: 6/6 en verde",
+        "contrato: mismo comportamiento — la suite corrió completa y verde tras el cambio",
+        "misma API: costeEnvio y resumenPedido siguen exportándose igual",
+      ],
+      descripcion: "l01: el contrato verde antes y después",
+    },
+    {
+      fichero: "medir.js",
+      marcas: [
+        "métricas antes:   líneas 34 · función más larga 34 · números mágicos 32 · anidamiento 3 · duplicadas 12",
+        "métricas después: líneas 32 · función más larga 16 · números mágicos 0 · anidamiento 2 · duplicadas 4",
+        "veredicto: mejora — el antes/después son cifras medidas, no una sensación",
+      ],
+      descripcion: "l02: la tabla antes/después con veredicto",
+    },
+    {
+      fichero: "pasos.js",
+      marcas: [
+        "paso 1: extraer redondear(valor) → suite 6/6 — en verde",
+        "paso 2: extraer aplicarExpress(total, express) → suite 6/6 — en verde",
+        "protocolo: la suite corrió tras cada paso y siguió verde — el paso 3 lo haces en el ejercicio",
+      ],
+      descripcion: "l03: el protocolo de pasos pequeños",
+    },
+    {
+      fichero: "aplicar.js",
+      marcas: [
+        "catálogo aplicado: nombrar cifras + extraer tramoLigero(pedido) → suite 6/6 — en verde",
+        "veredicto: mejora sin regresiones — la suite siguió verde",
+      ],
+      descripcion: "l04: el catálogo aplicado con suite verde",
+    },
+    {
+      fichero: "huecos.js",
+      marcas: [
+        "suite inicial: 6/6 en verde — pero ninguna prueba menciona una zona fuera de las tres tarifas",
+        "suposición: «la zona desconocida costaría 9.5» → suite 6/7, 1 fallo — el supuesto está en rojo",
+        "caracterización: el código cobra 9.9 → suite 7/7 — en verde",
+      ],
+      descripcion: "l05: hueco, suposición roja y caracterización",
+    },
+    {
+      fichero: "entregable.js",
+      marcas: [
+        " ✓ suite: 6/6 pruebas en verde",
+        " ✓ API intacta: mismos exports (costeEnvio, resumenPedido)",
+        "refactor sin regresiones certificado: 3/3 condiciones — función más larga 34→16, números mágicos 32→0",
+      ],
+      descripcion: "l06: las tres condiciones certificadas",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = ejecutarNode([demo.fichero], dirEjemplosN2M3);
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    60_000,
+  );
+
+  it("errores/suite-roja.js termina en 1 con el protocolo abortado", () => {
+    const rojo = ejecutarNode(["errores/suite-roja.js"], dirEjemplosN2M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("suite en arranque: 5/6 verdes, 1 fallo");
+    expect(rojo.stdout).toContain(
+      "✗ no se refactoriza con la suite en rojo: 1 fallo de 6 — cierra el rojo antes de tocar nada",
+    );
+  });
+
+  it("errores/comportamiento-cambiado.js termina en 1 con la suite en 4/6", () => {
+    const rojo = ejecutarNode(["errores/comportamiento-cambiado.js"], dirEjemplosN2M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "✗ esto no es refactor: la suite pasó de 6/6 verdes a 4/6 — el recargo ahora multiplica por 1,6 y eso es cambio de comportamiento",
+    );
+  });
+
+  it("errores/metricas-sin-suite.js termina en 1 sin suite que respaldar", () => {
+    const rojo = ejecutarNode(["errores/metricas-sin-suite.js"], dirEjemplosN2M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "métricas: función más larga 34→16, números mágicos 32→0 — mejoran todas",
+    );
+    expect(rojo.stdout).toContain(
+      "✗ entregable NO válido: 1 incidencias — suite en rojo: 0 fallos de 0 (sin suite no hay refactor certificable)",
+    );
+  });
+
+  it("errores/api-rotos.js termina en 1 con dos incidencias", () => {
+    const rojo = ejecutarNode(["errores/api-rotos.js"], dirEjemplosN2M3);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "suite: 0/1 verdes, 1 fallo — el test que importaba resumenPedido ya no carga",
+    );
+    expect(rojo.stdout).toContain(
+      "✗ entregable NO válido: 2 incidencias — la API cambió: los exports ya no son los mismos",
+    );
+  });
+
+  it("la suite del fixture pasa con envios.js y con despues.js en su lugar", () => {
+    const verde = ejecutarNode(["--test"], join(dirEjemplosN2M3, "fixture", "test"));
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("tests 6");
+    expect(verde.stdout).toContain("pass 6");
+    expect(verde.stdout).toContain("fail 0");
+
+    const taller = tallerRefactor();
+    copyFileSync(
+      join(dirEjemplosN2M3, "fixture", "despues.js"),
+      join(taller, "fixture", "envios.js"),
+    );
+    const conDespues = ejecutarNode(["--test"], join(taller, "fixture", "test"));
+    expect(conDespues.status, conDespues.stdout).toBe(0);
+    expect(conDespues.stdout).toContain("pass 6");
+    expect(conDespues.stdout).toContain("fail 0");
+  }, 60_000);
+
+  it("despues.js es comportamentalmente idéntico: 160 comparaciones en rejilla, 0 diferencias", () => {
+    const rejilla = ejecutarEn(join(dirEjemplosN2M3, "fixture"), [
+      "--input-type=module",
+      "-e",
+      'import { costeEnvio as cA, resumenPedido as rA } from "./envios.js"; import { costeEnvio as cB, resumenPedido as rB } from "./despues.js"; const zonas = ["nacional", "europea", "internacional", "luna"]; const pesos = [0.5, 1, 2, 3, 5, 7.5, 10, 15.5, 20, 20.1]; let comparaciones = 0; let diferencias = 0; const f = (fn) => { try { return { ok: fn() }; } catch (e) { return { err: e.message }; } }; for (const zona of zonas) for (const peso of pesos) for (const express of [false, true]) { const pedido = { peso, zona, express }; comparaciones += 2; if (JSON.stringify(f(() => cA(pedido))) !== JSON.stringify(f(() => cB(pedido)))) diferencias++; if (JSON.stringify(f(() => rA(pedido))) !== JSON.stringify(f(() => rB(pedido)))) diferencias++; } console.log(`comparaciones: ${comparaciones}, diferencias: ${diferencias}`);',
+    ]);
+    expect(rejilla.status, rejilla.stderr).toBe(0);
+    expect(rejilla.stdout).toContain("comparaciones: 160, diferencias: 0");
+  }, 60_000);
+
+  it("registro.json coincide con una medición fresca del antes y el después", () => {
+    const medida = ejecutarEn(dirEjemplosN2M3, [
+      "--input-type=module",
+      "-e",
+      'import { readFileSync } from "node:fs"; import { medir } from "./refactor.js"; const registro = JSON.parse(readFileSync("./fixture/registro.json", "utf8")); const antes = medir("./fixture/envios.js"); const despues = medir("./fixture/despues.js"); const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b); const ok = igual(registro.antes, antes) && igual(registro.despues, despues) && registro.pasos.length === 3 && registro.pasos.every((p) => p.suite === "6/6"); console.log(ok ? "registro coherente: antes y después coinciden con la medición fresca y los 3 pasos con suite 6/6" : "registro incoherente"); process.exitCode = ok ? 0 : 1;',
+    ]);
+    expect(medida.status, medida.stdout).toBe(0);
+    expect(medida.stdout).toContain(
+      "registro coherente: antes y después coinciden con la medición fresca y los 3 pasos con suite 6/6",
+    );
+  }, 60_000);
+
+  it("l01: el ternario del recargo deja la suite 6/6 (ejercicio real)", () => {
+    const carpeta = tallerRefactor();
+    parchear(
+      carpeta,
+      join("fixture", "envios.js"),
+      "  if (pedido.express) {\n    total = total * 1.5;\n  }",
+      "  total = pedido.express ? total * 1.5 : total;",
+    );
+    const verde = ejecutarEn(join(carpeta, "fixture", "test"), ["--test"]);
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("tests 6");
+    expect(verde.stdout).toContain("pass 6");
+    expect(verde.stdout).toContain("fail 0");
+  }, 60_000);
+
+  it("l02: la tabla de medir.js refleja el antes y el después del fixture (ejercicio real)", () => {
+    const tabla = ejecutarNode(["medir.js"], dirEjemplosN2M3);
+    expect(tabla.status, tabla.stderr).toBe(0);
+    expect(tabla.stdout).toContain(
+      "métricas antes:   líneas 34 · función más larga 34 · números mágicos 32 · anidamiento 3 · duplicadas 12",
+    );
+    expect(tabla.stdout).toContain(
+      "métricas después: líneas 32 · función más larga 16 · números mágicos 0 · anidamiento 2 · duplicadas 4",
+    );
+    expect(tabla.stdout).toContain(
+      "comparar: bajan funcionMasLarga, numerosMagicos, anidamientoMax, lineasDuplicadas — ninguna sube (las líneas se reportan pero no puntúan)",
+    );
+  }, 60_000);
+
+  it("l03: el paso de constantes baja números mágicos a 21 con la suite 6/6 (ejercicio real)", () => {
+    const carpeta = tallerRefactor();
+    parchear(carpeta, join("fixture", "envios.js"), "3.5", "TARIFA_BASE_NACIONAL");
+    parchear(carpeta, join("fixture", "envios.js"), "5.9", "TARIFA_BASE_EUROPEA");
+    parchear(carpeta, join("fixture", "envios.js"), "9.9", "TARIFA_BASE_INTERNACIONAL");
+    parchear(carpeta, join("fixture", "envios.js"), "1.5", "FACTOR_EXPRESS");
+    parchear(
+      carpeta,
+      join("fixture", "envios.js"),
+      "export function costeEnvio(pedido) {",
+      "const TARIFA_BASE_NACIONAL = 3.5;\nconst TARIFA_BASE_EUROPEA = 5.9;\nconst TARIFA_BASE_INTERNACIONAL = 9.9;\nconst FACTOR_EXPRESS = 1.5;\n\nexport function costeEnvio(pedido) {",
+    );
+    const verde = ejecutarEn(join(carpeta, "fixture", "test"), ["--test"]);
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("pass 6");
+    expect(verde.stdout).toContain("fail 0");
+    const medida = ejecutarEn(carpeta, [
+      "--input-type=module",
+      "-e",
+      'import { medir } from "./refactor.js"; const m = medir("./fixture/envios.js"); console.log(`numerosMagicos ${m.numerosMagicos}, lineas ${m.lineas}`);',
+    ]);
+    expect(medida.stdout).toContain("numerosMagicos 21, lineas 38");
+  }, 60_000);
+
+  it("l04: extraer tramoMedio baja la función más larga a 28 con la suite 6/6 (ejercicio real)", () => {
+    const carpeta = tallerRefactor();
+    parchear(
+      carpeta,
+      join("fixture", "envios.js"),
+      '  } else if (pedido.peso <= 5) {\n    if (pedido.zona === "nacional") {\n      total = total + 3.5 + (pedido.peso - 1) * 1.2;\n    } else if (pedido.zona === "europea") {\n      total = total + 5.9 + (pedido.peso - 1) * 1.8;\n    } else {\n      total = total + 9.9 + (pedido.peso - 1) * 2.5;\n    }\n  } else if (pedido.peso <= 20) {',
+      "  } else if (pedido.peso <= 5) {\n    total = total + tramoMedio(pedido);\n  } else if (pedido.peso <= 20) {",
+    );
+    parchear(
+      carpeta,
+      join("fixture", "envios.js"),
+      "export function costeEnvio(pedido) {",
+      'function tramoMedio(pedido) {\n  if (pedido.zona === "nacional") {\n    return 3.5 + (pedido.peso - 1) * 1.2;\n  }\n  if (pedido.zona === "europea") {\n    return 5.9 + (pedido.peso - 1) * 1.8;\n  }\n  return 9.9 + (pedido.peso - 1) * 2.5;\n}\n\nexport function costeEnvio(pedido) {',
+    );
+    const verde = ejecutarEn(join(carpeta, "fixture", "test"), ["--test"]);
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("pass 6");
+    expect(verde.stdout).toContain("fail 0");
+    const medida = ejecutarEn(carpeta, [
+      "--input-type=module",
+      "-e",
+      'import { medir } from "./refactor.js"; const m = medir("./fixture/envios.js"); console.log(`funcionMasLarga ${m.funcionMasLarga}, lineasDuplicadas ${m.lineasDuplicadas}`);',
+    ]);
+    expect(medida.stdout).toContain("funcionMasLarga 28, lineasDuplicadas 10");
+  }, 60_000);
+
+  it("l05: la caracterización de resumenPedido sin express sube la suite a 7/7 (ejercicio real)", () => {
+    const carpeta = tallerRefactor();
+    writeFileSync(
+      join(carpeta, "fixture", "test", "caracterizacion.test.js"),
+      'import { test } from "node:test";\nimport assert from "node:assert/strict";\nimport { resumenPedido } from "../envios.js";\n\ntest("caracterización: sin express no hay extra", () => {\n  assert.deepStrictEqual(resumenPedido({ peso: 2, zona: "europea" }), { total: 7.7, extra: 0 });\n});\n',
+    );
+    const verde = ejecutarEn(join(carpeta, "fixture", "test"), ["--test"]);
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("tests 7");
+    expect(verde.stdout).toContain("pass 7");
+    expect(verde.stdout).toContain("fail 0");
+  }, 60_000);
+
+  it("l06: certificar da válido 3/3 y la ruptura 1.5→1.6 da NO válido (ejercicio real)", () => {
+    const carpeta = tallerRefactor();
+    copyFileSync(join(carpeta, "fixture", "envios.js"), join(carpeta, "fixture", "original.js"));
+    copyFileSync(
+      join(dirEjemplosN2M3, "fixture", "despues.js"),
+      join(carpeta, "fixture", "envios.js"),
+    );
+    const certificado = ejecutarEn(carpeta, [
+      "--input-type=module",
+      "-e",
+      'import { certificar, medir } from "./refactor.js"; const antes = medir("./fixture/original.js"); const c = certificar({ original: "./fixture/original.js", refactorizado: "./fixture/envios.js", suite: "./fixture/test", metricasAntes: antes }); console.log(`veredicto con la refactorización de referencia: ${c.valido ? "válido" : "NO válido"} — ${c.valido ? "3/3 condiciones" : c.incidencias.join(" | ")}`); process.exitCode = c.valido ? 0 : 1;',
+    ]);
+    expect(certificado.status, certificado.stdout).toBe(0);
+    expect(certificado.stdout).toContain(
+      "veredicto con la refactorización de referencia: válido — 3/3 condiciones",
+    );
+
+    parchear(
+      carpeta,
+      join("fixture", "envios.js"),
+      "const FACTOR_EXPRESS = 1.5;",
+      "const FACTOR_EXPRESS = 1.6;",
+    );
+    const roto = ejecutarEn(carpeta, [
+      "--input-type=module",
+      "-e",
+      'import { certificar, medir } from "./refactor.js"; const antes = medir("./fixture/original.js"); const c = certificar({ original: "./fixture/original.js", refactorizado: "./fixture/envios.js", suite: "./fixture/test", metricasAntes: antes }); console.log(`veredicto tras romper 1.5→1.6: ${c.valido ? "válido" : "NO válido"} — ${c.incidencias.length} incidencias: ${c.incidencias.join(" | ")}`); process.exitCode = c.valido ? 0 : 1;',
+    ]);
+    expect(roto.status).toBe(1);
+    expect(roto.stdout).toContain(
+      "veredicto tras romper 1.5→1.6: NO válido — 1 incidencias: suite en rojo: 2 fallos de 6",
+    );
+  }, 60_000);
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -3239,6 +3555,35 @@ describe("cobertura de ejemplos", () => {
 
     expect(
       archivosVerificables(dirEjemplosN2M2, ["feature", "feature/test"], ["feature/registro.json"]),
+    ).toEqual([...enManifiesto].sort());
+  });
+
+  it("n2/m3: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // `fixture/` es el objeto del refactor: `envios.js` es el «antes» con
+    // olores medibles, `despues.js` la refactorización de referencia (mismas
+    // salidas: rejilla de 160 comparaciones), `test/envios.test.js` la red de
+    // seguridad de 6 pruebas y `registro.json` los tres pasos del protocolo.
+    // Todo se verifica ejecutando los 6 demos, la suite, la rejilla y los 4 rojos.
+    const enManifiesto = [
+      "refactor.js",
+      "contrato.js",
+      "medir.js",
+      "pasos.js",
+      "aplicar.js",
+      "huecos.js",
+      "entregable.js",
+      "errores/suite-roja.js",
+      "errores/comportamiento-cambiado.js",
+      "errores/metricas-sin-suite.js",
+      "errores/api-rotos.js",
+      "fixture/envios.js",
+      "fixture/despues.js",
+      "fixture/test/envios.test.js",
+      "fixture/registro.json",
+    ];
+
+    expect(
+      archivosVerificables(dirEjemplosN2M3, ["fixture", "fixture/test"], ["fixture/registro.json"]),
     ).toEqual([...enManifiesto].sort());
   });
 

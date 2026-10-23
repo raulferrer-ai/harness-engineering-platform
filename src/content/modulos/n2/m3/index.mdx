@@ -5,5 +5,24 @@ modulo: "m3"
 objetivos:
   - "Mejorar código existente manteniendo verde la suite"
 entregable: "Antes/después con métricas y suite intacta"
-actualizado: "2026-10-19"
+actualizado: "2026-10-23"
 ---
+
+## Para quién es este módulo
+
+Tras `n2/m2` tienes una suite verde que fija el comportamiento de una feature. Este módulo pone esa red a trabajar sobre **código que ya existe**: el refactor asistido —mejorar la estructura sin cambiar el comportamiento— con el asistente ejecutando cada paso y la suite verificando cada uno. La mini-feature es «cálculo de envíos»: la función `costeEnvio` de 34 líneas que un asistente «entregó en una sesión anterior» (tramos de peso, tarifas por zona, recargo express), con su suite de 6 pruebas en verde como red de seguridad y `despues.js` como refactorización de referencia — mismas salidas, verificadas con 160 comparaciones sin diferencias. Aprendes el contrato del refactor (l01), a medir el antes/después con métricas (l02), el protocolo de pasos pequeños con registro (l03), el catálogo de movimientos con nombre (l04), a cerrar los huecos de la red con pruebas de caracterización (l05) y a certificar el entregable entero (l06). Público objetivo: quien cierra `n2/m2/l06` con su cobertura rojos→verdes certificada. Duración estimada: unas 5 horas repartidas. Solo librería estándar, sin red ni claves: todo se ejecuta en local con `node --test`.
+
+## Cómo se cierra el módulo
+
+Entregas **el antes/después con métricas y suite intacta**: `fixture/envios.js` (el código con sus olores medibles), `fixture/despues.js` (la refactorización de referencia, mismos exports y mismas salidas), `fixture/registro.json` (los tres pasos del protocolo con sus métricas medidas y su suite 6/6) y la suite `fixture/test/envios.test.js` verde sobre cualquiera de los dos. La carpeta `ejemplos/` reúne la librería `refactor.js` — que mide, compara, corre la suite, comprueba la API y certifica — y **6 demos verdes**, una por lección: la del contrato, la de las métricas, la del protocolo de pasos, la del catálogo aplicado, la de huecos y caracterización y la certificadora del entregable. Los **4 rojos deliberados** demuestran los modos de fallo: la suite roja de partida, el «refactor» que cambia un valor por debajo, las métricas sin suite y la API rota al renombrar un export. Todo se ejecuta offline: los talleres temporales de los ejercicios se crean y se borran en cada ejecución.
+
+## Lecciones
+
+| #   | Lección                                                                                                                                                           | Tiempo |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [Refactor: cambiar la forma, no el comportamiento](/curriculo/n2/m3/l01-refactor-cambiar-la-forma-no-el-comportamiento/)                                          | 45 min |
+| 2   | [Medir antes: métricas que hacen el «antes/después» falsificable](/curriculo/n2/m3/l02-medir-antes-metricas-que-hacen-el-antes-despues-falsificable/)             | 45 min |
+| 3   | [El protocolo de pasos pequeños con el asistente](/curriculo/n2/m3/l03-el-protocolo-de-pasos-pequenos-con-el-asistente/)                                          | 50 min |
+| 4   | [Catálogo de refactorizaciones: extraer, nombrar, eliminar duplicación](/curriculo/n2/m3/l04-catalogo-de-refactorizaciones-extraer-nombrar-eliminar-duplicacion/) | 55 min |
+| 5   | [La suite verde que no fija nada: huecos y pruebas de caracterización](/curriculo/n2/m3/l05-la-suite-verde-que-no-fija-nada-huecos-y-pruebas-de-caracterizacion/) | 50 min |
+| 6   | [Entregable: antes/después con métricas y suite intacta](/curriculo/n2/m3/l06-entregable-antes-despues-con-metricas-y-suite-intacta/)                             | 60 min |

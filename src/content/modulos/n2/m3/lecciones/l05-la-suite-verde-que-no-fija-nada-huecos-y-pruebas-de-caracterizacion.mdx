@@ -1,0 +1,121 @@
+---
+titulo: "La suite verde que no fija nada: huecos y pruebas de caracterización"
+resumen: "Una suite verde no significa que todo el comportamiento esté fijado: `huecos.js` muestra «envíos» con sus 6/6 y un camino sin cubrir —la zona desconocida—. Primero se supone (9.5 → `suite 6/7, 1 fallo`), luego se observa el código (cobra 9.9) y se fija con una prueba de caracterización: `suite 7/7 — en verde` con `codigo=0`. En el ejercicio caracterizas `resumenPedido` sin express —`{ total: 7.7, extra: 0 }`— y la suite sube a 7/7."
+nivel: "n2"
+modulo: "m3"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Explicar por qué verde no equivale a comportamiento completo fijado"
+  - "Detectar un camino sin cubrir en la suite del fixture"
+  - "Escribir una prueba de caracterización desde el código, no desde la memoria"
+  - "Cerrar el hueco elevando la suite a 7/7 sin cambiar la implementación"
+prerrequisitos:
+  - "n2/m3/l04-catalogo-de-refactorizaciones-extraer-nombrar-eliminar-duplicacion"
+actualizado: "2026-10-23"
+tags:
+  - "huecos"
+  - "caracterizacion"
+  - "cobertura"
+fuentes:
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-23"
+  - titulo: "Wikipedia (es) — Refactorización"
+    url: "https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n"
+    fecha: "2026-10-23"
+  - titulo: "Wikipedia — Refactoring"
+    url: "https://en.wikipedia.org/wiki/Refactoring"
+    fecha: "2026-10-23"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La suite de «envíos» está en verde y aun así **no fija todo lo que el código hace**: ninguna prueba menciona una zona fuera de las tres tarifas, y el `else` del código la cobra como internacional. `huecos.js` recorre el hueco en tres actos —suposición (`9.5`, rojo), observación (`node -e` sobre el código: `9.9`), fijación— y cierra con **`caracterización: el código cobra 9.9 → suite 7/7 — en verde`** y `codigo=0`. En el ejercicio caracterizas el camino de `resumenPedido` sin express: la suite sube a `tests 7, pass 7, fail 0` sin tocar la implementación.
+
+## Conceptos
+
+### Verde ≠ red completa
+
+La suite verde certifica **lo que las pruebas miran**, ni un byte más. Cada camino que ningún test ejecuta queda a merced de quien refactorice: sin fijar, un cambio en ese `else` pasaría con todo en verde. Refactorizar con huecos es reconstruir sobre suelo que no se ha inspeccionado — y la única manera de inspeccionarlo es ejecutar el camino. Wikipedia (es) enmarca el refactor como mejora de comprensión y mantenimiento (fuente consultada el 2026-10-23); el primer paso de comprender un código ajeno es preguntarle **qué hace en los casos que nadie le ha preguntado**.
+
+### La prueba de caracterización
+
+La caracterización observa el comportamiento **tal como es** y lo fija en una prueba —incluidas sus rarezas. No juzga si `zona desconocida → internacional` es buena idea; lo convierte en contrato. La regla de escritura es tajante:
+
+- **Desde la observación**: se ejecuta el código (`node -e`) y se pincha el valor que devuelve.
+- **Nunca desde la suposición**: escribir lo que «debería» devolver es bugfix encubierto, no caracterización.
+
+`huecos.js` demuestra los dos lados sobre la copia temporal del fixture:
+
+```text
+suite inicial: 6/6 en verde — pero ninguna prueba menciona una zona fuera de las tres tarifas
+suposición: «la zona desconocida costaría 9.5» → suite 6/7, 1 fallo — el supuesto está en rojo
+caracterización: el código cobra 9.9 → suite 7/7 — en verde
+```
+
+El rojo intermedio es informativo: la suposición falla con `AssertionError` y el runner (`node:test`, «facilita la creación de pruebas JavaScript» — fuente consultada el 2026-10-23) la señala por nombre. El verde final son **7 pruebas, sin cambios en `envios.js`**: la red de seguridad cubre ahora un camino más.
+
+### Qué hacer cuando la rareza molesta
+
+Si la caracterización revela un comportamiento que **debería** cambiar (un `else` demasiado generoso, por ejemplo), eso ya no es refactor: es cambio de comportamiento, y se hace como en `n2/m1` y `n2/m2` —primero el test que pide el cambio nuevo (rojo), luego el código (verde)—. La frontera es la misma de l01: el refactor fija; el cambio negocia el comportamiento con una prueba nueva. Wikipedia resume el objetivo del refactor como mejorar la estructura «sin cambiar su comportamiento externo» (fuente consultada el 2026-10-23): la caracterización es lo que convierte ese «sin cambiar» en una comprobación.
+
+## Ejercicio
+
+Sobre `fixture/` copiado a un temporal:
+
+1. Corre la suite base: `tests 6, pass 6, fail 0`.
+2. Busca un camino sin fijar en `resumenPedido`: la suite tiene un caso **con** express, ninguno **sin** express.
+3. Observa el valor real: ejecuta `node -e 'import("./envios.js").then(m => console.log(JSON.stringify(m.resumenPedido({ peso: 2, zona: "europea" }))))'` desde la carpeta del fixture.
+4. Escribe `test/caracterizacion.test.js` con ese valor observado:
+
+```js
+test("caracterización: sin express no hay extra", () => {
+  assert.deepStrictEqual(resumenPedido({ peso: 2, zona: "europea" }), { total: 7.7, extra: 0 });
+});
+```
+
+5. Corre la suite: debe quedar en `tests 7, pass 7, fail 0`.
+
+## Solución explicada
+
+El camino sin express es real: `resumenPedido` sólo se probó con `{ peso: 2, zona: "europea", express: true }` (la prueba 6 del fixture fija `{ total: 11.55, extra: 3.85 }`). Sin `express`, el `if` no se cumple y `extra` se queda en `0` —valor observado, no deducido—. La caracterización añade ese contrato **sin tocar `envios.js`**: la suite sube a 7 pruebas porque ahora también se garantiza que «sin express no hay extra» sobrevive a cualquier refactor futuro. La ejecución literal del ejercicio dio:
+
+```text
+prueba de caracterización escrita con el valor observado en el código
+ℹ tests 7
+ℹ pass 7
+ℹ fail 0
+```
+
+El patrón completo del módulo queda así: la suite del fixture fija el comportamiento conocido, las caracterizaciones cierran los huecos que el refactor descubre, y sólo entonces el catálogo de l04 opera sobre una red que cubre todo lo observable. Dos caminos siguen sin fijar (peso fraccionario en los límites, zona rara en tramos pesados): se documentan como deuda, no se improvisan.
+
+## Cómo verificarlo
+
+```bash
+cd src/content/modulos/n2/m3/ejemplos
+node huecos.js    # codigo=0; suposición 6/7 en rojo y caracterización 7/7 en verde
+# el ejercicio se hace en el temporal:
+cd <temporal>/fixture/test && node --test   # tests 7, pass 7, fail 0
+```
+
+Marcas a capturar: `caracterización: el código cobra 9.9 → suite 7/7` del demo y `tests 7, pass 7, fail 0` del ejercicio.
+
+## Errores comunes
+
+- **Escribir la prueba desde lo que se recuerda del código**: la suposición de `huecos.js` (9.5) falla; el valor se observa ejecutando, no recordando.
+- **«Arreglar» la rareza al fijarla**: si al caracterizar cambias el comportamiento para que «sea más correcto», ya no es caracterización — es un cambio que debe pasar por rojo→verde con su discusión aparte.
+- **Fijar sólo los casos felices**: la caracterización existe precisamente para los bordes: desconocidos, vacíos, negativos, fraccionarios.
+- **Dar el hueco por cerrado sin subir el contador**: la prueba que no corre en la suite no cierra nada; el `tests 7` del resultado es la señal.
+
+## Fuentes
+
+- **Node.js — Test runner** (https://nodejs.org/api/test.html): el módulo `node:test` que ejecuta y reporta las pruebas de caracterización (consultada el 2026-10-23).
+- **Wikipedia (es) — Refactorización** (https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n): el refactor como mejora de comprensión y mantenimiento del código (consultada el 2026-10-23).
+- **Wikipedia — Refactoring** (https://en.wikipedia.org/wiki/Refactoring): «sin cambiar su comportamiento externo» — la caracterización convierte ese principio en comprobación (consultada el 2026-10-23).
+
+## Siguientes pasos
+
+Con la red completa y el catálogo en la mano, queda el entregable: en [l06](/curriculo/n2/m3/l06-entregable-antes-despues-con-metricas-y-suite-intacta/) certificas el refactor con las tres condiciones y aprendes a leer el «NO válido».
