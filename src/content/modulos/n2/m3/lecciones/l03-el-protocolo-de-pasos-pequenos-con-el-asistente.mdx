@@ -1,0 +1,138 @@
+---
+titulo: "El protocolo de pasos pequeños con el asistente"
+resumen: "El refactor asistido avanza a pasos verificables: se aplica uno, se corre la suite y sólo entonces se pasa al siguiente. `pasos.js` ejecuta los dos primeros pasos sobre «envíos» — `paso 1: extraer redondear(valor) → suite 6/6 — en verde` y `paso 2: extraer aplicarExpress(total, express) → suite 6/6 — en verde` con `codigo=0`— y `registro.json` guarda los tres pasos con sus métricas. El rojo `errores/suite-roja.js` muestra el aborto del protocolo: `no se refactoriza con la suite en rojo`."
+nivel: "n2"
+modulo: "m3"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Describir el protocolo: paso pequeño, suite tras el paso, registro"
+  - "Ejecutar `pasos.js` y leer la suite tras cada paso"
+  - "Aplicar el paso 3 (números mágicos a constantes) con la suite verde"
+  - "Reconocer el aborto del protocolo ante una suite roja"
+prerrequisitos:
+  - "n2/m3/l02-medir-antes-metricas-que-hacen-el-antes-despues-falsificable"
+actualizado: "2026-10-23"
+tags:
+  - "protocolo"
+  - "pasos-pequenos"
+  - "registro"
+fuentes:
+  - titulo: "Wikipedia (es) — Refactorización"
+    url: "https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n"
+    fecha: "2026-10-23"
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-23"
+  - titulo: "Martin Fowler — Refactoring"
+    url: "https://martinfowler.com/refactoring/"
+    fecha: "2026-10-23"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Con el asistente, el refactor se pide **un paso a la vez**: un cambio que una persona puede revisar en un vistazo, seguido de `node --test` antes de continuar. La demo `pasos.js` aplica dos pasos sobre una copia de «envíos» —extraer `redondear(valor)` y extraer `aplicarExpress(total, express)`— y cierra con **`protocolo: la suite corrió tras cada paso y siguió verde`** y `codigo=0`; `fixture/registro.json` guarda los tres pasos con sus métricas medidas y `suite 6/6` tras cada uno. El rojo `errores/suite-roja.js` aborta cuando alguien intenta empezar con un fallo abierto: **`✗ no se refactoriza con la suite en rojo: 1 fallo de 6 — cierra el rojo antes de tocar nada`**.
+
+## Conceptos
+
+### El protocolo: cambio, suite, registro
+
+El paso del protocolo tiene tres tiempos:
+
+1. **Un cambio pequeño y nombrable**: «extraer el redondeo», «nombrar la tarifa nacional». Si no cabe en una frase, es dos pasos.
+2. **La suite tras el cambio**: `correrSuite()` de `refactor.js` corre `node --test` (el test runner «facilita la creación de pruebas JavaScript» — fuente consultada el 2026-10-23) y devuelve `verdes/fallos`; verde es la única señal que permite continuar.
+3. **El registro**: cada paso queda escrito en `fixture/registro.json` con su cambio, su suite y sus métricas — es la memoria del recorrido y la evidencia del entregable de l06.
+
+La utilidad del «antes y después» a escala de paso es la que subraya Wikipedia (es): refactorizar primero «para facilitar esta tarea y luego añadir el nuevo comportamiento» (fuente consultada el 2026-10-23) — el protocolo convierte esa idea en práctica ejecutable. Y el propio sitio de Fowler insiste en que la técnica es **disciplinada** (fuente consultada el 2026-10-23): la disciplina es exactamente esto, no saltarse la suite porque «se ve bien».
+
+### Los tres pasos del registro
+
+`fixture/registro.json` se generó ejecutando el protocolo de verdad (cada fila medida y corrida, nunca escrita a mano):
+
+| Paso | Cambio                                         | Suite | `funcionMasLarga` | `numerosMagicos` |
+| ---- | ---------------------------------------------- | ----- | ----------------- | ---------------- |
+| —    | antes                                          | 6/6   | 34                | 32               |
+| 1    | extraer `redondear(valor)`                     | 6/6   | 34                | 32               |
+| 2    | extraer `aplicarExpress(total, express)`       | 6/6   | 32                | 32               |
+| 3    | tarifas y factor: números mágicos → constantes | 6/6   | 32                | 21               |
+
+Ningún paso cierra el trabajo entero; los tres juntos ya mueven `numerosMagicos` de 32 a 21 y la función más larga de 34 a 32 líneas. La demo `pasos.js` ejecuta los dos primeros sobre una copia temporal:
+
+```text
+paso 1: extraer redondear(valor) → suite 6/6 — en verde
+paso 2: extraer aplicarExpress(total, express) → suite 6/6 — en verde
+métricas: función más larga 34→32, duplicadas 12→10, líneas 34→37
+protocolo: la suite corrió tras cada paso y siguió verde — el paso 3 lo haces en el ejercicio
+```
+
+### El aborto: suite roja, se para
+
+`errores/suite-roja.js` simula a alguien que «arregla» la expectativa de un test en vez del código y luego quiere refactorizar. El protocolo se niega antes de empezar:
+
+```text
+suite en arranque: 5/6 verdes, 1 fallo
+✗ no se refactoriza con la suite en rojo: 1 fallo de 6 — cierra el rojo antes de tocar nada
+```
+
+con `codigo=1`. Un fallo abierto significa que no hay red de seguridad: cualquier cambio posterior no podrá distinguir «mi refactor la rompió» de «ya estaba rota».
+
+## Ejercicio
+
+Sobre `fixture/` copiado a un temporal, aplica el paso 3 del registro —números mágicos a constantes— sin tocar la lógica:
+
+1. Reemplaza las tres `3.5` por `TARIFA_BASE_NACIONAL`, las tres `5.9` por `TARIFA_BASE_EUROPEA`, las tres `9.9` por `TARIFA_BASE_INTERNACIONAL` y las dos `1.5` por `FACTOR_EXPRESS`.
+2. Declara las cuatro constantes al principio del fichero:
+
+```js
+const TARIFA_BASE_NACIONAL = 3.5;
+const TARIFA_BASE_EUROPEA = 5.9;
+const TARIFA_BASE_INTERNACIONAL = 9.9;
+const FACTOR_EXPRESS = 1.5;
+```
+
+3. Corre la suite (`cd <temporal>/fixture/test && node --test`) y confirma `tests 6, pass 6, fail 0`.
+4. Mide el resultado con `medir()` y anota `numerosMagicos` y `lineas`.
+
+## Solución explicada
+
+El paso 3 no mueve una sola decisión de cálculo: cada literal se sustituye por su nombre y el nombre se declara una vez. Es el cambio más mecánico del catálogo y el que más cifras de olor limpia — de ahí que el registro lo cierre como tercer paso. La ejecución literal del ejercicio dio:
+
+```text
+tras el paso: números mágicos 21, líneas 38
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0
+```
+
+`numerosMagicos` baja de 32 a 21: las 11 apariciones de cifras renombradas dejan de contar porque ahora viven en líneas de constante. `lineas` sube de 34 a 38 (el bloque de constantes): es el dato que no puntúa (l02). La suite 6/6 es la que certifica que **ningún cálculo cambió**: mismo `3.5`, ahora con nombre.
+
+## Cómo verificarlo
+
+```bash
+cd src/content/modulos/n2/m3/ejemplos
+node pasos.js    # codigo=0; pasos 1 y 2 con suite 6/6 tras cada uno
+# el paso 3 se aplica en el temporal y se verifica con:
+cd <temporal>/fixture/test && node --test   # tests 6, pass 6, fail 0
+node errores/suite-roja.js                  # codigo=1 con «no se refactoriza con la suite en rojo»
+```
+
+Marcas a capturar: `pasos 1 y 2 en verde` del demo, `tests 6, pass 6, fail 0` y `numerosMagicos 21` del ejercicio.
+
+## Errores comunes
+
+- **Pedir «refactoriza el fichero entero» al asistente**: una petición sin pasos produce un diff que nadie puede revisar ni revertir por partes; si algo falla, toca empezar de cero.
+- **Confundir «se ve verde» con «está verde»**: la suite se corre, no se supone; el protocolo no tiene un paso «revisión visual».
+- **Saltarse el registro**: sin `registro.json` no hay entregable en l06 — el antes/después se prueba con las cifras guardadas.
+- **Refactorizar con el rojo de otro abierto**: el rojo `suite-roja.js` termina en `codigo=1` a propósito; continuar desde ahí mezcla responsabilidades del fallo.
+
+## Fuentes
+
+- **Wikipedia (es) — Refactorización** (https://es.wikipedia.org/wiki/Refactorizaci%C3%B3n): sitúa el refactor como paso previo que facilita añadir comportamiento (consultada el 2026-10-23).
+- **Node.js — Test runner** (https://nodejs.org/api/test.html): documenta el módulo `node:test`, que «facilita la creación de pruebas JavaScript» — es la suite que corre tras cada paso (consultada el 2026-10-23).
+- **Martin Fowler — Refactoring** (https://martinfowler.com/refactoring/): la técnica se presenta como disciplinada; el protocolo es su traducción operativa (consultada el 2026-10-23).
+
+## Siguientes pasos
+
+Los pasos del registro son entradas de un catálogo con nombre: en [l04](/curriculo/n2/m3/l04-catalogo-de-refactorizaciones-extraer-nombrar-eliminar-duplicacion/) aplicas esas entradas —extraer función y nombrar cifras— como herramientas concretas, y ves el rojo de un «refactor» que cambia comportamiento.

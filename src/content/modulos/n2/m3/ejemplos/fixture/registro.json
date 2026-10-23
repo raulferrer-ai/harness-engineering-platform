@@ -1,0 +1,55 @@
+{
+  "descripcion": "Registro del refactor de envios.js: métricas medidas con ../refactor.js tras cada paso del protocolo. La suite corrió 6/6 tras cada paso; el estado final de referencia es despues.js.",
+  "antes": {
+    "lineas": 34,
+    "funcionMasLarga": 34,
+    "numerosMagicos": 32,
+    "anidamientoMax": 3,
+    "lineasDuplicadas": 12
+  },
+  "pasos": [
+    {
+      "paso": 1,
+      "cambio": "extraer redondear(valor) — una responsabilidad, un nombre",
+      "suite": "6/6",
+      "metricas": {
+        "lineas": 36,
+        "funcionMasLarga": 34,
+        "numerosMagicos": 32,
+        "anidamientoMax": 3,
+        "lineasDuplicadas": 12
+      }
+    },
+    {
+      "paso": 2,
+      "cambio": "extraer aplicarExpress(total, express) — el recargo deja de estar incrustado",
+      "suite": "6/6",
+      "metricas": {
+        "lineas": 37,
+        "funcionMasLarga": 32,
+        "numerosMagicos": 32,
+        "anidamientoMax": 3,
+        "lineasDuplicadas": 10
+      }
+    },
+    {
+      "paso": 3,
+      "cambio": "tarifas base y factor express: números mágicos → constantes nombradas",
+      "suite": "6/6",
+      "metricas": {
+        "lineas": 41,
+        "funcionMasLarga": 32,
+        "numerosMagicos": 21,
+        "anidamientoMax": 3,
+        "lineasDuplicadas": 10
+      }
+    }
+  ],
+  "despues": {
+    "lineas": 32,
+    "funcionMasLarga": 16,
+    "numerosMagicos": 0,
+    "anidamientoMax": 2,
+    "lineasDuplicadas": 4
+  }
+}

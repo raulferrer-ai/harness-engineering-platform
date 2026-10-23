@@ -1,0 +1,113 @@
+---
+titulo: "Medir antes: métricas que hacen el «antes/después» falsificable"
+resumen: "Un refactor se demuestra con cifras, no con impresiones: `medir.js` calcula cinco métricas del «antes» (`envios.js`) y del «después» (`despues.js`) y las compara — `función más larga 34→16 · números mágicos 32→0 · anidamiento 3→2 · duplicadas 12→4` con `codigo=0`. En el ejercicio localizas la métrica que más baja (`funcionMasLarga`, −18) y aprendes por qué las líneas totales se reportan pero no puntúan en el veredicto."
+nivel: "n2"
+modulo: "m3"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Ejecutar `medir.js` y leer la tabla de antes y después"
+  - "Nombrar las cinco métricas y qué cuenta cada una"
+  - "Explicar por qué las líneas totales no puntúan en el veredicto"
+  - "Identificar en la tabla la métrica con mayor descenso"
+prerrequisitos:
+  - "n2/m3/l01-refactor-cambiar-la-forma-no-el-comportamiento"
+actualizado: "2026-10-23"
+tags:
+  - "metricas"
+  - "refactor"
+  - "antes-despues"
+fuentes:
+  - titulo: "Martin Fowler — CodeSmell"
+    url: "https://martinfowler.com/bliki/CodeSmell.html"
+    fecha: "2026-10-23"
+  - titulo: "Wikipedia — Code smell"
+    url: "https://en.wikipedia.org/wiki/Code_smell"
+    fecha: "2026-10-23"
+  - titulo: "Refactoring.Guru — What is Refactoring"
+    url: "https://refactoring.guru/refactoring/what-is-refactoring"
+    fecha: "2026-10-23"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Antes de mover una línea se miden las que van a justificar el movimiento. La librería `refactor.js` expone `medir(ruta)` con cinco métricas —líneas, función más larga, números mágicos, anidamiento máximo y líneas duplicadas— y la demo `medir.js` las imprime para `fixture/envios.js` y `fixture/despues.js`: **`función más larga 34→16 · números mágicos 32→0 · anidamiento 3→2 · duplicadas 12→4`**, con veredicto **`mejora — el antes/después son cifras medidas, no una sensación`** y `codigo=0`. En el ejercicio encuentras la métrica que más baja: `funcionMasLarga`, con −18 líneas de función.
+
+## Conceptos
+
+### Cinco métricas y qué cuenta cada una
+
+Las métricas de `medir()` son **heurísticas sobre el texto del módulo**, no un analizador de estilo: sirven para comparar el antes y el después del mismo código con la misma regla. Cada una documenta qué cuenta:
+
+| Métrica            | Qué cuenta (heurística)                                      | Olor que delata                          |
+| ------------------ | ------------------------------------------------------------ | ---------------------------------------- |
+| `lineas`           | Líneas de código: ni vacías, ni comentarios, ni solo signos  | Tamaño (se reporta, no puntúa)           |
+| `funcionMasLarga`  | La función `function nombre(...)` más larga, contando llaves | Funciones que hacen de todo              |
+| `numerosMagicos`   | Literales numéricos (≠0 y ≠1) fuera de líneas de constante   | Cifra sin nombre incrustada en la lógica |
+| `anidamientoMax`   | Profundidad máxima de llaves anidadas                        | Condicionales dentro de condicionales    |
+| `lineasDuplicadas` | Líneas normalizadas que aparecen dos o más veces             | La misma idea escrita N veces            |
+
+Los cuatro últimos son las **métricas de olor** (la lista `OLOR` de `refactor.js`): son las que puntúan el veredicto de `comparar()`. El olor de código tiene definición de manual: Martin Fowler lo describe como «una indicación superficial que usualmente corresponde con un problema más profundo del sistema» (fuente consultada el 2026-10-23) y Wikipedia como «cualquier característica del código fuente que sugiere un problema más profundo», subjetiva según lenguaje y equipo (fuente consultada el 2026-10-23). Las métricas no juzgan el estilo: convierten ese «sugiere» en una cifra comparable.
+
+### Las líneas se reportan pero no puntúan
+
+Extraer funciones casi siempre **añade** líneas (una firma, dos `return`, un comentario). Si el veredicto castigara cualquier subida, ningún refactor pasaría. Por eso `comparar()` en el veredicto usa sólo `OLOR` y la tabla muestra `lineas` como dato: en la demo, `líneas 34→39` en `aplicar.js` convive con `veredicto: mejora sin regresiones — la suite siguió verde`. La regla completa del veredicto es: **las cuatro métricas de olor bajan sin que ninguna suba**, y la suite, aparte, verde.
+
+### El antes y el después del fixture
+
+`fixture/envios.js` es el «antes» (lo que entregó el asistente) y `fixture/despues.js` es la refactorización de referencia del módulo: mismos exports, mismas salidas — verificadas con la suite 6/6 en ambos y con una rejilla de 160 comparaciones sin diferencias—. La demo `medir.js` los compara tal cual:
+
+```text
+métricas antes:   líneas 34 · función más larga 34 · números mágicos 32 · anidamiento 3 · duplicadas 12
+métricas después: líneas 32 · función más larga 16 · números mágicos 0 · anidamiento 2 · duplicadas 4
+comparar: bajan funcionMasLarga, numerosMagicos, anidamientoMax, lineasDuplicadas — ninguna sube (las líneas se reportan pero no puntúan)
+veredicto: mejora — el antes/después son cifras medidas, no una sensación
+```
+
+## Ejercicio
+
+1. Ejecuta la demo desde la carpeta del módulo: `node medir.js`.
+2. Copia las dos tablas (antes y después) en tus notas.
+3. Responde: **¿qué métrica tiene el mayor descenso y de cuánto?** Resta el «después» del «antes» métrica a métrica.
+
+## Solución explicada
+
+Las cinco diferencias, calculadas de la tabla real:
+
+| Métrica            | Antes | Después | Delta     |
+| ------------------ | ----- | ------- | --------- |
+| `lineas`           | 34    | 32      | −2 (dato) |
+| `funcionMasLarga`  | 34    | 16      | **−18**   |
+| `numerosMagicos`   | 32    | 0       | −32       |
+| `anidamientoMax`   | 3     | 2       | −1        |
+| `lineasDuplicadas` | 12    | 4       | −8        |
+
+**Respuesta**: en términos absolutos la mayor caída es `numerosMagicos` (−32, de 32 a 0: todas las cifras quedaron con nombre); la segunda es `funcionMasLarga` (−18). El ejecutar el ejercicio hoy dio exactamente esa tabla con `codigo=0`. Lo importante no es ganar la resta, sino poder **señalar dónde mejoró el código**: la función de 34 líneas que hacía de todo quedó en funciones de 16 como máximo, y ninguna cifra quedó sin nombre en la lógica.
+
+## Cómo verificarlo
+
+```bash
+cd src/content/modulos/n2/m3/ejemplos
+node medir.js    # codigo=0; captura las dos líneas «métricas antes/después»
+```
+
+La marca del ejercicio es la línea `métricas antes:` con `función más larga 34` y la respuesta −18 (`numerosMagicos`, −32, si se cuenta la mayor caída absoluta).
+
+## Errores comunes
+
+- **Comparar ficheros que no son el antes y el después del mismo código**: las métricas sólo significan algo cuando la regla de medida es la misma y el comportamiento es idéntico (l01 y l06 lo exigen aparte).
+- **Tomar las heurísticas como verdad de estilo**: `numerosMagicos` cuenta literales fuera de constantes; un `100` en un `Math.round` cuenta igual que una tarifa. Es una señal para mirar, no un veredicto estético.
+- **Felicitarse por las métricas con la suite roja**: cifras bonitas sin suite verde no certifican nada — lo verás en el rojo `errores/metricas-sin-suite.js` de l06.
+- **Castigar las líneas**: subir de 34 a 39 líneas extrayendo funciones es señal de que el refactor hizo su trabajo, no de que empeoró.
+
+## Fuentes
+
+- **Martin Fowler — CodeSmell** (https://martinfowler.com/bliki/CodeSmell.html): define el code smell como «una indicación superficial que usualmente corresponde con un problema más profundo del sistema» (consultada el 2026-10-23).
+- **Wikipedia — Code smell** (https://en.wikipedia.org/wiki/Code_smell): lo describe como cualquier característica del código que sugiere un problema más profundo, con la subjetividad que implica según lenguaje y metodología (consultada el 2026-10-23).
+- **Refactoring.Guru — What is Refactoring** (https://refactoring.guru/refactoring/what-is-refactoring): sitio que reúne guías sobre refactorización, patrones de diseño y principios SOLID, con el refactor como práctica central (consultada el 2026-10-23).
+
+## Siguientes pasos
+
+Medir sitúa el punto de partida; el movimiento se hace por pasos que la suite valida uno a uno: en [l03](/curriculo/n2/m3/l03-el-protocolo-de-pasos-pequenos-con-el-asistente/) montas el protocolo de pasos pequeños con registro.

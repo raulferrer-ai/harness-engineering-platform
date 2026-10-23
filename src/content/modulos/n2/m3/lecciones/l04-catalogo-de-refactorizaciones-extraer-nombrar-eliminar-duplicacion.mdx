@@ -1,0 +1,142 @@
+---
+titulo: "Catálogo de refactorizaciones: extraer, nombrar, eliminar duplicación"
+resumen: "El catálogo da nombre a los movimientos del refactor: extraer función, nombrar cifras, eliminar duplicación. `aplicar.js` ejecuta dos entradas sobre «envíos» — `catálogo aplicado: nombrar cifras + extraer tramoLigero(pedido) → suite 6/6 — en verde` y `veredicto: mejora sin regresiones` con `codigo=0`—; en el ejercicio extraes `tramoMedio(pedido)` y la función más larga baja de 34 a 28. El rojo `errores/comportamiento-cambiado.js` delata el falso refactor: métricas que mejoran y suite en 4/6."
+nivel: "n2"
+modulo: "m3"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Nombrar las entradas del catálogo usadas en el módulo"
+  - "Aplicar «nombrar cifras» y «extraer función» con la suite verde"
+  - "Extraer el tramo medio como función de intención"
+  - "Detectar el falso refactor que cambia un valor por debajo"
+prerrequisitos:
+  - "n2/m3/l03-el-protocolo-de-pasos-pequenos-con-el-asistente"
+actualizado: "2026-10-23"
+tags:
+  - "catalogo"
+  - "extraer-funcion"
+  - "constantes"
+fuentes:
+  - titulo: "Wikipedia — Code smell"
+    url: "https://en.wikipedia.org/wiki/Code_smell"
+    fecha: "2026-10-23"
+  - titulo: "Refactoring.Guru — What is Refactoring"
+    url: "https://refactoring.guru/refactoring/what-is-refactoring"
+    fecha: "2026-10-23"
+  - titulo: "Martin Fowler — CodeSmell"
+    url: "https://martinfowler.com/bliki/CodeSmell.html"
+    fecha: "2026-10-23"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un catálogo de refactorizaciones es una lista de movimientos **con nombre propio**: «extraer función», «nombrar constantes», «eliminar duplicación». Nombrarlos importa porque convierte «limpia esto» en un encargo verificable para el asistente y en una entrada de `registro.json`. La demo `aplicar.js` aplica dos entradas sobre «envíos» y cierra con **`catálogo aplicado: nombrar cifras + extraer tramoLigero(pedido) → suite 6/6 — en verde`** y **`veredicto: mejora sin regresiones — la suite siguió verde`**, `codigo=0`. En el ejercicio extraes el tramo medio y la función más larga baja de 34 a 28 líneas con la suite en verde.
+
+## Conceptos
+
+### El catálogo como vocabulario común
+
+Wikipedia describe el code smell como «cualquier característica del código fuente que sugiere un problema más profundo» (fuente consultada el 2026-10-23); el catálogo es la contraparte: **qué hacer con cada olor**. Refactoring.Guru reúne ese conocimiento —guías de refactorización y patrones con nombre— (fuente consultada el 2026-10-23), y Martin Fowler insiste en que los olores no son defectos, son «indicaciones superficiales» (fuente consultada el 2026-10-23). Este módulo usa tres entradas, cada una contra su olor:
+
+| Entrada del catálogo                          | Olor que ataca                | En «envíos»                                              |
+| --------------------------------------------- | ----------------------------- | -------------------------------------------------------- |
+| Nombrar cifras (números mágicos → constantes) | Cifra sin nombre en la lógica | `3.5` → `TARIFA_BASE_NACIONAL`, `1.5` → `FACTOR_EXPRESS` |
+| Extraer función                               | Función que hace de todo      | El tramo ligero pasa a `tramoLigero(pedido)`             |
+| Eliminar duplicación                          | La misma idea escrita N veces | `if (pedido.zona === …)` repetido en cada tramo          |
+
+Las dos primeras se aplican juntas en la demo; la tercera la verás completa en `fixture/despues.js`, donde la comprobación por zona vive en `tarifaPorZona()` y se reutiliza en los tres tramos.
+
+### Extraer función: el corte exacto
+
+Extraer no es cortar donde caiga: la función nueva recibe **los datos que necesita** (aquí, `pedido`), **devuelve lo que la línea original sumaba** y el punto de extracción queda **una línea** que se lee como la intención (`total = total + tramoLigero(pedido);`). Los nombres son la mitad del trabajo: `tramoLigero` dice qué es el tramo (peso ≤ 1), no cómo se calcula. La demo aplica nombrar cifras y extraer el tramo ligero sobre una copia temporal:
+
+```text
+catálogo aplicado: nombrar cifras + extraer tramoLigero(pedido) → suite 6/6 — en verde
+métricas: función más larga 34→28, números mágicos 32→21, duplicadas 12→10, líneas 34→39
+veredicto: mejora sin regresiones — la suite siguió verde
+```
+
+Fíjate en `líneas 34→39`: el refactor **añade** cinco líneas y aun así mejora — la regla de l02 (las líneas no puntúan) en acción, con la suite 6/6 detrás.
+
+### El falso refactor: métricas arregladas, comportamiento tocado
+
+`errores/comportamiento-cambiado.js` extrae `aplicarExpress` como en el protocolo, pero con el factor cambiado de `1.5` a `1.6` dentro de la función nueva. Las métricas mejoran de verdad y la suite se cae de verdad:
+
+```text
+métricas: función más larga 34→32, duplicadas 12→10 — parecería una mejora
+✗ esto no es refactor: la suite pasó de 6/6 verdes a 4/6 — el recargo ahora multiplica por 1,6 y eso es cambio de comportamiento
+```
+
+con `codigo=1`. El catálogo se aplica **moviendo estructura, nunca valores**: cualquier cifra que quede distinta no es una entrada del catálogo, es otra cosa.
+
+## Ejercicio
+
+Sobre `fixture/` copiado a un temporal, extrae el **tramo medio** (peso ≤ 5):
+
+1. Sustituye el bloque del `else if (pedido.peso <= 5)` —los tres `if` de zona— por una línea:
+
+```js
+total = total + tramoMedio(pedido);
+```
+
+2. Declara la función nueva (conservando los cálculos tal cual):
+
+```js
+function tramoMedio(pedido) {
+  if (pedido.zona === "nacional") {
+    return 3.5 + (pedido.peso - 1) * 1.2;
+  }
+  if (pedido.zona === "europea") {
+    return 5.9 + (pedido.peso - 1) * 1.8;
+  }
+  return 9.9 + (pedido.peso - 1) * 2.5;
+}
+```
+
+3. Corre la suite: `tests 6, pass 6, fail 0`.
+4. Mide con `medir()` y anota `funcionMasLarga`, `lineasDuplicadas` y `lineas`.
+
+## Solución explicada
+
+La extracción respeta las tres condiciones del catálogo: mismos cálculos (los literales y el `(pedido.peso - 1)` se copian sin tocar), la línea del punto de extracción se lee como intención, y la función recibe exactamente lo que usa. El bloque original comparte línea con el siguiente `else if`: hay que **mantener la estructura condicional** — la extracción reemplaza el interior del `if`, no el `else if` que lo sigue. La ejecución literal del ejercicio dio:
+
+```text
+función más larga 34→28, duplicadas 12→10, líneas 34→35
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0
+```
+
+`funcionMasLarga` baja 6 líneas porque el tramo medio salió de `costeEnvio`; `duplicadas` baja porque los `if` de zona ahora viven en un solo sitio; `lineas` sube una por la firma nueva. Con el tramo ligero de la demo y este, `costeEnvio` ya sólo orquesta: queda el tramo pesado como asimetría pendiente para una siguiente pasada — el refactor es un camino, no un acto.
+
+## Cómo verificarlo
+
+```bash
+cd src/content/modulos/n2/m3/ejemplos
+node aplicar.js                     # codigo=0; dos entradas del catálogo con suite 6/6
+# el ejercicio se aplica en el temporal y se verifica con:
+cd <temporal>/fixture/test && node --test   # tests 6, pass 6, fail 0
+node errores/comportamiento-cambiado.js     # codigo=1; el falso refactor en 4/6
+```
+
+Marcas a capturar: `veredicto: mejora sin regresiones` del demo, `función más larga 34→28` del ejercicio y el `✗` de `comportamiento-cambiado.js`.
+
+## Errores comunes
+
+- **Extraer sin nombre de intención**: `funcion2(pedido)` o `calcular(pedido)` no dicen nada; el nombre es la mitad del valor del refactor.
+- **Extraer y arreglar a la vez**: al copiar el bloque a la función nueva, la tentación de «mejorar» un cálculo rompe el contrato — el `1.6` del rojo es ese impulso llevado al código.
+- **Cortar mal el condicional**: el `}` del primer tramo comparte línea con `else if`; un reemplazo que se lo come produce `SyntaxError: Unexpected token 'else'` — como le pasó a la primera versión de la propia demo del módulo.
+- **Nombrar constantes con nombres de relleno**: `DOS`, `C1`, `VALOR` no eliminan el olor: renombrar cifras es darle a cada una el significado que ya tenía en la lógica.
+
+## Fuentes
+
+- **Wikipedia — Code smell** (https://en.wikipedia.org/wiki/Code_smell): define el olor como característica que sugiere un problema más profundo (consultada el 2026-10-23).
+- **Refactoring.Guru — What is Refactoring** (https://refactoring.guru/refactoring/what-is-refactoring): guías de refactorización y patrones con nombre —el catálogo como vocabulario (consultada el 2026-10-23).
+- **Martin Fowler — CodeSmell** (https://martinfowler.com/bliki/CodeSmell.html): «indicación superficial» que corresponde a un problema más profundo; el catálogo es la respuesta (consultada el 2026-10-23).
+
+## Siguientes pasos
+
+El catálogo mueve estructura con la suite detrás, pero ¿y si la suite está verde y aun así no fija el comportamiento? En [l05](/curriculo/n2/m3/l05-la-suite-verde-que-no-fija-nada-huecos-y-pruebas-de-caracterizacion/) abres ese hueco y lo cierras con pruebas de caracterización.
