@@ -1,0 +1,35 @@
+{
+  "feature": "contrasena",
+  "ciclos": [
+    {
+      "prueba": "esValida: una clave corta no vale",
+      "rojo": "tests 1, fail 1 — Error: sin implementar (el esqueleto no decidía nada)",
+      "verde": "pass 1 — el corte por longitud entró: «Ab1» (3) queda fuera"
+    },
+    {
+      "prueba": "esValida: nueve minúsculas sin dígito no valen",
+      "rojo": "tests 2, fail 1 — AssertionError: true !== false (sólo miraba la longitud)",
+      "verde": "pass 2 — la regla de dígito entró: «abcdefghi» → false"
+    },
+    {
+      "prueba": "esValida: con dígito pero sin mayúscula no vale",
+      "rojo": "tests 3, fail 1 — AssertionError: true !== false (el dígito tapaba la mayúscula)",
+      "verde": "pass 3 — la regla de mayúscula entró: «abcdefgh1» → false"
+    },
+    {
+      "prueba": "esValida: la forma canónica vale en el límite",
+      "rojo": "tests 4, fail 1 — AssertionError: false !== true (exactamente 8 caía fuera: el corte era > 8)",
+      "verde": "pass 4 — el corte corregido: > 8 → >= 8"
+    },
+    {
+      "prueba": "esValida: una entrada que no es texto no vale",
+      "rojo": "tests 5, fail 1 — TypeError: Cannot read properties of null (reading 'length')",
+      "verde": "pass 5 — guardia de tipo: lo que no es texto, no vale"
+    },
+    {
+      "prueba": "incumplidas: nombra las reglas rotas y las que cumplen",
+      "rojo": "tests 6, fail 1 — Error: sin implementar (incumplidas existía pero no decidía)",
+      "verde": "pass 6 — tabla de reglas y delegación: esValida consulta a incumplidas"
+    }
+  ]
+}

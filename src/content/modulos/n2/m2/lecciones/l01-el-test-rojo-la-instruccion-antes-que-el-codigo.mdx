@@ -1,0 +1,166 @@
+---
+titulo: "El test rojo: la instrucción antes que el código"
+resumen: "El test rojo se escribe antes que el código: es el encargo que se le entrega al asistente y su fallo, la primera luz de la feature. Ejecutas `rojo.js` contra el esqueleto de «contrasena» y ves `rojo: 6 pruebas en rojo de 6 — la suite ya dice qué falta antes de escribir el código` con `codigo=0`; después añades la séptima prueba —«un espacio en medio no vale»— sin tocar la implementación y `node --test` queda en `tests 7, pass 6, fail 1` con `AssertionError: true !== false`, `codigo=1`: el rojo se queda puesto a propósito."
+nivel: "n2"
+modulo: "m2"
+orden: 1
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Explicar por qué el test rojo se escribe antes que la implementación"
+  - "Ejecutar `rojo.js` y leer su veredicto «rojo genuino»"
+  - "Añadir una prueba nueva al suite sin tocar la implementación"
+  - "Distinguir el rojo (el encargo) del verde (la respuesta al encargo)"
+prerrequisitos:
+  - "n2/m1/l06-entregable-funcionalidad-entregada-con-su-spec-y-sus-tests"
+actualizado: "2026-10-22"
+tags:
+  - "tdd"
+  - "rojo"
+  - "pruebas-primero"
+fuentes:
+  - titulo: "Wikipedia — Test-driven development"
+    url: "https://en.wikipedia.org/wiki/Test-driven_development"
+    fecha: "2026-10-22"
+  - titulo: "Martin Fowler — TestDrivenDevelopment"
+    url: "https://martinfowler.com/bliki/TestDrivenDevelopment.html"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+En TDD el **test rojo va primero**: se escribe la prueba que pide el comportamiento nuevo y se verifica que falla antes de escribir una sola línea de código que lo cumpla (fuente consultada el 2026-10-22). Ese fallo es el encargo exacto que se le entrega al asistente. La demo `rojo.js` sustituye `feature/contrasena.js` por su esqueleto y cierra con **`rojo: 6 pruebas en rojo de 6 — la suite ya dice qué falta antes de escribir el código`** y `codigo=0`. En el ejercicio añades una séptima prueba —«un espacio en medio no vale»— **sin tocar la implementación**: `node --test` responde `tests 7, pass 6, fail 1` con `AssertionError … true !== false` y `codigo=1`. El rojo queda puesto a propósito: es el trabajo en curso.
+
+## Conceptos
+
+### Tres pasos que se repiten
+
+El desarrollo guiado por pruebas describe el ciclo con exactitud: «en primer lugar, se escribe una prueba y se verifica que la nueva prueba falla. A continuación, se implementa el código que hace que la prueba pase satisfactoriamente y seguidamente se refactoriza el código» (fuente consultada el 2026-10-22). Martin Fowler lo resume como **Red - Green - Refactor** y advierte que el paso más esquivado es el tercero (fuente consultada el 2026-10-22):
+
+| Paso     | Quién escribe qué                                 | Señal que lo cierra            |
+| -------- | ------------------------------------------------- | ------------------------------ |
+| Rojo     | Tú escribes la prueba; nadie escribe código       | La prueba falla (y es genuina) |
+| Verde    | El asistente escribe lo mínimo que la prueba pide | `pass` igual a `tests`         |
+| Refactor | Se reorganiza sin cambiar comportamiento          | La misma suite, el mismo verde |
+
+La lección se queda en el rojo: el verde llega en l03 y el refactor en l05. Aquí sólo se fija la costumbre que ordena todo lo demás — **primero el test**.
+
+### El rojo como contrato de lo que se pide
+
+Sin test previo, el encargo al asistente es una frase («haz un validador de contraseñas») y la respuesta es opinable. Con el test rojo, el encargo es un fichero que se ejecuta: `feature/test/contrasena.test.js` declara los casos y el esqueleto — `feature/esqueleto.js`, las dos funciones del contrato existiendo pero lanzando `Error: sin implementar` — garantiza que el primer fallo es de **comportamiento**, no de carga (l02). La demo `rojo.js` corre la suite contra ese esqueleto en una copia temporal:
+
+```text
+rojo: 6 pruebas en rojo de 6 — la suite ya dice qué falta antes de escribir el código
+rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento
+codigo=0
+```
+
+`codigo=0` no dice que la feature esté bien: dice que el rojo salió como debía. El veredicto de la demo es «la suite está entera en rojo y lo dice con pruebas ejecutadas», que es exactamente el estado del que arranca el asistente.
+
+## Ejercicio
+
+Añade la séptima prueba a la feature —una regla nueva, «sin espacios», que hoy no se comprueba— y déjala en rojo **sin tocar la implementación**. Desde la carpeta `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/feature" "$TALLER/"
+cd "$TALLER/feature"
+perl -0pi -e 's/  \}\);\n\}\);/  });\n\n  it("esValida: un espacio en medio no vale", () => {\n    assert.strictEqual(esValida("Abc def1"), false);\n  });\n});/' test/contrasena.test.js
+node --test; echo "codigo=$?"
+cd "$ORIG"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- los seis primeros casos aparecen con `✔` y el nuevo con `✖ esValida: un espacio en medio no vale`;
+- el resumen dice `ℹ tests 7`, `ℹ pass 6`, `ℹ fail 1` y el detalle es `AssertionError [ERR_ASSERTION] … true !== false` → `codigo=1`;
+- `feature/contrasena.js` del taller sigue intacto: el rojo es el encargo que cerrarás en l03.
+
+Pista: el `perl` sólo casa con el cierre del bloque `describe` (`  });` seguido de `});`). Si el patrón no coincide, la prueba no se añade y la suite sale verde con `codigo=0` — ese `0` te delataría.
+
+## Solución explicada
+
+Salida real del taller temporal (borrado con `rm -rf "$TALLER"` tras la ejecución; Node v24.22.0, 2026-10-22):
+
+```text
+▶ contrasena
+  ✔ esValida: una clave corta no vale (1.214125ms)
+  ✔ esValida: nueve minúsculas sin dígito no valen (0.093458ms)
+  ✔ esValida: con dígito pero sin mayúscula no vale (0.051916ms)
+  ✔ esValida: la forma canónica vale en el límite (0.045416ms)
+  ✔ esValida: una entrada que no es texto no vale (0.049625ms)
+  ✔ incumplidas: nombra las reglas rotas y las que cumplen (0.9935ms)
+  ✖ esValida: un espacio en medio no vale (0.371875ms)
+✖ contrasena (3.589708ms)
+ℹ tests 7
+ℹ pass 6
+ℹ fail 1
+
+✖ failing tests:
+
+test at test/contrasena.test.js:34:3
+✖ esValida: un espacio en medio no vale (0.371875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  true !== false
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **El fallo es de comportamiento**: `true !== false` dice que `esValida("Abc def1")` devolvió `true` — la implementación no conoce la regla de espacios y la prueba sí. Ése es el contenido del encargo.
+2. **La suite entera se ejecutó**: `tests 7` con `pass 6` significa que las seis pruebas previas siguen verdes — el rojo nuevo no rompió nada de lo ya acordado.
+3. **No se tocó `contrasena.js`**: resistir la tentación de «arreglarlo ya» es la disciplina de la lección. El rojo se queda documentado para que l03 lo cierre con código mínimo.
+
+Errores típicos al resolverlo:
+
+- **Añadir la prueba y correr a implementarla**: si tocas `contrasena.js`, el ejercicio ya no demuestra el primer rojo; además pierdes la evidencia de que el test pide algo que el código no sabe.
+- **Insertar el `it` fuera del bloque `describe`**: el fichero no carga y Node responde con un `SyntaxError` de archivo — eso no es este rojo; es el «rojo falso» de l02.
+- **Ejecutar el `perl` desde otra carpeta**: si no estás en `$TALLER/feature`, la ruta `test/contrasena.test.js` no existe, el fichero no cambia y `node --test` cierra en verde con `codigo=0`.
+
+## Cómo verificarlo
+
+1. Prepara el taller con la `feature/` intacta (comandos del ejercicio).
+
+2. Añade la prueba con el `perl` y ejecuta la suite:
+
+   ```sh
+   node --test; echo "codigo=$?"
+   ```
+
+   Esperado: el `✖` de la prueba nueva, `ℹ tests 7`, `ℹ pass 6`, `ℹ fail 1` y `codigo=1`.
+
+3. Comprueba que la implementación no cambió:
+
+   ```sh
+   grep -c "includes" contrasena.js; echo "codigo=$?"
+   ```
+
+   Esperado: `0` (la regla de espacios no está en el código) — el rojo vive sólo en el test.
+
+4. Comprueba que el estado es el mismo que produce la demo de la lección:
+
+   ```sh
+   node rojo.js; echo "codigo=$?"
+   ```
+
+   Esperado: `rojo: 6 pruebas en rojo de 6 — …` y `rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento`, con `codigo=0`.
+
+## Errores comunes
+
+- **Confundir «está en rojo» con «está roto»**: el rojo es el estado correcto de una feature a mitad de encargo. Lo que hay que revisar es _que el rojo sea del comportimiento correcto_ — eso es l02.
+- **Escribir la prueba después del código**: si el código llega primero, el test se escribe para validar lo ya hecho y el asistente pierde el límite: ya hizo todo lo que quiso.
+- **Dejar el rojo sin nombre descriptivo**: el título `esValida: un espacio en medio no vale` es la mitad del contrato; con `test 7` como nombre, ni el registro de l04 ni la revisión humana sabrían qué se pidió.
+- **Añadir varios tests de golpe**: TDD avanza un comportamiento por rojo (un test, un ciclo). Cuatro rojos nuevos a la vez no son cuatro encargos: son uno difuso.
+
+## Fuentes
+
+- [Wikipedia: Test-driven development](https://en.wikipedia.org/wiki/Test-driven_development) — consultado el 2026-10-22. El ciclo y su linaje: TDD se apoya en el _test-first programming_ de la programación extrema (1999) y Kent Beck lo describe como algo que «fomenta diseños sencillos y inspira confianza».
+- [Martin Fowler: TestDrivenDevelopment](https://martinfowler.com/bliki/TestDrivenDevelopment.html) — consultado el 2026-10-22. Los tres pasos «Red - Green - Refactor», el paso inicial de listar casos de prueba y la ventaja de pensar el test primero: obliga a decidir la interfaz antes que la implementación.
+
+## Siguientes pasos
+
+- Vuelve a ejecutar `node rojo.js` y guarda el `codigo=0`: esa es la primera luz de la feature — un rojo completo y genuino.
+- Siguiente lección: [Rojo genuino, rojo falso: qué prueba está fallando](/curriculo/n2/m2/l02-rojo-genuino-rojo-falso-que-prueba-esta-fallando/) — no todo rojo cuenta lo mismo: si la suite muere al cargar, ninguna prueba se ejecutó y el fallo no es evidencia de nada.
