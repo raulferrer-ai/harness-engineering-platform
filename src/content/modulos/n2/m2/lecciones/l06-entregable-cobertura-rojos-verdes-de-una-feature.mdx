@@ -1,0 +1,159 @@
+---
+titulo: "Entregable: cobertura de tests rojos→verdes en una feature"
+resumen: "La entrega se certifica con las tres condiciones juntas y ninguna opcional: suite en verde, cobertura rojos→verdes completa y ninguna exportación sin prueba que la pida. La demo `entregable.js` cierra con `✓ suite: 6 pruebas en verde`, `✓ cobertura rojos→verdes: 6/6 pruebas con su ciclo`, `✓ alcance: 2 funciones exportadas, todas probadas` y `entregable: cobertura de tests rojos→verdes completa — …`, `codigo=0`; en el ejercicio borras una prueba con un `perl` y la suite se queda en `verde: 5 pruebas en verde` mientras el certificador responde `✗ prueba borrada del suite, su ciclo sigue en el registro` y `entregable NO válido: 1 incidencias`, `codigo=1`."
+nivel: "n2"
+modulo: "m2"
+orden: 6
+dificultad: "avanzado"
+tiempoEstimado: 60
+objetivos:
+  - "Certificar la feature con las tres condiciones de `certificar`"
+  - "Simular un «verde trampa» borrando una prueba con `perl`"
+  - "Leer la incidencia que cruza registro y suite y explicar por qué el verde engaña"
+  - "Entregar la feature con su cobertura rojos→verdes completa"
+prerrequisitos:
+  - "n2/m2/l05-refactor-sin-salir-del-verde"
+actualizado: "2026-10-22"
+tags:
+  - "tdd"
+  - "entregable"
+  - "verificacion"
+fuentes:
+  - titulo: "Wikipedia — Pruebas de software"
+    url: "https://es.wikipedia.org/wiki/Pruebas_de_software"
+    fecha: "2026-10-22"
+  - titulo: "Wikipedia — Test-driven development"
+    url: "https://en.wikipedia.org/wiki/Test-driven_development"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La feature se entrega cuando `certificar()` cierra **tres condiciones y ninguna opcional**: la suite en verde (lo que se pidió funciona), la cobertura rojos→verdes completa (cada prueba pasó por su ciclo) y el alcance cerrado (ninguna exportación sin prueba). Sobre la feature intacta, `entregable.js` imprime los tres `✓` y **`entregable: cobertura de tests rojos→verdes completa — suite verde, ciclos cerrados, alcance sin sobrantes`** con `codigo=0`. El ejercicio demuestra por qué hace falta cruzar: borras una prueba con un `perl` y la suite se queda **`verde: 5 pruebas en verde — la suite se ve sana`**, pero el certificador devuelve `✗ prueba borrada del suite, su ciclo sigue en el registro: esValida: una entrada que no es texto no vale` y `entregable NO válido: 1 incidencias`, `codigo=1`. El verde sólo se acepta cruzado.
+
+## Conceptos
+
+### Verificación y validación del entregable
+
+Las pruebas de software separan dos preguntas: la verificación («¿estamos construyendo el producto correctamente?») y la validación («¿estamos construyendo el producto correcto?») — CMMI, recogido por Wikipedia (consultada el 2026-10-22). `certificar()` es una batería de verificación ejecutable: no opina sobre si la feature es la que hacía falta —eso lo decidió el plan y la spec de `n2/m1`—; comprueba que **lo que se pidió por test llegó entero, en el orden acordado y sin añadidos**. Las tres condiciones, con la salida real de la demo (Node v24.22.0, 2026-10-22):
+
+```text
+ ✓ suite: 6 pruebas en verde
+ ✓ cobertura rojos→verdes: 6/6 pruebas con su ciclo
+ ✓ alcance: 2 funciones exportadas, todas probadas
+entregable: cobertura de tests rojos→verdes completa — suite verde, ciclos cerrados, alcance sin sobrantes
+codigo=0
+```
+
+Cada condición es una luz independiente que ya tuvo su lección: la suite (l01–l03), la cobertura (l04) y el alcance (l03). Ninguna cubre a las otras — y por eso la entrega exige las tres a la vez.
+
+### El verde que se gana solo
+
+La trampa clásica del asistente no es fallar: es **hacer que el rojo desaparezca tocando el test**. Borrar la prueba incómoda deja la suite en verde y el código igual. El certificador no mira el verde de la suite en aislamiento: cruza el fichero de tests con `registro.json`, que sigue declarando el ciclo de la prueba borrada. En el ejercicio, la primera ejecución cierra válida (`codigo=0`) y tras el borrado:
+
+```text
+verde: 5 pruebas en verde — la suite se ve sana
+ ✓ suite: 5 pruebas en verde
+ ✓ alcance: 2 funciones exportadas, todas probadas
+ ✗ prueba borrada del suite, su ciclo sigue en el registro: esValida: una entrada que no es texto no vale
+entregable NO válido: 1 incidencias
+codigo=1
+```
+
+La suite pasó su propia comprobación (`✓ suite: 5 pruebas en verde`) y aun así la entrega no cierra: **un verde sin su registro no es un entregable, es una ausencia**. El límite honesto: si en vez de borrar la prueba debilitas su aserción, los tres checks pasan — el registro y el cruce son guardias, no sustitutos de la revisión del diff (esa revisión fue `n1/m3`).
+
+## Ejercicio
+
+Certifica la feature intacta, bórrale una prueba con un `perl` y vuelve a certificar: la suite se verá sana y la entrega no. Desde `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/feature" "$ORIG/tdd.js" "$ORIG/entregable.js" "$TALLER/"
+cd "$TALLER"
+node entregable.js; echo "codigo=$?"
+perl -0pi -e 's/  it\("esValida: una entrada que no es texto no vale", \(\) => \{\n    assert\.strictEqual\(esValida\(null\), false\);\n  \}\);\n\n//' feature/test/contrasena.test.js
+node entregable.js; echo "codigo=$?"
+cd "$ORIG"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución imprime los tres `✓` y `entregable: cobertura de tests rojos→verdes completa — …` → `codigo=0`;
+- tras el `perl`, la segunda muestra `✓ suite: 5 pruebas en verde` **junto con** `✗ prueba borrada del suite, su ciclo sigue en el registro: esValida: una entrada que no es texto no vale` y `entregable NO válido: 1 incidencias` → `codigo=1`;
+- puedes explicar cuál de las tres condiciones se rompió y por qué la suite sola no lo vio.
+
+Pista: el `perl` retira el bloque completo de la prueba (cabecera, aserción y cierre) con su línea en blanco. Si el patrón no casa, la prueba sigue ahí, las dos ejecuciones dan `codigo=0` y no se habrá simulado nada — el `1` de la segunda es la prueba de que el borrado fue real.
+
+## Solución explicada
+
+Salida real del taller temporal (borrado tras la ejecución; Node v24.22.0, 2026-10-22). Feature intacta:
+
+```text
+ ✓ suite: 6 pruebas en verde
+ ✓ cobertura rojos→verdes: 6/6 pruebas con su ciclo
+ ✓ alcance: 2 funciones exportadas, todas probadas
+entregable: cobertura de tests rojos→verdes completa — suite verde, ciclos cerrados, alcance sin sobrantes
+codigo=0
+```
+
+Tras borrar la prueba:
+
+```text
+verde: 5 pruebas en verde — la suite se ve sana
+ ✓ suite: 5 pruebas en verde
+ ✓ alcance: 2 funciones exportadas, todas probadas
+ ✗ prueba borrada del suite, su ciclo sigue en el registro: esValida: una entrada que no es texto no vale
+entregable NO válido: 1 incidencias
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **La condición de suite se cumplió**: `✓ suite: 5 pruebas en verde` es literalmente cierto — cinco pruebas, todas en verde. La trampa funciona _dentro_ de cada luz; es el cruce entre luces la que la desmonta.
+2. **La incidencia nombra la prueba ausente**: `cobertura()` detecta el ciclo `fueraDelSuite` — el registro declara «una entrada que no es texto no vale» y el fichero de tests ya no la tiene. El diagnóstico es «alguien la borró», no «falta algo».
+3. **La entrega se niega entera**: `certificar` no devuelve un veredicto a medias; con una incidencia, `entregable.js` sale en `codigo=1`. Mismo criterio de m1: o el contrato está cerrado o no lo está.
+
+Errores típicos al resolverlo:
+
+- **Borrar la prueba «de verdad» en el repositorio**: el ejercicio trabaja en un taller temporal; la feature de `ejemplos/` debe seguir con sus 6 pruebas y su `6/6` — es el objeto que certifican las demos.
+- **Leer `NO válido: 1 incidencias` como error del script**: la incidencia es el hallazgo; el código `1` es el veredicto. Un certificador que saliera en `0` con incidencias no serviría para automatizar nada.
+- **Aceptarse con «5 de 6, casi»**: la condición es cobertura completa — `cubiertas == total` y nada fuera del suite. «Casi» no es entregable: la feature se pidió con seis encargos, no con cinco y un perdido.
+- **Dejar de confiar en la suite**: el ejercicio no demuestra que la suite sea inútil, demuestra que es **insuficiente sola**. Sigue siendo la luz más rápida del sistema (l01–l03).
+
+## Cómo verificarlo
+
+1. Prepara el taller con `feature/`, `tdd.js` y `entregable.js` (comandos del ejercicio).
+
+2. Certifica la feature intacta:
+
+   ```sh
+   node entregable.js; echo "codigo=$?"
+   ```
+
+   Esperado: los tres `✓`, la línea `entregable: cobertura de tests rojos→verdes completa — …` y `codigo=0`.
+
+3. Borra la prueba con el `perl` y vuelve a certificar:
+
+   Esperado: `✓ suite: 5 pruebas en verde`, `✗ prueba borrada del suite, su ciclo sigue en el registro: esValida: una entrada que no es texto no vale`, `entregable NO válido: 1 incidencias` y `codigo=1`.
+
+4. Comprueba que la feature del repositorio no se tocó: `node entregable.js` en `ejemplos/` sigue dando los tres `✓` y `codigo=0`.
+
+## Errores comunes
+
+- **Entregar con la suite verde y el registro sucio**: verde sin cobertura es «funciona hoy, no se pidió ayer»; el entregable del módulo es la cobertura **y** el verde juntos.
+- **Cerrar ciclos falsos para rellenar**: copiar el `rojo`/`verde` de otra prueba machaca la evidencia — el registro sólo sirve si cada entrada describe su propio ciclo (los de la fixture se generaron ejecutándolos).
+- **Ignorar `fueraDelSuite`**: es la incidencia que revela borrados; un cruce que sólo mirara lo que falta en el registro no distinguiría «prueba nueva sin ciclo» (l04) de «prueba eliminada» (aquí).
+- **Afirmar que los tres checks lo detectan todo**: no lo hacen — una aserción debilitada pasa los tres. La entrega combina ejecución automática con revisión humana del diff; ninguna sustituye a la otra.
+
+## Fuentes
+
+- [Wikipedia: Pruebas de software](https://es.wikipedia.org/wiki/Pruebas_de_software) — consultado el 2026-10-22. La distinción verificación/validación (CMMI) y el mapa de niveles (unitarias, integración, sistema, aceptación) donde se sitúa esta suite: pruebas unitarias de caja blanca.
+- [Wikipedia: Test-driven development](https://en.wikipedia.org/wiki/Test-driven_development) — consultado el 2026-10-22. El ciclo completo como disciplina: TDD se apoya en el _test-first_ de la programación extrema (1999) y Kent Beck lo describe como técnica que «fomenta diseños sencillos y inspira confianza» — el entregable de este módulo es esa confianza, comprobable.
+
+## Siguientes pasos
+
+- Ejecuta `node entregable.js` una última vez sobre `ejemplos/` y guarda los tres `✓`: esa batería es la que cerrarás también en el entregable del módulo.
+- Siguiente módulo: `n2/m3` «Refactor asistido sin regresiones» — el paso refactor crece a proyecto completo: mejorar código existente con la suite verde de testigo.

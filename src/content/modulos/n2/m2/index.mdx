@@ -5,5 +5,24 @@ modulo: "m2"
 objetivos:
   - "Usar TDD para dirigir y limitar lo que la IA genera"
 entregable: "Cobertura de tests rojos→verdes en una feature"
-actualizado: "2026-10-19"
+actualizado: "2026-10-22"
 ---
+
+## Para quién es este módulo
+
+Tras `n2/m1` sabes ejecutar el ciclo AI-native completo: plan, spec, implementación y verificación sobre una funcionalidad real. Este módulo invierte el orden de mando dentro de ese ciclo: **el test manda**. El TDD — rojo, verde, refactor — es el instrumento que convierte la suite en el encargo que se le entrega al asistente y en el límite de lo que puede generar: nada entra en el código sin una prueba que lo pida, y nada entrega la feature sin haber pasado por rojo. La mini-feature es «reglas de contraseña» — `esValida(contrasena)` e `incumplidas(contrasena)` con tres reglas (longitud, dígito, mayúscula) — construida de verdad con seis ciclos rojos→verdes cuyo registro se conserva en `registro.json`. Aprendes a escribir el test antes que el código (l01), a distinguir un rojo genuino de un rojo falso (l02), a cerrar el verde con el mínimo y a rechazar lo sobrante (l03), a medir la cobertura de ciclos (l04), a reorganizar sin perder el verde (l05) y a certificar la entrega entera (l06). Público objetivo: quien cierra `n2/m1/l06` con su funcionalidad certificada. Duración estimada: unas 5 horas repartidas. Solo librería estándar, sin red ni claves: todo se ejecuta en local con `node --test`.
+
+## Cómo se cierra el módulo
+
+Entregas **la cobertura de tests rojos→verdes de una feature**: `feature/` con `test/contrasena.test.js` (las 6 pruebas que se escribieron primero), `contrasena.js` (la implementación que llegaron a exigir), `esqueleto.js` (el estado previo al primer rojo) y `registro.json` (los 6 ciclos con el rojo y el verde que se vieron en cada paso). La carpeta `ejemplos/` reúne la librería `tdd.js` — que ejecuta la suite, clasifica rojos, cruza registro y tests, mide el alcance y certifica el conjunto — y **6 demos verdes**, una por lección: la demostradora del primer rojo, la clasificadora de rojos, la del verde mínimo y el alcance, la de cobertura, la del refactor y la certificadora del entregable. Los **4 rojos deliberados** demuestran los modos de fallo del método: un rojo falso por import roto, una función fuera del alcance de los tests, un ciclo sin cerrar y un verde trampa conseguido borrando una prueba. Todo se ejecuta offline: los talleres temporales de los ejercicios se crean y se borran en cada ejecución.
+
+## Lecciones
+
+| #   | Lección                                                                                                                              | Tiempo |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 1   | [El test rojo: la instrucción antes que el código](/curriculo/n2/m2/l01-el-test-rojo-la-instruccion-antes-que-el-codigo/)            | 45 min |
+| 2   | [Rojo genuino, rojo falso: qué prueba está fallando](/curriculo/n2/m2/l02-rojo-genuino-rojo-falso-que-prueba-esta-fallando/)         | 45 min |
+| 3   | [Verde mínimo: implementar sólo lo que los tests piden](/curriculo/n2/m2/l03-verde-minimo-implementar-solo-lo-que-los-tests-piden/)  | 50 min |
+| 4   | [La cobertura rojos→verdes: cada prueba con su ciclo](/curriculo/n2/m2/l04-la-cobertura-rojos-verdes-cada-prueba-con-su-ciclo/)      | 50 min |
+| 5   | [Refactor sin salir del verde](/curriculo/n2/m2/l05-refactor-sin-salir-del-verde/)                                                   | 55 min |
+| 6   | [Entregable: cobertura de tests rojos→verdes en una feature](/curriculo/n2/m2/l06-entregable-cobertura-rojos-verdes-de-una-feature/) | 60 min |

@@ -1,0 +1,165 @@
+---
+titulo: "La cobertura rojos→verdes: cada prueba con su ciclo"
+resumen: "Un suite verde no prueba que los tests se escribieran antes que el código: eso lo demuestra `feature/registro.json`, donde cada prueba declara su rojo y su verde, y `cobertura()` lo cruza con los títulos del fichero de tests. La demo `cobertura.js` sobre la feature real lista los seis ciclos y cierra `cobertura rojos→verdes: 6/6 pruebas con su ciclo`, `codigo=0`; en el ejercicio añades la séptima prueba sin su ciclo y el mismo script responde `cobertura rojos→verdes: 6/7 pruebas con su ciclo` con `✗ prueba sin ciclo en el registro: esValida: un espacio en medio no vale`, `codigo=1`."
+nivel: "n2"
+modulo: "m2"
+orden: 4
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Leer `registro.json` y cruzar sus ciclos con los títulos del suite con `cobertura`"
+  - "Diferenciar la cobertura clásica (código ejecutado) de la cobertura de ciclos rojos→verdes"
+  - "Detectar una prueba sin ciclo y una prueba sin verde con `cobertura.js`"
+  - "Añadir un test nuevo dejando visible su ciclo pendiente"
+prerrequisitos:
+  - "n2/m2/l03-verde-minimo-implementar-solo-lo-que-los-tests-piden"
+actualizado: "2026-10-22"
+tags:
+  - "tdd"
+  - "cobertura"
+  - "registro"
+fuentes:
+  - titulo: "Wikipedia — Cobertura de código"
+    url: "https://es.wikipedia.org/wiki/Cobertura_de_c%C3%B3digo"
+    fecha: "2026-10-22"
+  - titulo: "Wikipedia — Code coverage"
+    url: "https://en.wikipedia.org/wiki/Code_coverage"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+La **cobertura clásica** mide qué porcentaje del código fuente se ejecutó al correr los tests (Wikipedia, consultada el 2026-10-22). Este módulo mide otra cosa: **cobertura rojos→verdes** = cada prueba del suite tiene en `feature/registro.json` un ciclo cerrado — qué fallaba al escribirla (`rojo`) y qué la cerró (`verde`). `cobertura.js` cruza los títulos del fichero de tests con los ciclos del registro y sobre la feature real imprime seis `✓` y **`cobertura rojos→verdes: 6/6 pruebas con su ciclo`**, `codigo=0`. En el ejercicio añades la séptima prueba sin registrar su ciclo: el mismo script responde **`cobertura rojos→verdes: 6/7`** y `✗ prueba sin ciclo en el registro: esValida: un espacio en medio no vale`, `codigo=1` — el suite está en verde y la entrega no cierra igual.
+
+## Conceptos
+
+### Dos coberturas que responden preguntas distintas
+
+|                       | Cobertura clásica                         | Cobertura rojos→verdes                                  |
+| --------------------- | ----------------------------------------- | ------------------------------------------------------- |
+| Qué cuenta            | Porción del código ejecutada por la suite | Pruebas con su ciclo rojo→verde documentado             |
+| Pregunta que responde | ¿El suite toca este código?               | ¿Esta prueba pasó por rojo antes que existir el código? |
+| Se llena              | Ejecutando                                | Desarrollando (cada ciclo, al cerrarlo)                 |
+| Se rompe              | Quitando ejecución o pruebas              | Borrando pruebas, dejando ciclos a medias               |
+
+La primera es una medida de ejecución (Wikipedia la sitúa desde Miller y Maloney, 1963, y en normas como DO-178B); en la práctica, «más código ejecutado sugiere menor probabilidad de fallos sin detectar» (Wikipedia en, consultada el 2026-10-22). La segunda es una medida de **orden**: no dice cuánto se ejecutó, dice que el test existió como encargo antes que el comportamiento. Por eso los tests de esta suite van primero y el registro es la prueba del papel.
+
+### El registro se cruza, no se cuenta
+
+`registro.json` declara `feature: contrasena` y seis ciclos, cada uno con `prueba`, `rojo` y `verde` — con lo que se vio de verdad en cada paso (así se desarrolló la fixture). `cobertura(registro, rutaTests)` no se fía de que haya seis entradas: extrae los títulos del fichero de tests y hace el cruce en los tres sentidos:
+
+- **sinCiclo**: una prueba del suite sin entrada en el registro;
+- **sinCerrar**: un ciclo con `rojo` o `verde` vacío — historia, no cobertura;
+- **fueraDelSuite**: un ciclo cuya prueba ya no está en el fichero — sospecha de borrado (l06).
+
+```text
+ ✓ esValida: una clave corta no vale
+ ✓ esValida: nueve minúsculas sin dígito no valen
+ ✓ esValida: con dígito pero sin mayúscula no vale
+ ✓ esValida: la forma canónica vale en el límite
+ ✓ esValida: una entrada que no es texto no vale
+ ✓ incumplidas: nombra las reglas rotas y las que cumplen
+cobertura rojos→verdes: 6/6 pruebas con su ciclo
+codigo=0
+```
+
+## Ejercicio
+
+Comprueba la cobertura de la feature intacta, añade una prueba nueva **sin registrar su ciclo** y mira al contador quedarse corto. Desde `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/feature" "$ORIG/tdd.js" "$ORIG/cobertura.js" "$TALLER/"
+cd "$TALLER"
+node cobertura.js; echo "codigo=$?"
+perl -0pi -e 's/  \}\);\n\}\);/  });\n\n  it("esValida: un espacio en medio no vale", () => {\n    assert.strictEqual(esValida("Abc def1"), false);\n  });\n});/' feature/test/contrasena.test.js
+node cobertura.js; echo "codigo=$?"
+cd "$ORIG"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución lista los seis `✓` y cierra `cobertura rojos→verdes: 6/6 pruebas con su ciclo` → `codigo=0`;
+- tras el `perl`, la segunda cierra en **`6/7`** con `✗ prueba sin ciclo en el registro: esValida: un espacio en medio no vale` → `codigo=1`;
+- el fichero de tests tiene ya 7 pruebas: la cobertura no es «cuántas pruebas hay», es «cuántas están cubiertas por su ciclo».
+
+Pista: el `perl` es el mismo de l01 — inserta el `it` antes del cierre del `describe`. Si el patrón no casa, no hay séptima prueba y ambas ejecuciones cierran en `codigo=0`: el contador no podría quedarse corto.
+
+## Solución explicada
+
+Salida real del taller temporal (borrado tras la ejecución; Node v24.22.0, 2026-10-22). Primera ejecución:
+
+```text
+ ✓ esValida: una clave corta no vale
+ ✓ esValida: nueve minúsculas sin dígito no valen
+ ✓ esValida: con dígito pero sin mayúscula no vale
+ ✓ esValida: la forma canónica vale en el límite
+ ✓ esValida: una entrada que no es texto no vale
+ ✓ incumplidas: nombra las reglas rotas y las que cumplen
+cobertura rojos→verdes: 6/6 pruebas con su ciclo
+codigo=0
+```
+
+Tras añadir la séptima prueba:
+
+```text
+ ✓ esValida: una clave corta no vale
+ ✓ esValida: nueve minúsculas sin dígito no valen
+ ✓ esValida: con dígito pero sin mayúscula no vale
+ ✓ esValida: la forma canónica vale en el límite
+ ✓ esValida: una entrada que no es texto no vale
+ ✓ incumplidas: nombra las reglas rotas y las que cumplen
+cobertura rojos→verdes: 6/7 pruebas con su ciclo
+✗ prueba sin ciclo en el registro: esValida: un espacio en medio no vale
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **Los `✓` siguen siendo seis**: no se borró nada — falta la séptima entrada. La cobertura baja por lo que falta, no por lo que se rompe.
+2. **La prueba nueva existe en el tests y no en el registro**: es exactamente el orden inverso al del módulo (primero test, después código y ciclo). El contador devuelve ese error de orden como incidencia con el nombre completo de la prueba.
+3. **El `codigo=1` no lo pone la suite**: `cobertura.js` ni siquiera ejecuta `node --test`; juzga el cruce de ficheros. Se puede estar en verde y en 6/7 — son dos luces distintas.
+
+Errores típicos al resolverlo:
+
+- **Añadir el ciclo «de memoria» sin haber visto el rojo**: el registro sólo es evidencia si `rojo` y `verde` describen lo que pasó (número de tests, error concreto). Un ciclo escrito después para rellenar es prosa con campos JSON.
+- **Registrar el ciclo en el fichero equivocado**: `cobertura` compara por título exacto; `espacio-en-medio` con guiones o una variación de mayúsculas no casa y aparece como `sinCiclo`.
+- **Interpretar `6/7` como fallo del runner**: el ratio es de ciclos, no de pruebas ejecutadas. Quien ve `6/7` y corre a mirar `node --test` verá `pass 7` — y seguirá en `codigo=1`.
+
+## Cómo verificarlo
+
+1. Prepara el taller con `feature/`, `tdd.js` y `cobertura.js` (comandos del ejercicio).
+
+2. Ejecuta la cobertura intacta:
+
+   ```sh
+   node cobertura.js; echo "codigo=$?"
+   ```
+
+   Esperado: seis `✓`, `cobertura rojos→verdes: 6/6 pruebas con su ciclo` y `codigo=0`.
+
+3. Añade la prueba con el `perl` y vuelve a ejecutar:
+
+   Esperado: `cobertura rojos→verdes: 6/7 pruebas con su ciclo`, la línea `✗ prueba sin ciclo en el registro: esValida: un espacio en medio no vale` y `codigo=1`.
+
+4. Comprueba que la incidencia es del cruce y no del código: `node --test` en el taller daría `pass 7` — la suite está en verde mientras la cobertura no cierra.
+
+## Errores comunes
+
+- **Dar por cobertura un verde**: `pass 7` y `cobertura 6/7` son compatibles; la suite juzga el presente, la cobertura juzga el recorrido. Las dos luces del módulo anterior (criterios y suite) aquí son suite y registro.
+- **Contar ciclos sin cruzarlos**: seis entradas en `registro.json` con una suite de siete pruebas no es 6/7 ni 7/7: sólo el cruce por título revela qué falta y qué sobra.
+- **Dejar `verde` vacío «hasta más tarde»**: un ciclo sin cerrar cuenta igual que uno ausente; `cobertura()` lo separa en `sinCerrar` y lo trata como incidencia — aplazar el cierre es bajar la cobertura.
+- **Actualizar `actualizado` del registro sin actualizar ciclos**: el registro es JSON de datos, no bitácora de fechas; su frescura se demuestra con el cruce, no con metadatos.
+
+## Fuentes
+
+- [Wikipedia: Cobertura de código](https://es.wikipedia.org/wiki/Cobertura_de_c%C3%B3digo) — consultado el 2026-10-22. La definición canónica: «medida (porcentual) que mide el grado en que el código fuente de un programa ha sido comprobado con pruebas», su origen (Miller y Maloney, 1963) y su peso en normas de seguridad (DO-178B/C, ISO 26262).
+- [Wikipedia: Code coverage](https://en.wikipedia.org/wiki/Code_coverage) — consultado el 2026-10-22. La lectura práctica del dato: un programa con alta cobertura ejecuta más fuente durante los tests, lo que «sugiere menor probabilidad de contener fallos sin detectar» — sugiere, no garantiza.
+
+## Siguientes pasos
+
+- Vuelve a `node cobertura.js` en `ejemplos/` y guarda el `6/6`: esa línea es la mitad de la evidencia del entregable de l06.
+- Siguiente lección: [Refactor sin salir del verde](/curriculo/n2/m2/l05-refactor-sin-salir-del-verde/) — con la cobertura cerrada, toca reorganizar el código sin perder ninguna luz.

@@ -1,0 +1,170 @@
+---
+titulo: "Verde mínimo: implementar sólo lo que los tests piden"
+resumen: "El asistente sólo puede escribir lo que una prueba pide: el verde cierra el rojo con el código mínimo y `alcance` vigila que no se pase de la lista. La demo `minimo.js` sobre la feature real imprime `verde: 6 pruebas en verde — sólo el comportamiento que los tests piden` y `alcance: 2 funciones exportadas, 2 probadas — 0 fuera de los tests`, `codigo=0`; en el ejercicio cierras el rojo de l01 con la regla de espacios —`tests 7, pass 7, fail 0`— y después el asistente «inventa» `generarContrasena()`: la suite sigue verde y `minimo.js` responde `✗ fuera del alcance de los tests: generarContrasena`, `codigo=1`."
+nivel: "n2"
+modulo: "m2"
+orden: 3
+dificultad: "intermedio"
+tiempoEstimado: 50
+objetivos:
+  - "Cerrar un rojo con la implementación mínima que la prueba pide"
+  - "Medir el alcance de la implementación con `alcance` (exportadas frente a probadas)"
+  - "Rechazar un añadido sin prueba ejecutando `minimo.js`"
+  - "Explicar por qué el verde no legitima el código sobrante"
+prerrequisitos:
+  - "n2/m2/l02-rojo-genuino-rojo-falso-que-prueba-esta-fallando"
+actualizado: "2026-10-22"
+tags:
+  - "tdd"
+  - "verde"
+  - "alcance"
+fuentes:
+  - titulo: "Martin Fowler — TestDrivenDevelopment"
+    url: "https://martinfowler.com/bliki/TestDrivenDevelopment.html"
+    fecha: "2026-10-22"
+  - titulo: "Wikipedia — Desarrollo guiado por pruebas"
+    url: "https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El paso verde tiene una regla dura: **sólo el código que hace pasar la prueba** — Fowler lo dice sin rodeos: «sólo podemos escribir algo de código funcional en respuesta a hacer pasar una prueba» (fuente consultada el 2026-10-22). Eso convierte el test en el límite de lo que la IA puede generar: lo que ninguna prueba pide, sobra. `minimo.js` lo comprueba con `alcance()` —exportaciones de `feature/contrasena.js` cruzadas con el texto del fichero de tests— sobre la feature real: `verde: 6 pruebas en verde` y `alcance: 2 funciones exportadas, 2 probadas — 0 fuera de los tests`, `codigo=0`. En el ejercicio cierras el rojo de l01 con una sola regla nueva (7/7 en verde) y luego añades una función inventada: la suite sigue verde y el detector responde **`✗ fuera del alcance de los tests: generarContrasena — nadie lo pidió con una prueba`** con `codigo=1`.
+
+## Conceptos
+
+### Mínimo significa mínimo
+
+El ciclo de l01–l02 deja la feature con la séptima prueba en rojo. El verde se consigue con el cambio más pequeño que la cierra — aquí, una línea en la tabla `REGLAS`:
+
+```js
+{ id: "espacio", cumple: (contrasena) => !contrasena.includes(" ") },
+```
+
+La fuente canónica lo describe en dos tiempos: «se implementa el código que hace que la prueba pase satisfactoriamente» y después se refactoriza (consultada el 2026-10-22). Lo que **no** entra en el verde: reglas que aún ningún test pide, refactorizaciones (son el paso 3, l05) y funciones «útiles» que adivinan lo que el usuario podría querer. Un asistente sin esta disciplina entrega la feature «terminada» con una docena de comportamientos nadie pidió y nadie cubre.
+
+### El alcance lo fijan las pruebas
+
+`alcance(rutaImpl, rutaTests)` extrae las `export …` de la implementación y comprueba si su nombre aparece en el fichero de tests:
+
+```text
+verde: 6 pruebas en verde — sólo el comportamiento que los tests piden
+alcance: 2 funciones exportadas, 2 probadas — 0 fuera de los tests
+codigo=0
+```
+
+El cruce es deliberadamente simple y **textual**: busca el nombre en el fichero de tests. Su fortaleza es que no opina — ninguna exportación sin prueba que la toque, ninguna excepción. Su límite está declarado: una mención en un comentario pasaría el filtro, así que el detector apoya la revisión humana, no la sustituye. Con la feature intacta, el resultado es `2/2`; con el añadido del ejercicio, `3/2` y salida en rojo.
+
+## Ejercicio
+
+Primero cierra el rojo de l01 con el código mínimo; después deja que el asistente se pase de la lista y mira al detector negarse. Desde `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/feature" "$ORIG/tdd.js" "$ORIG/minimo.js" "$TALLER/"
+cd "$TALLER/feature"
+perl -0pi -e 's/  \}\);\n\}\);/  });\n\n  it("esValida: un espacio en medio no vale", () => {\n    assert.strictEqual(esValida("Abc def1"), false);\n  });\n});/' test/contrasena.test.js
+perl -0pi -e 's/  \{ id: "mayuscula"[^\n]*\n/$&  { id: "espacio", cumple: (contrasena) => !contrasena.includes(" ") },\n/' contrasena.js
+node --test; echo "codigo=$?"
+cd "$TALLER"
+cat >> feature/contrasena.js <<'EOF'
+
+// Comportamiento inventado: ningún test lo pidió.
+export function generarContrasena() {
+  return "Abcdefg1";
+}
+EOF
+node minimo.js; echo "codigo=$?"
+cd "$ORIG"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- `node --test` cierra con `ℹ tests 7`, `ℹ pass 7`, `ℹ fail 0` → `codigo=0`: el rojo de l01 está cerrado por fin;
+- `node minimo.js` imprime `verde: 7 pruebas en verde` y `alcance: 3 funciones exportadas, 2 probadas — 1 fuera de los tests`;
+- la última línea es `✗ fuera del alcance de los tests: generarContrasena — nadie lo pidió con una prueba` → `codigo=1`, con la suite igual de verde que antes.
+
+Pista: la regla nueva se añade **después** de la línea de `mayuscula` (`$&` en el `perl` reinserta la línea casada). Si el patrón no casa, la implementación no cambia, el séptimo test sigue en rojo y `node --test` sale en `codigo=1` — el te delataría antes siquiera de llegar al detector.
+
+## Solución explicada
+
+Salida real del taller temporal (borrado tras la ejecución; Node v24.22.0, 2026-10-22). Primer paso:
+
+```text
+▶ contrasena
+  ✔ esValida: una clave corta no vale (1.082292ms)
+  ✔ esValida: nueve minúsculas sin dígito no valen (0.096792ms)
+  ✔ esValida: con dígito pero sin mayúscula no vale (0.055166ms)
+  ✔ esValida: la forma canónica vale en el límite (0.045709ms)
+  ✔ esValida: una entrada que no es texto no vale (0.054083ms)
+  ✔ incumplidas: nombra las reglas rotas y las que cumplen (0.783ms)
+  ✔ esValida: un espacio en medio no vale (0.048458ms)
+✔ contrasena (2.93ms)
+ℹ tests 7
+ℹ pass 7
+ℹ fail 0
+codigo=0
+```
+
+Segundo paso:
+
+```text
+verde: 7 pruebas en verde — sólo el comportamiento que los tests piden
+alcance: 3 funciones exportadas, 2 probadas — 1 fuera de los tests
+✗ fuera del alcance de los tests: generarContrasena — nadie lo pidió con una prueba
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **El verde se ganó de a una**: una regla (una línea de tabla) cerró exactamente el rojo de l01. Las seis pruebas previas siguen verdes — el mínimo no tocó lo acordado.
+2. **La suite no ve el añadido**: `generarContrasena()` no falla ninguna prueba (no la prueba nadie), por eso el `verde: 7 pruebas` convive con `codigo=1`. **Que la suite esté verde no significa que el código esté permitido.**
+3. **El detector no ejecuta la función**: `alcance` sólo compara exportaciones con el texto de los tests. Por eso un código prohibido que nadie llama pasa la suite y cae igual: el límite se declara en el test, no en la ejecución.
+
+Errores típicos al resolverlo:
+
+- **Cerrar el rojo con todo lo que se antoja**: si además de `espacio` implementas «sin tildes» o «máximo 20», esas reglas no tienen prueba — el propio detector las marcaría si las exportaras, y si no lo haces, quedan sin red.
+- **Arreglar el rojo cambiando el test**: si en vez de implementar cambias el esperado a `true`, cierras el ciclo mintiendo; el registro de l04 conservará el rojo original y la revisión del diff lo verá.
+- **Olvidar el `cd "$TALLER"` antes de `node minimo.js`**: se ejecutaría contra `feature/` de `ejemplos/`, que no tiene el inventado — y obtendrías el verde del repositorio, `codigo=0`, sin haber probado nada.
+
+## Cómo verificarlo
+
+1. Prepara el taller y aplica los dos `perl` (comandos del ejercicio).
+
+2. Cierra el rojo y comprueba el verde:
+
+   ```sh
+   node --test; echo "codigo=$?"
+   ```
+
+   Esperado: `ℹ tests 7`, `ℹ pass 7`, `ℹ fail 0` y `codigo=0`.
+
+3. Añade la función inventada y ejecuta el detector:
+
+   ```sh
+   node minimo.js; echo "codigo=$?"
+   ```
+
+   Esperado: `alcance: 3 funciones exportadas, 2 probadas — 1 fuera de los tests`, la línea `✗ fuera del alcance de los tests: generarContrasena …` y `codigo=1`.
+
+4. Comprueba que la feature intacta del repositorio sigue cerrada: `node minimo.js` desde `ejemplos/` imprime `alcance: 2 funciones exportadas, 2 probadas — 0 fuera de los tests` y `codigo=0`.
+
+## Errores comunes
+
+- **Confundir verde con «terminado»**: el verde responde al rojo anterior; si no hubo rojo, el verde no certifica nada. Un asistente puede entregar verde y sobrante a la vez — lo acaba de demostrar el ejercicio.
+- **Implementar el comportamiento «por si acaso»**: cada regla extra es superficie sin red. TDD convierte «por si acaso» en «escríbelo con su prueba» — que es otra lección (l04 se asegura de que el ciclo exista).
+- **Tomar `alcance` por un análisis semántico**: es una búsqueda textual de nombres exportados. Si renombras la función inventada para que su nombre aparezca en un comentario de tests, engañará al detector — y por eso el módulo entero combina tres luces independientes (l06).
+- **Mezclar refactor con verde**: cambiar estructura mientras cierras un rojo mezcla dos responsabilidades; el refactor con verde intacto tiene su lección (l05).
+
+## Fuentes
+
+- [Martin Fowler: TestDrivenDevelopment](https://martinfowler.com/bliki/TestDrivenDevelopment.html) — consultado el 2026-10-22. El paso verde como respuesta a la prueba («escribir código funcional en respuesta a hacer pasar una prueba») y el peligro de adelantarse a ella.
+- [Wikipedia: Desarrollo guiado por pruebas](https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas) — consultado el 2026-10-22. El orden exacto —prueba que falla, código que la hace pasar, refactor— y el propósito: «código limpio que funcione».
+
+## Siguientes pasos
+
+- Ejecuta `node minimo.js` sobre la feature intacta y guarda el `alcance: 2 funciones exportadas, 2 probadas — 0 fuera de los tests`: ése es el estado que hay que mantener.
+- Siguiente lección: [La cobertura rojos→verdes: cada prueba con su ciclo](/curriculo/n2/m2/l04-la-cobertura-rojos-verdes-cada-prueba-con-su-ciclo/) — el verde de hoy no prueba que la feature pasara por rojo; eso lo demuestra el registro.

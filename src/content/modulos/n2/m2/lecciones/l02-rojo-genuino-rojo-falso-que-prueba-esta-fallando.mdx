@@ -1,0 +1,167 @@
+---
+titulo: "Rojo genuino, rojo falso: qué prueba está fallando"
+resumen: "No todo rojo vale: si la suite muere al cargar el fichero de tests, ninguna prueba se ejecutó y el fallo no dice nada de la feature. La demo `clasificar.js` enseña los dos casos en la misma pasada — `rojo falso: la suite no llegó a ejecutarse — SyntaxError: The requested module '../contrasena.js' does not provide an export named 'esValidaRota'` y `rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento` — y en el ejercicio rompes el import con un `perl` para ver `node --test` contar `tests 1, fail 1` sin ejecutar ni una prueba, `codigo=1`."
+nivel: "n2"
+modulo: "m2"
+orden: 2
+dificultad: "inicial"
+tiempoEstimado: 45
+objetivos:
+  - "Clasificar un fallo de suite como rojo genuino o rojo falso con `clasificar`"
+  - "Reproducir un fallo de carga renombrando un import con `perl`"
+  - "Leer la firma `SyntaxError: … does not provide an export named` y explicar qué no prueba"
+  - "Corregir un rojo falso escribiendo el stub, no el comportamiento"
+prerrequisitos:
+  - "n2/m2/l01-el-test-rojo-la-instruccion-antes-que-el-codigo"
+actualizado: "2026-10-22"
+tags:
+  - "tdd"
+  - "rojo-falso"
+  - "depuracion"
+fuentes:
+  - titulo: "Node.js — Test runner"
+    url: "https://nodejs.org/api/test.html"
+    fecha: "2026-10-22"
+  - titulo: "Wikipedia — Desarrollo guiado por pruebas"
+    url: "https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+Un rojo es **genuino** cuando la suite carga, ejecuta las pruebas y éstas fallan por comportamiento; es **falso** cuando el fichero de tests ni siquiera se llega a ejecutar — un import roto, una sintaxis mal cerrada, un módulo que no existe. `clasificar()` de `tdd.js` distingue los dos por la firma del error. La demo `clasificar.js` muestra los tres estados en un archivo — `rojo falso: la suite no llegó a ejecutarse — SyntaxError: … does not provide an export named 'esValidaRota'`, `rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento` y `verde: 6 pruebas en verde` — con `codigo=0`. En el ejercicio rompes el import con un `perl` y ves al runner contar `tests 1, fail 1` y `codigo=1`: un rojo falso, que hay que volver a escribir.
+
+## Conceptos
+
+### Dos fallos que se parecen en la terminal
+
+El test runner de Node (`node --test`, documentación consultada el 2026-10-22) ejecuta los ficheros que encuentre y resume con `ℹ tests/pass/fail`. El matiz decisivo es **qué** cuenta cada resumen:
+
+|                        | Fallo de carga (rojo falso)           | Fallo de comportamiento (rojo genuino)      |
+| ---------------------- | ------------------------------------- | ------------------------------------------- |
+| Qué pasó               | El fichero de tests murió al importar | Las pruebas corrieron y fallaron            |
+| Firma en la salida     | `SyntaxError`, `ERR_MODULE_NOT_FOUND` | `AssertionError`, error lanzado por la impl |
+| Conteo del runner      | `tests 1, fail 1` con `'test failed'` | `tests 6, fail 6` con los nombres           |
+| Qué dice de la feature | Nada                                  | Que esos comportamientos no existen aún     |
+| Qué hacer              | Crear el stub / arreglar el import    | Implementar lo que la prueba pide           |
+
+El error de carga aparece **antes** del resumen, con su traza: es el propio Node diciendo que no pudo montar la escena. El error de comportamiento aparece **después**, bajo `✖ failing tests:`, con el nombre de la prueba y la aserción: ése sí es el encargo.
+
+### El clasificador: una firma, un veredicto
+
+`clasificar(resultado)` de `tdd.js` mira la salida combinada de la suite y aplica la distinción de la tabla. Contra la feature rota (import cambiado a `esValidaRota`) y contra el esqueleto, `clasificar.js` imprime las tres líneas reales (Node v24.22.0, 2026-10-22):
+
+```text
+rojo falso: la suite no llegó a ejecutarse — SyntaxError: The requested module '../contrasena.js' does not provide an export named 'esValidaRota'
+rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento
+verde: 6 pruebas en verde
+codigo=0
+```
+
+Frente al ciclo de l01, la regla queda así: **el encargo sólo se entrega en forma de rojo genuino**. Un rojo falso se corrige en la propia infraestructura — crear `esValida` como stub que lanza `sin implementar`, corregir el import — hasta que la suite arranque y el fallo sea del comportamiento.
+
+## Ejercicio
+
+Rompe el import del fichero de tests con un `perl`, mira al runner morir en la carga y pide el veredicto al clasificador. Desde `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/feature" "$ORIG/tdd.js" "$TALLER/"
+cd "$TALLER"
+perl -0pi -e 's/import \{ esValida, incumplidas \}/import { esValidaRota, incumplidas }/' feature/test/contrasena.test.js
+(cd feature && node --test); echo "codigo=$?"
+node --input-type=module -e 'import { clasificar, ejecutarSuite } from "./tdd.js"; const v = clasificar(ejecutarSuite("feature")); console.log(`rojo falso: ${v.detalle}`); process.exitCode = v.veredicto === "rojo falso" ? 1 : 0;'; echo "codigo=$?"
+cd "$ORIG"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución muere con `SyntaxError: The requested module '../contrasena.js' does not provide an export named 'esValidaRota'` y cierra en `tests 1, fail 1` → `codigo=1`;
+- la segunda imprime `rojo falso: la suite no llegó a ejecutarse — SyntaxError: …` → `codigo=1`;
+- puedes explicar por qué el `fail 1` de la primera ejecución **no** es una prueba fallida: es el fichero entero que no cargó.
+
+Pista: el clasificador no juzga por el número de fallos, juzga por la firma del error. Si el patrón del `perl` no casa, la suite sale verde y las dos ejecuciones cierran en `codigo=0` — el resultado sería el demostrador de que no rompiste nada.
+
+## Solución explicada
+
+Salida real del taller temporal (borrado tras la ejecución; Node v24.22.0, 2026-10-22). Primera ejecución:
+
+```text
+file:///…/feature/test/contrasena.test.js:6
+import { esValidaRota, incumplidas } from "../contrasena.js";
+         ^^^^^^^^^^^^
+SyntaxError: The requested module '../contrasena.js' does not provide an export named 'esValidaRota'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:455:21)
+    …
+
+Node.js v24.22.0
+✖ test/contrasena.test.js (46.789334ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+
+✖ failing tests:
+
+test at test/contrasena.test.js:1:1
+✖ test/contrasena.test.js (46.789334ms)
+  'test failed'
+codigo=1
+```
+
+Segunda ejecución:
+
+```text
+rojo falso: la suite no llegó a ejecutarse — SyntaxError: The requested module '../contrasena.js' does not provide an export named 'esValidaRota'
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **El error va antes del resumen y sale del propio módulo**: `SyntaxError … does not provide an export named` es Node impidiendo que el fichero de tests se ejecute. Ninguna de las seis pruebas se ejecutó.
+2. **`tests 1, fail 1` es el fichero, no una prueba**: el runner registra el fichero completo como una unidad fallida (`'test failed'`, sin nombre de prueba). Compararlo con el `tests 6, fail 6` del esqueleto es la diferencia exacta entre falso y genuino.
+3. **El clasificador devuelve `codigo=1` por diseño**: el rojo falso no es un estado aceptable; el ejercicio termina en rojo para que el veredicto sea inseparable de la ejecución.
+
+Errores típicos al resolverlo:
+
+- **Leer el `fail 1` como «una prueba roja»**: el número sólo significa «una unidad del runner falló»; el detalle (`SyntaxError` antes del resumen) es lo que dice de qué unidad hablamos.
+- **Arreglar el comportamiento para el rojo falso**: no hay comportamiento que arreglar — hay que arreglar la carga (o crear el stub) hasta que el fallo suba de categoría.
+- **Romper el import y ejecutar `node --test` desde `ejemplos/`**: correrías la suite del repositorio, que está verde; el taller es el que tiene el import roto.
+
+## Cómo verificarlo
+
+1. Prepara el taller con `feature/` y `tdd.js` (comandos del ejercicio).
+
+2. Aplica el `perl` y ejecuta la suite desde dentro de `feature/`:
+
+   ```sh
+   (cd feature && node --test); echo "codigo=$?"
+   ```
+
+   Esperado: el bloque `SyntaxError: … does not provide an export named 'esValidaRota'`, `ℹ tests 1`, `ℹ fail 1` y `codigo=1`.
+
+3. Pide el veredicto al clasificador:
+
+   Esperado: `rojo falso: la suite no llegó a ejecutarse — SyntaxError: …` y `codigo=1`.
+
+4. Comprueba el contraste con un rojo genuino (l01): `node rojo.js` en `ejemplos/` imprime `rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento` — misma terminal, distinta naturaleza.
+
+## Errores comunes
+
+- **Aceptar cualquier `fail > 0` como rojo**: el asistente que recibe «está en rojo, arrégalo» con un fallo de carga arreglará el import y dará el verde sin haber escrito una sola regla. El encargo se purifica antes de entregarse.
+- **Clasificar por número y no por firma**: `fail 1` con `SyntaxError` es falso; `fail 1` con `AssertionError` es genuino. El contador no distingue, el mensaje sí.
+- **Romper un import que no vas a usar**: el `perl` sólo cambia `esValida` → `esValidaRota` en la línea de import; si cambias el nombre dentro de las pruebas, además del fallo de carga alteras los casos.
+- **Dar por bueno el clasificador sin la demo**: `clasificar.js` ejecuta los tres estados de verdad (falso, genuino, verde); un solo estado suelto no demuestra que la distinción funciona.
+
+## Fuentes
+
+- [Node.js: Test runner](https://nodejs.org/api/test.html) — consultado el 2026-10-22. La ejecución de `node --test` desde la línea de comandos, el modelo de ejecución del runner y el resumen `tests/pass/fail` que leen `ejecutarSuite` y `clasificar`.
+- [Wikipedia: Desarrollo guiado por pruebas](https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas) — consultado el 2026-10-22. El ciclo que exige «verificar que la nueva prueba falla»: verificar es comprobar que falla _por la razón correcta_, que es la distinción de esta lección.
+
+## Siguientes pasos
+
+- Ejecuta `node clasificar.js` una última vez y compara sus tres líneas: rojo falso, rojo genuino y verde son los tres estados que la feature puede tener ante la suite.
+- Siguiente lección: [Verde mínimo: implementar sólo lo que los tests piden](/curriculo/n2/m2/l03-verde-minimo-implementar-solo-lo-que-los-tests-piden/) — con el rojo genuino en mano, llega el turno del asistente: cerrarlo con el código mínimo y nada más.

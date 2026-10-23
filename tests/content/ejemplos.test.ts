@@ -138,6 +138,10 @@ const dirEjemplosN2M1 = fileURLToPath(
   new URL("../../src/content/modulos/n2/m1/ejemplos/", import.meta.url),
 );
 
+const dirEjemplosN2M2 = fileURLToPath(
+  new URL("../../src/content/modulos/n2/m2/ejemplos/", import.meta.url),
+);
+
 interface Resultado {
   status: number | null;
   stdout: string;
@@ -2551,6 +2555,320 @@ export function formatoMoneda(total) {
   }, 60_000);
 });
 
+describe("ejemplos del módulo n2/m2: pruebas primero con asistente (TDD)", () => {
+  interface DemoN2M2 {
+    fichero: string;
+    marcas: string[];
+    descripcion: string;
+  }
+
+  /** Taller temporal con `feature/` y `tdd.js` (la base de todos los ejercicios). */
+  function tallerTDD(): string {
+    const carpeta = carpetaTemporal();
+    cpSync(join(dirEjemplosN2M2, "feature"), join(carpeta, "feature"), { recursive: true });
+    copyFileSync(join(dirEjemplosN2M2, "tdd.js"), join(carpeta, "tdd.js"));
+    return carpeta;
+  }
+
+  /** Ejecuta un script de la copia con `process.execPath` y devuelve su resultado. */
+  function ejecutarEn(carpeta: string, argumentos: string[]): Resultado {
+    const resultado = spawnSync(process.execPath, argumentos, {
+      cwd: carpeta,
+      encoding: "utf8",
+      timeout: 60_000,
+    });
+    return {
+      status: resultado.status,
+      stdout: resultado.stdout ?? "",
+      stderr: resultado.stderr ?? "",
+    };
+  }
+
+  /** Reemplaza exacto en un fichero del taller (el mismo texto que usan las lecciones). */
+  function parchear(carpeta: string, rel: string, antes: string, despues: string): void {
+    const ruta = join(carpeta, rel);
+    const original = readFileSync(ruta, "utf8");
+    const cambiado = original.replace(antes, despues);
+    expect(cambiado, `${rel}: el patrón del parche no casó`).not.toBe(original);
+    writeFileSync(ruta, cambiado);
+  }
+
+  /** La séptima prueba del ejercicio: «sin espacios», cerrada en l03 con la regla nueva. */
+  const PRUEBA_ESPACIO = `  });
+
+  it("esValida: un espacio en medio no vale", () => {
+    assert.strictEqual(esValida("Abc def1"), false);
+  });
+});`;
+
+  const demos: DemoN2M2[] = [
+    {
+      fichero: "rojo.js",
+      marcas: [
+        "rojo: 6 pruebas en rojo de 6 — la suite ya dice qué falta antes de escribir el código",
+        "rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento",
+      ],
+      descripcion: "l01: el primer rojo contra el esqueleto",
+    },
+    {
+      fichero: "clasificar.js",
+      marcas: [
+        "rojo falso: la suite no llegó a ejecutarse — SyntaxError: The requested module '../contrasena.js' does not provide an export named 'esValidaRota'",
+        "rojo genuino: 6 pruebas ejecutadas, 6 en rojo por comportamiento",
+        "verde: 6 pruebas en verde",
+      ],
+      descripcion: "l02: rojo falso, rojo genuino y verde lado a lado",
+    },
+    {
+      fichero: "minimo.js",
+      marcas: [
+        "verde: 6 pruebas en verde — sólo el comportamiento que los tests piden",
+        "alcance: 2 funciones exportadas, 2 probadas — 0 fuera de los tests",
+      ],
+      descripcion: "l03: verde mínimo y alcance cerrado",
+    },
+    {
+      fichero: "cobertura.js",
+      marcas: [
+        " ✓ esValida: una clave corta no vale",
+        "cobertura rojos→verdes: 6/6 pruebas con su ciclo",
+      ],
+      descripcion: "l04: los 6 ciclos cruzados con el suite",
+    },
+    {
+      fichero: "refactor.js",
+      marcas: ["refactor: 6 pruebas verdes antes y después — el comportamiento no cambió"],
+      descripcion: "l05: refactor con el verde intacto",
+    },
+    {
+      fichero: "entregable.js",
+      marcas: [
+        " ✓ suite: 6 pruebas en verde",
+        " ✓ cobertura rojos→verdes: 6/6 pruebas con su ciclo",
+        " ✓ alcance: 2 funciones exportadas, todas probadas",
+        "entregable: cobertura de tests rojos→verdes completa — suite verde, ciclos cerrados, alcance sin sobrantes",
+      ],
+      descripcion: "l06: las tres condiciones certificadas",
+    },
+  ];
+
+  it.each(demos)(
+    "$fichero termina con código 0 y muestra sus marcas ($descripcion)",
+    (demo) => {
+      const resultado = spawnSync(process.execPath, [demo.fichero], {
+        cwd: dirEjemplosN2M2,
+        encoding: "utf8",
+        timeout: 60_000,
+      });
+      expect(resultado.status, resultado.stderr).toBe(0);
+      for (const marca of demo.marcas) {
+        expect(resultado.stdout, `${demo.fichero} → falta «${marca}»`).toContain(marca);
+      }
+    },
+    60_000,
+  );
+
+  it("errores/rojo-falso.js termina en 1 con la firma SyntaxError (rojo de l02)", () => {
+    const rojo = ejecutarNode(["errores/rojo-falso.js"], dirEjemplosN2M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("✗ rojo falso: la suite no llegó a ejecutarse — SyntaxError");
+    expect(rojo.stdout).toContain("does not provide an export named 'esValidaRota'");
+  });
+
+  it("errores/alcance-excedido.js termina en 1 con la función inventada (rojo de l03)", () => {
+    const rojo = ejecutarNode(["errores/alcance-excedido.js"], dirEjemplosN2M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain(
+      "alcance: 3 funciones exportadas, 2 probadas — 1 fuera de los tests",
+    );
+    expect(rojo.stdout).toContain(
+      "✗ fuera del alcance de los tests: generarContrasena — nadie lo pidió con una prueba",
+    );
+  });
+
+  it("errores/cobertura-incompleta.js termina en 1 con el ciclo sin verde (rojo de l04)", () => {
+    const rojo = ejecutarNode(["errores/cobertura-incompleta.js"], dirEjemplosN2M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("cobertura rojos→verdes: 5/6 pruebas con su ciclo");
+    expect(rojo.stdout).toContain(
+      "✗ prueba sin cerrar rojo y verde: esValida: nueve minúsculas sin dígito no valen",
+    );
+  });
+
+  it("errores/verde-trampa.js termina en 1 con la prueba borrada (rojo de l06)", () => {
+    const rojo = ejecutarNode(["errores/verde-trampa.js"], dirEjemplosN2M2);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("verde: 5 pruebas en verde — la suite se ve sana");
+    expect(rojo.stdout).toContain(
+      "✗ prueba borrada del suite, su ciclo sigue en el registro: esValida: una entrada que no es texto no vale",
+    );
+    expect(rojo.stdout).toContain("entregable NO válido: 1 incidencias");
+  });
+
+  it("la feature ejecuta sus 6 pruebas con node --test", () => {
+    const verde = ejecutarNode(["--test"], join(dirEjemplosN2M2, "feature"));
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("tests 6");
+    expect(verde.stdout).toContain("pass 6");
+    expect(verde.stdout).toContain("fail 0");
+  });
+
+  it("l01: la séptima prueba queda en rojo sin tocar la implementación (ejercicio real)", () => {
+    const carpeta = tallerTDD();
+    parchear(carpeta, join("feature", "test", "contrasena.test.js"), "  });\n});", PRUEBA_ESPACIO);
+
+    const rojo = ejecutarEn(join(carpeta, "feature"), ["--test"]);
+    expect(rojo.status).toBe(1);
+    expect(rojo.stdout).toContain("ℹ tests 7");
+    expect(rojo.stdout).toContain("ℹ pass 6");
+    expect(rojo.stdout).toContain("ℹ fail 1");
+    expect(rojo.stdout).toContain("✖ esValida: un espacio en medio no vale");
+    expect(rojo.stdout).toContain("true !== false");
+  }, 60_000);
+
+  it("l02: el import roto da rojo falso y el clasificador lo nombra (ejercicio real)", () => {
+    const carpeta = tallerTDD();
+    parchear(
+      carpeta,
+      join("feature", "test", "contrasena.test.js"),
+      "import { esValida, incumplidas }",
+      "import { esValidaRota, incumplidas }",
+    );
+
+    const carga = ejecutarEn(join(carpeta, "feature"), ["--test"]);
+    expect(carga.status).toBe(1);
+    expect(carga.stdout).toContain(
+      "SyntaxError: The requested module '../contrasena.js' does not provide an export named 'esValidaRota'",
+    );
+    expect(carga.stdout).toContain("ℹ tests 1");
+    expect(carga.stdout).toContain("ℹ fail 1");
+
+    const veredicto = ejecutarEn(carpeta, [
+      "--input-type=module",
+      "-e",
+      'import { clasificar, ejecutarSuite } from "./tdd.js"; const v = clasificar(ejecutarSuite("feature")); console.log(`rojo falso: ${v.detalle}`); process.exitCode = v.veredicto === "rojo falso" ? 1 : 0;',
+    ]);
+    expect(veredicto.status).toBe(1);
+    expect(veredicto.stdout).toContain("rojo falso: la suite no llegó a ejecutarse — SyntaxError");
+  }, 60_000);
+
+  it("l03: el rojo se cierra con el mínimo y el inventado sale en rojo (ejercicio real)", () => {
+    const carpeta = tallerTDD();
+    parchear(carpeta, join("feature", "test", "contrasena.test.js"), "  });\n});", PRUEBA_ESPACIO);
+    parchear(
+      carpeta,
+      join("feature", "contrasena.js"),
+      `  { id: "mayuscula", cumple: (contrasena) => /[A-Z]/.test(contrasena) },`,
+      `  { id: "mayuscula", cumple: (contrasena) => /[A-Z]/.test(contrasena) },\n  { id: "espacio", cumple: (contrasena) => !contrasena.includes(" ") },`,
+    );
+
+    const verde = ejecutarEn(join(carpeta, "feature"), ["--test"]);
+    expect(verde.status, verde.stdout).toBe(0);
+    expect(verde.stdout).toContain("ℹ tests 7");
+    expect(verde.stdout).toContain("ℹ pass 7");
+    expect(verde.stdout).toContain("ℹ fail 0");
+
+    const rutaImpl = join(carpeta, "feature", "contrasena.js");
+    writeFileSync(
+      rutaImpl,
+      `${readFileSync(rutaImpl, "utf8")}
+// Comportamiento inventado: ningún test lo pidió.
+export function generarContrasena() {
+  return "Abcdefg1";
+}
+`,
+    );
+    copyFileSync(join(dirEjemplosN2M2, "minimo.js"), join(carpeta, "minimo.js"));
+
+    const limiter = ejecutarEn(carpeta, ["minimo.js"]);
+    expect(limiter.status).toBe(1);
+    expect(limiter.stdout).toContain(
+      "verde: 7 pruebas en verde — sólo el comportamiento que los tests piden",
+    );
+    expect(limiter.stdout).toContain(
+      "alcance: 3 funciones exportadas, 2 probadas — 1 fuera de los tests",
+    );
+    expect(limiter.stdout).toContain(
+      "✗ fuera del alcance de los tests: generarContrasena — nadie lo pidió con una prueba",
+    );
+  }, 60_000);
+
+  it("l04: una prueba nueva sin ciclo deja la cobertura en 6/7 (ejercicio real)", () => {
+    const carpeta = tallerTDD();
+    copyFileSync(join(dirEjemplosN2M2, "cobertura.js"), join(carpeta, "cobertura.js"));
+
+    const intacta = ejecutarEn(carpeta, ["cobertura.js"]);
+    expect(intacta.status, intacta.stdout).toBe(0);
+    expect(intacta.stdout).toContain("cobertura rojos→verdes: 6/6 pruebas con su ciclo");
+
+    parchear(carpeta, join("feature", "test", "contrasena.test.js"), "  });\n});", PRUEBA_ESPACIO);
+    const incompleta = ejecutarEn(carpeta, ["cobertura.js"]);
+    expect(incompleta.status).toBe(1);
+    expect(incompleta.stdout).toContain("cobertura rojos→verdes: 6/7 pruebas con su ciclo");
+    expect(incompleta.stdout).toContain(
+      "✗ prueba sin ciclo en el registro: esValida: un espacio en medio no vale",
+    );
+  }, 60_000);
+
+  it("l05: romper el límite deja la suite en 2 fallos y se restaura (ejercicio real)", () => {
+    const carpeta = tallerTDD();
+
+    const intacta = ejecutarEn(join(carpeta, "feature"), ["--test"]);
+    expect(intacta.status, intacta.stdout).toBe(0);
+    expect(intacta.stdout).toContain("ℹ pass 6");
+    expect(intacta.stdout).toContain("ℹ fail 0");
+
+    parchear(
+      carpeta,
+      join("feature", "contrasena.js"),
+      "contrasena.length >= 8",
+      "contrasena.length > 8",
+    );
+    const rota = ejecutarEn(join(carpeta, "feature"), ["--test"]);
+    expect(rota.status).toBe(1);
+    expect(rota.stdout).toContain("ℹ pass 4");
+    expect(rota.stdout).toContain("ℹ fail 2");
+    expect(rota.stdout).toContain("false !== true");
+    expect(rota.stdout).toContain("'longitud'");
+
+    parchear(
+      carpeta,
+      join("feature", "contrasena.js"),
+      "contrasena.length > 8",
+      "contrasena.length >= 8",
+    );
+    const restaurada = ejecutarEn(join(carpeta, "feature"), ["--test"]);
+    expect(restaurada.status, restaurada.stdout).toBe(0);
+    expect(restaurada.stdout).toContain("ℹ pass 6");
+    expect(restaurada.stdout).toContain("ℹ fail 0");
+  }, 60_000);
+
+  it("l06: borrar una prueba deja la suite verde y el certificador en rojo (ejercicio real)", () => {
+    const carpeta = tallerTDD();
+    copyFileSync(join(dirEjemplosN2M2, "entregable.js"), join(carpeta, "entregable.js"));
+
+    const intacta = ejecutarEn(carpeta, ["entregable.js"]);
+    expect(intacta.status, intacta.stdout).toBe(0);
+    expect(intacta.stdout).toContain(
+      "entregable: cobertura de tests rojos→verdes completa — suite verde, ciclos cerrados, alcance sin sobrantes",
+    );
+
+    parchear(
+      carpeta,
+      join("feature", "test", "contrasena.test.js"),
+      '  it("esValida: una entrada que no es texto no vale", () => {\n    assert.strictEqual(esValida(null), false);\n  });\n\n',
+      "",
+    );
+    const trampa = ejecutarEn(carpeta, ["entregable.js"]);
+    expect(trampa.status).toBe(1);
+    expect(trampa.stdout).toContain(" ✓ suite: 5 pruebas en verde");
+    expect(trampa.stdout).toContain(
+      " ✗ prueba borrada del suite, su ciclo sigue en el registro: esValida: una entrada que no es texto no vale",
+    );
+    expect(trampa.stdout).toContain("entregable NO válido: 1 incidencias");
+  }, 60_000);
+});
+
 describe("cobertura de ejemplos", () => {
   /**
    * Ficheros verificables de un módulo: raíz (.js/.sh) y errores/ (.js/.sh),
@@ -2893,6 +3211,34 @@ describe("cobertura de ejemplos", () => {
         ["proyecto", "proyecto/test"],
         ["proyecto/PLAN.md", "proyecto/spec.md"],
       ),
+    ).toEqual([...enManifiesto].sort());
+  });
+
+  it("n2/m2: cada ejemplo del módulo está en el manifiesto de verificación (sin huérfanos)", () => {
+    // `feature/` es el objeto del TDD: sus 6 pruebas se escribieron antes que el
+    // código, `contrasena.js` es la implementación que cerraron, `esqueleto.js`
+    // reproduce el primer rojo y `registro.json` guarda los seis ciclos. Todo
+    // se verifica ejecutando los 6 demos, la suite y los 4 rojos.
+    const enManifiesto = [
+      "tdd.js",
+      "rojo.js",
+      "clasificar.js",
+      "minimo.js",
+      "cobertura.js",
+      "refactor.js",
+      "entregable.js",
+      "errores/rojo-falso.js",
+      "errores/alcance-excedido.js",
+      "errores/cobertura-incompleta.js",
+      "errores/verde-trampa.js",
+      "feature/contrasena.js",
+      "feature/esqueleto.js",
+      "feature/test/contrasena.test.js",
+      "feature/registro.json",
+    ];
+
+    expect(
+      archivosVerificables(dirEjemplosN2M2, ["feature", "feature/test"], ["feature/registro.json"]),
     ).toEqual([...enManifiesto].sort());
   });
 

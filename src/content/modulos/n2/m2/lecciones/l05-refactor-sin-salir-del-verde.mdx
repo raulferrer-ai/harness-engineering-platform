@@ -1,0 +1,179 @@
+---
+titulo: "Refactor sin salir del verde"
+resumen: "Reorganizar el código sólo es seguro con la suite verde de testigo: el refactor cambia la forma y no el comportamiento. La demo `refactor.js` ejecuta la suite antes y después de cambiar `filter/map` por un bucle — `antes: 6 pruebas en verde`, `después: 6 pruebas en verde — mismas exportaciones, otro interior` y `refactor: 6 pruebas verdes antes y después — el comportamiento no cambió`, `codigo=0` —; en el ejercicio rompes el límite de longitud con un `perl` que sólo cambia un carácter (`>= 8` → `> 8`) y la misma suite salta a `pass 4, fail 2`, `codigo=1`: el testigo detecta la regresión que ni miraste."
+nivel: "n2"
+modulo: "m2"
+orden: 5
+dificultad: "intermedio"
+tiempoEstimado: 55
+objetivos:
+  - "Aplicar un refactor que conserva la suite en verde con `refactor.js`"
+  - "Romper el límite de longitud con `perl` y leer los dos fallos que saltan"
+  - "Restaurar el comportamiento y confirmar el verde 6/6"
+  - "Explicar por qué el refactor se hace con el verde y no con el rojo"
+prerrequisitos:
+  - "n2/m2/l04-la-cobertura-rojos-verdes-cada-prueba-con-su-ciclo"
+actualizado: "2026-10-22"
+tags:
+  - "tdd"
+  - "refactor"
+  - "regresion"
+fuentes:
+  - titulo: "Martin Fowler — TestDrivenDevelopment"
+    url: "https://martinfowler.com/bliki/TestDrivenDevelopment.html"
+    fecha: "2026-10-22"
+  - titulo: "Wikipedia — Desarrollo guiado por pruebas"
+    url: "https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas"
+    fecha: "2026-10-22"
+tipo: "leccion"
+---
+
+## Respuesta corta
+
+El tercer paso del ciclo es el refactor: **reorganizar sin cambiar lo que hace el código**, con la suite entera en verde antes de empezar. Martin Fowler lo señala como el paso que más se descuida y advierte que sin él sólo se acumula «un agregado de fragmentos de código» (fuente consultada el 2026-10-22). La demo `refactor.js` hace la operación completa en una copia — `antes: 6 pruebas en verde`, `después: 6 pruebas en verde — mismas exportaciones, otro interior` y **`refactor: 6 pruebas verdes antes y después — el comportamiento no cambió`**, `codigo=0`. En el ejercicio haces lo contrario: cambias un solo carácter de la regla de longitud (`>= 8` → `> 8`) y la suite salta de `pass 6` a **`pass 4, fail 2`** con `codigo=1`; lo restauras y vuelve el `6/6`. Un testigo que se entera de un carácter.
+
+## Conceptos
+
+### El refactor es el paso que no se nota
+
+La fuente canónica lo sitúa al final del ciclo y lo define por su efecto: «el paso final es la refactorización, que se utilizará principalmente para eliminar código duplicado» con «un pequeño cambio cada vez» y la suite corriendo hasta que funcione (consultada el 2026-10-22). En `feature/contrasena.js` el ejemplo de la demo es real: `incumplidas` devuelve hoy `REGLAS.filter(…).map(…)` y la demo lo sustituye por un bucle explícito que hace idéntico trabajo:
+
+```js
+const fallan = [];
+for (const regla of REGLAS) {
+  if (!regla.cumple(contrasena)) fallan.push(regla.id);
+}
+return fallan;
+```
+
+Dos estructuras, cero cambio observable: mismas exportaciones, mismos resultados, misma suite. Ésa es la única señal que acepta el paso — si la suite cambia, no era refactor, era una modificación de comportamiento (y eso tiene su propio ciclo: rojo, verde).
+
+### La suite como testigo de regresión
+
+El ejercicio hace el experimento inverso a propósito: romper a ciegas. Cambiar `contrasena.length >= 8` por `contrasena.length > 8` sólo afecta a la regla `longitud`, pero la suite entera es la que se entera:
+
+- **`esValida: la forma canónica vale en el límite`** falla con `false !== true` — «Abcdefg1» tiene exactamente 8 caracteres y el corte malo la echa.
+- **`incumplidas: nombra las reglas rotas y las que cumplen`** falla con `['longitud'] !== []` — a la misma contraseña el registro de rotas le aparece una regla de más.
+
+Dos fallos, un carácter. El verde de l04 no estaba midiendo el código con precisión de una línea: estaba **cargado** de precisión de una línea, y el ejercicio lo demuestra en la segunda ejecución.
+
+## Ejercicio
+
+Verifica el verde, rompe la regla de longitud con un `perl` de un carácter, mira saltar los dos fallos y restaura. Desde `ejemplos/`:
+
+```sh
+ORIG="$(pwd)"
+TALLER=$(mktemp -d)
+cp -R "$ORIG/feature" "$TALLER/"
+cd "$TALLER/feature"
+node --test; echo "codigo=$?"
+perl -0pi -e 's/contrasena\.length >= 8/contrasena.length > 8/' contrasena.js
+node --test; echo "codigo=$?"
+perl -0pi -e 's/contrasena\.length > 8/contrasena.length >= 8/' contrasena.js
+node --test; echo "codigo=$?"
+cd "$ORIG"
+rm -rf "$TALLER"
+```
+
+Esto se cumple cuando:
+
+- la primera ejecución cierra `ℹ tests 6`, `ℹ pass 6`, `ℹ fail 0` → `codigo=0` (la línea de partida);
+- la segunda cierra `ℹ pass 4`, `ℹ fail 2` → `codigo=1`, con `false !== true` en la prueba del límite y `+ ['longitud'] / - []` en la de `incumplidas`;
+- la tercera vuelve a `pass 6, fail 0` → `codigo=0`: la restauración devolvió exactamente el estado inicial.
+
+Pista: el primer `perl` sólo puede casar la línea de `REGLAS` (`length >= 8`); si el patrón no casa, las tres ejecuciones dan `codigo=0` y el experimento no probó nada — el `1` de la segunda es la señal de que rompiste de verdad.
+
+## Solución explicada
+
+Salida real del taller temporal (borrado tras la ejecución; Node v24.22.0, 2026-10-22). Línea de partida y restauración (resumen del runner):
+
+```text
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0
+codigo=0
+…
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0
+codigo=0
+```
+
+Con el carácter roto:
+
+```text
+▶ contrasena
+  ✔ esValida: una clave corta no vale (0.805417ms)
+  ✔ esValida: nueve minúsculas sin dígito no valen (0.101542ms)
+  ✔ esValida: con dígito pero sin mayúscula no vale (0.055ms)
+  ✖ esValida: la forma canónica vale en el límite (0.392916ms)
+  ✔ esValida: una entrada que no es texto no vale (0.058584ms)
+  ✖ incumplidas: nombra las reglas rotas y las que cumplen (0.543334ms)
+✖ contrasena (2.608625ms)
+ℹ tests 6
+ℹ pass 4
+ℹ fail 2
+
+✖ failing tests:
+
+✖ esValida: la forma canónica vale en el límite (0.392916ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  false !== true
+
+✖ incumplidas: nombra las reglas rotas y las que cumplen (0.543334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  + [
+  +   'longitud'
+  + ]
+  - []
+codigo=1
+```
+
+Tres cosas a mirar:
+
+1. **El fallo es de regresión, no de feature**: ninguna prueba nueva se escribió; la suite vieja detectó que el código dejó de cumplir lo ya cerrado. Ése es el trabajo del testigo.
+2. **Los cuatro `✔` que siguen verdes importan**: el carácter roto no hundió la suite entera — señala _exactamente_ dónde duele. Un testigo que fallara en todo no localizaría nada.
+3. **La restauración es un `perl` al inverso**: el taller termina en `codigo=0` con el mismo `6/6` de partida; el experimento no dejó rastro porque el comportamiento volvió a ser el mismo.
+
+Errores típicos al resolverlo:
+
+- **Refactorizar con la suite en rojo**: si hay un rojo abierto, no sabrás si tu cambio lo cerró o lo enmascaró; primero verde, después reorganizar (o un ciclo rojo→verde nuevo, si el cambio altera comportamiento).
+- **Añadir comportamiento «dentro del refactor»**: cambiar el bucle _y_ el significado de `longitud` a la vez rompe la bitácora: cuando la suite falle, no sabrás cuál de los dos fue.
+- **Restaurar con otro `perl` que no casa**: si el patrón inverso no coincide, el taller se queda roto y se borra — el `codigo=0` de la tercera ejecución es obligatorio antes de cerrar.
+- **Creer que verde = refactor correcto**: la suite comprueba comportamiento observable, no calidad interna; si el nuevo código es más confuso pero la suite pasa, la revisión humana sigue siendo necesaria.
+
+## Cómo verificarlo
+
+1. Prepara el taller con `feature/` intacta (comandos del ejercicio).
+
+2. Ejecuta la línea de partida:
+
+   Esperado: `ℹ pass 6`, `ℹ fail 0` y `codigo=0`.
+
+3. Aplica el `perl` del carácter roto y vuelve a ejecutar:
+
+   Esperado: `ℹ pass 4`, `ℹ fail 2`, `AssertionError … false !== true` en la prueba del límite, `+ ['longitud'] / - []` en la de `incumplidas` y `codigo=1`.
+
+4. Restaura con el `perl` inverso:
+
+   Esperado: `ℹ pass 6`, `ℹ fail 0` y `codigo=0` — estado idéntico al paso 2.
+
+5. Comprueba el camino normal de reorganizar sin romper el comportamiento: `node refactor.js` desde `ejemplos/` imprime `refactor: 6 pruebas verdes antes y después — el comportamiento no cambió` con `codigo=0`.
+
+## Errores comunes
+
+- **Juzgar el refactor por la lectura del código**: «se lee mejor» es opinión; «la misma suite, la misma cantidad de verdes, mismas exportaciones» es evidencia. Las tres van juntas.
+- **Hacer el refactor sobre el fichero del repositorio**: la demo y el ejercicio trabajan en copias temporales; tocar `feature/contrasena.js` de `ejemplos/` contaminaría las demos siguientes y el manifiesto del módulo.
+- **Confundir el `perl` de romper con el de refactor**: el ejercicio rompe _a propósito_ para medir al testigo; el refactor de `refactor.js` no toca `longitud`. Los dos caminos se distinguen por el `codigo=1` intermedio.
+- **Cerrar con la suite roja**: si la tercera ejecución sale en `1`, no acabas el ejercicio — o restauras o investigas; un taller temporal borrado con un rojo dentro deja la lección sin verificar.
+
+## Fuentes
+
+- [Martin Fowler: TestDrivenDevelopment](https://martinfowler.com/bliki/TestDrivenDevelopment.html) — consultado el 2026-10-22. El tercer paso («Refactor both new and old code to make it well structured») y su advertencia: descuidarlo es la forma más común de estropear TDD, porque se acaba en «un agregado de fragmentos de código».
+- [Wikipedia: Desarrollo guiado por pruebas](https://es.wikipedia.org/wiki/Desarrollo_guiado_por_pruebas) — consultado el 2026-10-22. La refactorización como paso final para eliminar duplicación, «un pequeño cambio cada vez» y corriendo las pruebas hasta que funcionen.
+
+## Siguientes pasos
+
+- Ejecuta `node refactor.js` una última vez y fija las tres líneas: antes, después y «el comportamiento no cambió» — esa es la forma completa del paso 3.
+- Siguiente lección: [Entregable: cobertura de tests rojos→verdes en una feature](/curriculo/n2/m2/l06-entregable-cobertura-rojos-verdes-de-una-feature/) — el ciclo se cierra certificando las tres condiciones juntas: suite, cobertura y alcance.
